@@ -1,36 +1,51 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# OurDAO Frontend
 
-## Getting Started
+A [Next.js](https://nextjs.org) web app for the **OurDAO** member-owned lending DAO on **Stellar Soroban**.
 
-First, run the development server:
+This frontend was ported from an EVM stack (wagmi / RainbowKit / ethers) to Stellar:
+
+- **Wallet:** [Freighter](https://www.freighter.app/) via `@stellar/freighter-api`
+- **Chain access:** `@stellar/stellar-sdk` (Soroban RPC — simulate for reads, prepare/sign/submit for writes)
+- **Contract:** the [`ourdao-contracts`](https://github.com/ourdao/ourdao-contracts) Soroban DAO
+
+## Getting started
 
 ```bash
+npm install
+cp .env.example .env.local   # then edit values (all optional; testnet defaults)
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Open [http://localhost:3000](http://localhost:3000). Install the **Freighter** browser extension to connect a wallet.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## Configuration
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+All config is env-driven with public-testnet defaults (see `.env.example`):
 
-## Learn More
+| Variable | Purpose | Default |
+|---|---|---|
+| `NEXT_PUBLIC_CONTRACT_ID` | Deployed OurDAO contract id (`C…`) | _(empty → read-only "not configured")_ |
+| `NEXT_PUBLIC_SOROBAN_RPC_URL` | Soroban RPC endpoint | `https://soroban-testnet.stellar.org` |
+| `NEXT_PUBLIC_NETWORK_PASSPHRASE` | Network passphrase | testnet |
+| `NEXT_PUBLIC_IPFS_GATEWAY` | Gateway for document content hashes | Pinata |
 
-To learn more about Next.js, take a look at the following resources:
+Without a `NEXT_PUBLIC_CONTRACT_ID` the UI runs and renders, but on-chain reads/writes are disabled until you point it at a deployed contract.
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+## Where the Stellar integration lives
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+| File | Role |
+|---|---|
+| `src/lib/stellar.ts` | Network config, RPC client, explorer URLs |
+| `src/lib/wallet.tsx` | Freighter connect/disconnect/sign context (`useWallet`) |
+| `src/lib/dao-client.ts` | Soroban read/invoke + typed wrappers for the contract's methods |
+| `src/components/ConnectButton.tsx` | Freighter-backed drop-in for the old RainbowKit button |
+| `src/hooks/useDAO.ts` | React-Query hooks the pages consume (unchanged surface) |
 
-## Deploy on Vercel
+## Scripts
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+```bash
+npm run dev     # dev server (http://localhost:3000)
+npm run build   # production build
+npm start       # serve the production build
+npm run lint    # eslint
+```

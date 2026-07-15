@@ -1,405 +1,221 @@
 'use client'
 
-import { useAccount, useReadContract, useWriteContract, useWatchContractEvent } from 'wagmi'
-import { UNIFIED_LENDING_DAO_ABI } from '@/lib/contract-abi'
-import { getContractAddress } from '@/lib/web3'
-import type { UserData, DAOStats } from '@/types/dao'
-import { useState } from 'react'
+import { useQuery } from '@tanstack/react-query'
+import { useCallback, useState } from 'react'
 import toast from 'react-hot-toast'
+import { useWallet } from '@/lib/wallet'
+import { CONTRACT_ID, isContractConfigured } from '@/lib/stellar'
+import { daoRead, daoWrite } from '@/lib/dao-client'
+import type { UserData, DAOStats } from '@/types/dao'
+import { MemberStatus } from '@/types/dao'
+
+// A Soroban unit-enum decodes as either a bare symbol string or a one-element
+// array of it; normalize both to our numeric MemberStatus.
+function toMemberStatus(raw: unknown): MemberStatus {
+  const tag = Array.isArray(raw) ? raw[0] : raw
+  return tag === 'ActiveMember' ? MemberStatus.ACTIVE_MEMBER : MemberStatus.INACTIVE_MEMBER
+}
+
+const asBigInt = (v: unknown): bigint => {
+  try {
+    return typeof v === 'bigint' ? v : BigInt((v as number | string) ?? 0)
+  } catch {
+    return BigInt(0)
+  }
+}
 
 export function useDAOContract() {
-  const { chainId } = useAccount()
-  
+  return { contractId: CONTRACT_ID, configured: isContractConfigured() }
+}
+
+/** Aggregated data for the connected member. */
+export function useUserData(): UserData {
+  const { address, isConnected } = useWallet()
+
+  const { data } = useQuery({
+    queryKey: ['userData', address],
+    enabled: !!address && isContractConfigured(),
+    queryFn: async () => {
+      const [isMember, isAdmin, member, pendingYield] = await Promise.all([
+        daoRead.isMember(address!),
+        daoRead.isAdmin(address!),
+        daoRead.getMember(address!),
+        daoRead.getPendingYield(address!),
+      ])
+      return { isMember, isAdmin, member, pendingYield }
+    },
+  })
+
+  const m = data?.member
   return {
-    address: getContractAddress(chainId || 31337),
-    abi: UNIFIED_LENDING_DAO_ABI,
-  }
-}
-
-export function useUserData() {
-  const { address, isConnected } = useAccount()
-  const contract = useDAOContract()
-
-  const { data: isMember } = useReadContract({
-    ...contract,
-    functionName: 'isMember',
-    args: address ? [address] : undefined,
-    query: {
-      enabled: !!address && isConnected,
-    },
-  })
-
-  const { data: isAdmin } = useReadContract({
-    ...contract,
-    functionName: 'admins',
-    args: address ? [address] : undefined,
-    query: {
-      enabled: !!address && isConnected,
-    },
-  })
-
-  const { data: memberData } = useReadContract({
-    ...contract,
-    functionName: 'members',
-    args: address ? [address] : undefined,
-    query: {
-      enabled: !!address && isConnected && isMember,
-    },
-  })
-
-  const { data: pendingRewards } = useReadContract({
-    ...contract,
-    functionName: 'pendingRewards',
-    args: address ? [address] : undefined,
-    query: {
-      enabled: !!address && isConnected && isMember,
-    },
-  })
-
-  const { data: pendingYield } = useReadContract({
-    ...contract,
-    functionName: 'pendingYield',
-    args: address ? [address] : undefined,
-    query: {
-      enabled: !!address && isConnected && isMember,
-    },
-  })
-
-  const userData: UserData = {
     isConnected,
-    address,
-    isMember: !!isMember,
-    isAdmin: !!isAdmin,
-    member: memberData ? {
-      memberAddress: memberData[0],
-      status: memberData[1],
-      joinDate: Number(memberData[2]),
-      contributionAmount: memberData[3],
-      shareBalance: memberData[4],
-      hasActiveLoan: memberData[5],
-      lastLoanDate: Number(memberData[6]),
-    } : undefined,
-    votingWeight: 100, // Default weight, would need additional call for ENS weight
-    pendingRewards: pendingRewards || BigInt(0),
-    pendingYield: pendingYield || BigInt(0),
-    hasActiveLoan: memberData?.[5] || false,
-    loans: [], // Would need additional calls to get user loans
+    address: address || undefined,
+    isMember: !!data?.isMember,
+    isAdmin: !!data?.isAdmin,
+    member: m
+      ? {
+          memberAddress: String(m.address ?? address),
+          status: toMemberStatus(m.status),
+          joinDate: Number(m.join_ledger ?? 0),
+          contributionAmount: asBigInt(m.contribution),
+          shareBalance: asBigInt(m.share_balance),
+          hasActiveLoan: !!m.has_active_loan,
+          lastLoanDate: Number(m.last_loan_time ?? 0),
+        }
+      : undefined,
+    votingWeight: 1,
+    pendingRewards: asBigInt(data?.pendingYield),
+    pendingYield: asBigInt(data?.pendingYield),
+    hasActiveLoan: !!m?.has_active_loan,
+    loans: [],
   }
-
-  return userData
 }
 
-export function useDAOStats() {
-  const contract = useDAOContract()
+type ExtendedStats = DAOStats & {
+  initialized: boolean
+  membershipFee: bigint
+  consensusThreshold: number
+  features: {
+    ensVoting: boolean
+    documentStorage: boolean
+    privateVoting: boolean
+    confidentialLoans: boolean
+    restaking: boolean
+  }
+}
 
-  const { data: totalMembers } = useReadContract({
-    ...contract,
-    functionName: 'totalMembers',
+export function useDAOStats(): ExtendedStats {
+  const { data } = useQuery({
+    queryKey: ['daoStats'],
+    enabled: isContractConfigured(),
+    queryFn: async () => {
+      const [totalMembers, activeMembers, threshold, treasury, policy] =
+        await Promise.all([
+          daoRead.getTotalMembers(),
+          daoRead.getActiveMembers(),
+          daoRead.getConsensusThreshold(),
+          daoRead.getTreasuryBalance(),
+          daoRead.getLoanPolicy(),
+        ])
+      return { totalMembers, activeMembers, threshold, treasury, policy }
+    },
   })
 
-  const { data: activeMembers } = useReadContract({
-    ...contract,
-    functionName: 'activeMembers',
-  })
+  const membershipFee = asBigInt(
+    (data?.policy as Record<string, unknown> | undefined)?.membership_contribution
+  )
 
-  const { data: initialized } = useReadContract({
-    ...contract,
-    functionName: 'initialized',
-  })
-
-  const { data: membershipFee } = useReadContract({
-    ...contract,
-    functionName: 'membershipFee',
-  })
-
-  const { data: consensusThreshold } = useReadContract({
-    ...contract,
-    functionName: 'consensusThreshold',
-  })
-
-  // Feature flags
-  const { data: ensVotingEnabled } = useReadContract({
-    ...contract,
-    functionName: 'ensVotingEnabled',
-  })
-
-  const { data: documentStorageEnabled } = useReadContract({
-    ...contract,
-    functionName: 'documentStorageEnabled',
-  })
-
-  const { data: privateVotingEnabled } = useReadContract({
-    ...contract,
-    functionName: 'privateVotingEnabled',
-  })
-
-  const { data: confidentialLoansEnabled } = useReadContract({
-    ...contract,
-    functionName: 'confidentialLoansEnabled',
-  })
-
-  const { data: restakingEnabled } = useReadContract({
-    ...contract,
-    functionName: 'restakingEnabled',
-  })
-
-  const stats: DAOStats & { 
-    initialized: boolean
-    membershipFee: bigint
-    consensusThreshold: number
-    features: {
-      ensVoting: boolean
-      documentStorage: boolean
-      privateVoting: boolean
-      confidentialLoans: boolean
-      restaking: boolean
-    }
-  } = {
-    totalMembers: Number(totalMembers || 0),
-    activeMembers: Number(activeMembers || 0),
-    totalLoans: 0, // Would need additional contract calls
+  return {
+    totalMembers: Number(data?.totalMembers ?? 0),
+    activeMembers: Number(data?.activeMembers ?? 0),
+    totalLoans: 0,
     activeLoans: 0,
-    treasuryBalance: BigInt(0), // Would need balance check
-    totalYieldGenerated: BigInt(0), // Would need additional call
-    totalRestaked: BigInt(0), // Would need additional call
-    initialized: !!initialized,
-    membershipFee: membershipFee || BigInt(0),
-    consensusThreshold: Number(consensusThreshold || 0),
+    treasuryBalance: asBigInt(data?.treasury),
+    totalYieldGenerated: BigInt(0),
+    totalRestaked: BigInt(0),
+    initialized: isContractConfigured() && data?.threshold != null,
+    membershipFee,
+    consensusThreshold: Number(data?.threshold ?? 0),
+    // The Soroban port's native modules are always compiled in.
     features: {
-      ensVoting: !!ensVotingEnabled,
-      documentStorage: !!documentStorageEnabled,
-      privateVoting: !!privateVotingEnabled,
-      confidentialLoans: !!confidentialLoansEnabled,
-      restaking: !!restakingEnabled,
+      ensVoting: true, // name registry
+      documentStorage: true, // content-hash metadata
+      privateVoting: true, // commit-reveal
+      confidentialLoans: false,
+      restaking: true, // staking
     },
   }
+}
 
-  return stats
+/**
+ * Shared plumbing for a write action: resolves the wallet + signer, tracks
+ * pending/success/error, and surfaces toasts. Returns a runner plus state.
+ */
+function useWriteAction() {
+  const { address, signXDR, isConnected } = useWallet()
+  const [isPending, setPending] = useState(false)
+  const [isSuccess, setSuccess] = useState(false)
+  const [error, setError] = useState<Error | null>(null)
+
+  const run = useCallback(
+    async (
+      label: string,
+      fn: (w: ReturnType<typeof daoWrite>) => Promise<{ hash: string }>
+    ) => {
+      if (!isConnected || !address) {
+        toast.error('Connect your wallet first')
+        throw new Error('Wallet not connected')
+      }
+      setPending(true)
+      setSuccess(false)
+      setError(null)
+      const toastId = toast.loading(`${label}…`)
+      try {
+        const res = await fn(daoWrite(address, signXDR))
+        setSuccess(true)
+        toast.success(`${label} confirmed`, { id: toastId })
+        return res
+      } catch (err) {
+        const e = err instanceof Error ? err : new Error(String(err))
+        setError(e)
+        toast.error(`${label} failed: ${e.message}`, { id: toastId })
+        throw e
+      } finally {
+        setPending(false)
+      }
+    },
+    [address, isConnected, signXDR]
+  )
+
+  return { run, isPending, isSuccess, error }
 }
 
 export function useMemberRegistration() {
-  const { writeContract, isPending, error, isSuccess } = useWriteContract()
-  const contract = useDAOContract()
-
-  const registerMember = async (ensName?: string, kycHash?: string, membershipFee?: bigint) => {
-    try {
-      if (ensName || kycHash) {
-        // Enhanced registration
-        await writeContract({
-          ...contract,
-          functionName: 'registerMember',
-          args: [ensName || '', kycHash || ''],
-          value: membershipFee,
-        })
-      } else {
-        // Simple registration
-        await writeContract({
-          ...contract,
-          functionName: 'registerMember',
-          value: membershipFee,
-        })
-      }
-    } catch (err) {
-      console.error('Registration failed:', err)
-      throw err
-    }
-  }
-
-  return {
-    registerMember,
-    isPending,
-    error,
-    isSuccess,
-  }
+  const { run, isPending, isSuccess, error } = useWriteAction()
+  // Extra args kept for call-site compatibility; the Soroban contract pulls the
+  // fee via the configured token and takes no ENS/KYC arguments.
+  const registerMember = (_ensName?: string, _kycHash?: string, _fee?: bigint) =>
+    run('Registering membership', (w) => w.registerMember())
+  return { registerMember, isPending, error, isSuccess }
 }
 
 export function useLoanRequest() {
-  const { writeContract, isPending, error, isSuccess } = useWriteContract()
-  const contract = useDAOContract()
-
-  const requestLoan = async (
+  const { run, isPending, isSuccess, error } = useWriteAction()
+  const requestLoan = (
     amount: bigint,
-    isPrivate: boolean = false,
-    commitment?: string,
-    documentHash?: string
-  ) => {
-    try {
-      if (isPrivate || documentHash) {
-        // Enhanced loan request
-        await writeContract({
-          ...contract,
-          functionName: 'requestLoan',
-          args: [
-            amount,
-            isPrivate,
-            commitment ? commitment as `0x${string}` : '0x0000000000000000000000000000000000000000000000000000000000000000',
-            documentHash || '',
-          ],
-        })
-      } else {
-        // Simple loan request
-        await writeContract({
-          ...contract,
-          functionName: 'requestLoan',
-          args: [amount],
-        })
-      }
-    } catch (err) {
-      console.error('Loan request failed:', err)
-      throw err
-    }
-  }
-
-  return {
-    requestLoan,
-    isPending,
-    error,
-    isSuccess,
-  }
+    _isPrivate = false,
+    _commitment?: string,
+    _documentHash?: string
+  ) => run('Requesting loan', (w) => w.requestLoan(amount))
+  return { requestLoan, isPending, error, isSuccess }
 }
 
 export function useVoting() {
-  const { writeContract, isPending, error, isSuccess } = useWriteContract()
-  const contract = useDAOContract()
-
-  const voteOnProposal = async (proposalId: number, support: boolean) => {
-    try {
-      await writeContract({
-        ...contract,
-        functionName: 'voteOnLoanProposal',
-        args: [BigInt(proposalId), support],
-      })
-    } catch (err) {
-      console.error('Voting failed:', err)
-      throw err
-    }
-  }
-
-  return {
-    voteOnProposal,
-    isPending,
-    error,
-    isSuccess,
-  }
+  const { run, isPending, isSuccess, error } = useWriteAction()
+  const voteOnProposal = (proposalId: number, support: boolean) =>
+    run('Casting vote', (w) => w.voteOnLoanProposal(proposalId, support))
+  return { voteOnProposal, isPending, error, isSuccess }
 }
 
 export function useLoanRepayment() {
-  const { writeContract, isPending, error, isSuccess } = useWriteContract()
-  const contract = useDAOContract()
-
-  const repayLoan = async (loanId: number, amount: bigint) => {
-    try {
-      await writeContract({
-        ...contract,
-        functionName: 'repayLoan',
-        args: [BigInt(loanId)],
-        value: amount,
-      })
-    } catch (err) {
-      console.error('Loan repayment failed:', err)
-      throw err
-    }
-  }
-
-  return {
-    repayLoan,
-    isPending,
-    error,
-    isSuccess,
-  }
+  const { run, isPending, isSuccess, error } = useWriteAction()
+  // Repayment amount is derived on-chain (full outstanding); arg kept for compat.
+  const repayLoan = (loanId: number, _amount?: bigint) =>
+    run('Repaying loan', (w) => w.repayLoan(loanId))
+  return { repayLoan, isPending, error, isSuccess }
 }
 
 export function useRewards() {
-  const { writeContract, isPending, error, isSuccess } = useWriteContract()
-  const contract = useDAOContract()
-
-  const claimRewards = async () => {
-    try {
-      await writeContract({
-        ...contract,
-        functionName: 'claimAllRewards',
-      })
-    } catch (err) {
-      console.error('Claiming rewards failed:', err)
-      throw err
-    }
-  }
-
-  const claimYield = async () => {
-    try {
-      await writeContract({
-        ...contract,
-        functionName: 'claimYield',
-      })
-    } catch (err) {
-      console.error('Claiming yield failed:', err)
-      throw err
-    }
-  }
-
-  return {
-    claimRewards,
-    claimYield,
-    isPending,
-    error,
-    isSuccess,
-  }
+  const { run, isPending, isSuccess, error } = useWriteAction()
+  const claimRewards = () => run('Claiming rewards', (w) => w.claimRewards())
+  const claimYield = () => run('Claiming yield', (w) => w.claimRewards())
+  return { claimRewards, claimYield, isPending, error, isSuccess }
 }
 
-// Event listening hook
+// Soroban event streaming would poll the RPC's getEvents; kept as a no-op shell
+// so existing consumers keep their shape. See src/lib/eventListener.ts for the
+// richer notification layer.
 export function useDAOEvents() {
-  const contract = useDAOContract()
   const [events, setEvents] = useState<Record<string, unknown>[]>([])
-
-  // Listen for member registration events
-  useWatchContractEvent({
-    ...contract,
-    eventName: 'MemberActivated',
-    onLogs(logs) {
-      logs.forEach(log => {
-        toast.success(`New member registered: ${log.args.member}`)
-        setEvents(prev => [...prev, { type: 'MemberRegistered', ...log }])
-      })
-    },
-  })
-
-  // Listen for loan request events
-  useWatchContractEvent({
-    ...contract,
-    eventName: 'LoanRequested',
-    onLogs(logs) {
-      logs.forEach(log => {
-        toast(`New loan request: ${log.args.amount} ETH`)
-        setEvents(prev => [...prev, { type: 'LoanRequested', ...log }])
-      })
-    },
-  })
-
-  // Listen for loan approval events
-  useWatchContractEvent({
-    ...contract,
-    eventName: 'LoanApproved',
-    onLogs(logs) {
-      logs.forEach(log => {
-        toast.success(`Loan approved: ${log.args.amount} ETH`)
-        setEvents(prev => [...prev, { type: 'LoanApproved', ...log }])
-      })
-    },
-  })
-
-  // Listen for voting events
-  useWatchContractEvent({
-    ...contract,
-    eventName: 'LoanVoteCast',
-    onLogs(logs) {
-      logs.forEach(log => {
-        const support = log.args.support ? 'YES' : 'NO'
-        toast(`Vote cast: ${support} on proposal ${log.args.proposalId}`)
-        setEvents(prev => [...prev, { type: 'VoteCast', ...log }])
-      })
-    },
-  })
-
   return { events, setEvents }
 }
-

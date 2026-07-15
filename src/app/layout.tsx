@@ -14,15 +14,15 @@ const jetbrainsMono = JetBrains_Mono({
 })
 
 export const metadata: Metadata = {
-  title: "UnifiedLendingDAO - Decentralized Peer-to-Peer Lending",
-  description: "A comprehensive lending DAO with privacy features, ENS integration, document storage, and yield generation through restaking.",
-  keywords: "DeFi, DAO, lending, blockchain, Ethereum, peer-to-peer",
-  authors: [{ name: "UnifiedLendingDAO Team" }],
+  title: "OurDAO - Member-Owned Lending on Stellar",
+  description: "A member-owned lending DAO on Stellar Soroban with a name registry, content-hash document metadata, commit-reveal private voting, and staking.",
+  keywords: "DeFi, DAO, lending, Stellar, Soroban, peer-to-peer",
+  authors: [{ name: "OurDAO" }],
   manifest: "/manifest.json",
   appleWebApp: {
     capable: true,
     statusBarStyle: "default",
-    title: "UnifiedLendingDAO"
+    title: "OurDAO"
   },
   formatDetection: {
     telephone: false

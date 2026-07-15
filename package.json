@@ -3,7 +3,7 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "dev": "next dev --turbopack",
+    "dev": "next dev",
     "build": "next build",
     "start": "next start",
     "lint": "eslint"
@@ -19,12 +19,12 @@
     "@radix-ui/react-separator": "^1.1.7",
     "@radix-ui/react-slot": "^1.2.3",
     "@radix-ui/react-tabs": "^1.1.13",
-    "@rainbow-me/rainbowkit": "^2.2.8",
+    "@stellar/freighter-api": "^4.1.0",
+    "@stellar/stellar-sdk": "^16.0.1",
     "@tanstack/react-query": "^5.85.6",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "date-fns": "^4.1.0",
-    "ethers": "^6.15.0",
     "framer-motion": "^12.23.12",
     "ipfs-http-client": "^60.0.1",
     "lucide-react": "^0.542.0",
@@ -32,8 +32,6 @@
     "react": "19.1.0",
     "react-dom": "19.1.0",
     "react-hot-toast": "^2.6.0",
-    "viem": "^2.36.0",
-    "wagmi": "^2.16.9",
     "zustand": "^5.0.8"
   },
   "devDependencies": {
