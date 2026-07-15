@@ -1,12 +1,11 @@
 'use client'
 
 import React, { useState, useEffect } from 'react'
-import { 
-  useAutoNotifications, 
-  useActivityFeed,
+import { useAutoNotifications, useActivityFeed } from '@/hooks/useNotifications'
+import {
   usePushNotifications,
   type NotificationData,
-  type ActivityItem 
+  type ActivityItem
 } from '@/lib/eventListener'
 import { useIsMobile, useResponsiveModal } from '@/lib/responsive'
 import { 

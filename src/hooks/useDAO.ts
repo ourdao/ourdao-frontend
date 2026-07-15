@@ -6,8 +6,30 @@ import toast from 'react-hot-toast'
 import { useWallet } from '@/lib/wallet'
 import { CONTRACT_ID, isContractConfigured } from '@/lib/stellar'
 import { daoRead, daoWrite } from '@/lib/dao-client'
-import type { UserData, DAOStats } from '@/types/dao'
+import { backend, type BackendLoan } from '@/lib/backend'
+import type { UserData, DAOStats, Loan } from '@/types/dao'
 import { MemberStatus } from '@/types/dao'
+
+// Map an indexed backend loan onto the frontend Loan shape. The indexer tracks
+// principal, outstanding balance and status; fields it doesn't yet index
+// (interest rate, term, collateral) default to 0.
+function toLoan(l: BackendLoan): Loan {
+  const amount = asBigInt(l.amount)
+  const outstanding = asBigInt(l.outstanding)
+  return {
+    id: l.id,
+    borrower: l.borrower,
+    amount,
+    interestRate: 0,
+    repaymentTerm: 0,
+    startTime: l.approved_ledger ?? 0,
+    endTime: 0,
+    amountPaid: amount > outstanding ? amount - outstanding : BigInt(0),
+    totalInterest: BigInt(0),
+    isActive: l.status === 'active',
+    collateralAmount: BigInt(0),
+  }
+}
 
 // A Soroban unit-enum decodes as either a bare symbol string or a one-element
 // array of it; normalize both to our numeric MemberStatus.
@@ -46,6 +68,16 @@ export function useUserData(): UserData {
     },
   })
 
+  // Loan history comes from the off-chain indexer (the contract keeps no
+  // queryable per-member loan list). Independent of contract configuration so
+  // it still resolves when only the backend URL is set.
+  const { data: loans } = useQuery({
+    queryKey: ['userLoans', address],
+    enabled: !!address,
+    queryFn: () => backend.getLoans(address!),
+    refetchInterval: 15_000,
+  })
+
   const m = data?.member
   return {
     isConnected,
@@ -67,7 +99,7 @@ export function useUserData(): UserData {
     pendingRewards: asBigInt(data?.pendingYield),
     pendingYield: asBigInt(data?.pendingYield),
     hasActiveLoan: !!m?.has_active_loan,
-    loans: [],
+    loans: (loans ?? []).map(toLoan),
   }
 }
 
@@ -101,6 +133,14 @@ export function useDAOStats(): ExtendedStats {
     },
   })
 
+  // Loan counts and total stake are aggregated by the off-chain indexer, which
+  // sees the full event history the contract doesn't keep queryable.
+  const { data: agg } = useQuery({
+    queryKey: ['daoStatsBackend'],
+    queryFn: () => backend.getStats(),
+    refetchInterval: 15_000,
+  })
+
   const membershipFee = asBigInt(
     (data?.policy as Record<string, unknown> | undefined)?.membership_contribution
   )
@@ -108,11 +148,11 @@ export function useDAOStats(): ExtendedStats {
   return {
     totalMembers: Number(data?.totalMembers ?? 0),
     activeMembers: Number(data?.activeMembers ?? 0),
-    totalLoans: 0,
-    activeLoans: 0,
+    totalLoans: agg?.totalLoans ?? 0,
+    activeLoans: agg?.activeLoans ?? 0,
     treasuryBalance: asBigInt(data?.treasury),
     totalYieldGenerated: BigInt(0),
-    totalRestaked: BigInt(0),
+    totalRestaked: asBigInt(agg?.totalStaked),
     initialized: isContractConfigured() && data?.threshold != null,
     membershipFee,
     consensusThreshold: Number(data?.threshold ?? 0),
@@ -212,10 +252,16 @@ export function useRewards() {
   return { claimRewards, claimYield, isPending, error, isSuccess }
 }
 
-// Soroban event streaming would poll the RPC's getEvents; kept as a no-op shell
-// so existing consumers keep their shape. See src/lib/eventListener.ts for the
-// richer notification layer.
+// Contract events, indexed off-chain by ourdao-backend (which polls the RPC's
+// getEvents) and served from its raw event feed. Kept read-only; `setEvents`
+// remains for call-site compatibility with the previous shell.
 export function useDAOEvents() {
-  const [events, setEvents] = useState<Record<string, unknown>[]>([])
+  const { data } = useQuery({
+    queryKey: ['daoEvents'],
+    queryFn: () => backend.getEvents(50),
+    refetchInterval: 15_000,
+  })
+  const events = (data ?? []) as unknown as Record<string, unknown>[]
+  const setEvents = (_: Record<string, unknown>[]) => {}
   return { events, setEvents }
 }
