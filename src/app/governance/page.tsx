@@ -275,32 +275,21 @@ export default function GovernancePage() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-50 to-blue-50">
-      {/* Header */}
-      <header className="bg-white shadow-sm">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center space-x-4">
-              <ScaleIcon className="h-8 w-8 text-primary-600" />
-              <div>
-                <h1 className="text-2xl font-bold text-gray-900">Governance</h1>
-                <p className="text-sm text-gray-600">Participate in DAO decision making</p>
-              </div>
-            </div>
-            
-            {userData.isMember && (
-              <Link href="/governance/create">
-                <Button size="sm">
-                  <DocumentPlusIcon className="h-4 w-4 mr-2" />
-                  Create Proposal
-                </Button>
-              </Link>
-            )}
-          </div>
-        </div>
-      </header>
-
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+    <AppShell
+      title="Governance"
+      subtitle="Participate in DAO decision making"
+      actions={
+        userData.isMember ? (
+          <Link href="/governance/create">
+            <Button size="sm">
+              <DocumentPlusIcon className="h-4 w-4 mr-2" />
+              Create Proposal
+            </Button>
+          </Link>
+        ) : undefined
+      }
+    >
+      <div>
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
           <TabsList className="grid w-full grid-cols-3">
             <TabsTrigger value="proposals">Proposals</TabsTrigger>
@@ -786,6 +775,6 @@ export default function GovernancePage() {
           </Card>
         </div>
       )}
-    </div>
+    </AppShell>
   )
 }

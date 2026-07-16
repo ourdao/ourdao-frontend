@@ -23,6 +23,7 @@ import {
 import { useUserData, useRewards } from '@/hooks/useDAO'
 import { formatEther, formatDate, calculatePercentage } from '@/lib/utils'
 import toast from 'react-hot-toast'
+import { AppShell } from '@/components/AppShell'
 
 // Mock treasury data - in real app this would come from contract
 const mockTreasuryData = {
@@ -231,45 +232,34 @@ export default function TreasuryPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-50 to-blue-50">
-      {/* Header */}
-      <header className="bg-white shadow-sm">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center space-x-4">
-              <BanknotesIcon className="h-8 w-8 text-primary-600" />
-              <div>
-                <h1 className="text-2xl font-bold text-gray-900">Treasury & Restaking</h1>
-                <p className="text-sm text-gray-600">Manage DAO treasury and restaking operations</p>
-              </div>
-            </div>
-            
-            {(userData.isMember || userData.isAdmin) && (
-              <div className="flex items-center space-x-2">
-                <Button 
-                  onClick={handleClaimRewards}
-                  disabled={isClaimPending || userData.pendingRewards === BigInt(0)}
-                  variant="outline"
-                  size="sm"
-                >
-                  <GiftIcon className="h-4 w-4 mr-2" />
-                  Claim Rewards
-                </Button>
-                <Button
-                  onClick={handleClaimYield}
-                  disabled={isClaimPending || totalPendingYield === BigInt(0)}
-                  size="sm"
-                >
-                  <CurrencyDollarIcon className="h-4 w-4 mr-2" />
-                  Claim Yield
-                </Button>
-              </div>
-            )}
+    <AppShell
+      title="Treasury & Restaking"
+      subtitle="Manage DAO treasury and restaking operations"
+      actions={
+        userData.isMember || userData.isAdmin ? (
+          <div className="flex items-center space-x-2">
+            <Button
+              onClick={handleClaimRewards}
+              disabled={isClaimPending || userData.pendingRewards === BigInt(0)}
+              variant="outline"
+              size="sm"
+            >
+              <GiftIcon className="h-4 w-4 mr-2" />
+              Claim Rewards
+            </Button>
+            <Button
+              onClick={handleClaimYield}
+              disabled={isClaimPending || totalPendingYield === BigInt(0)}
+              size="sm"
+            >
+              <CurrencyDollarIcon className="h-4 w-4 mr-2" />
+              Claim Yield
+            </Button>
           </div>
-        </div>
-      </header>
-
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        ) : undefined
+      }
+    >
+      <div>
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
           <TabsList className="grid w-full grid-cols-4">
             <TabsTrigger value="overview">Overview</TabsTrigger>
@@ -721,6 +711,6 @@ export default function TreasuryPage() {
           </Card>
         </div>
       )}
-    </div>
+    </AppShell>
   )
 }

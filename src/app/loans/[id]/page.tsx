@@ -27,6 +27,7 @@ import { useUserData, useVoting, useLoanRepayment } from '@/hooks/useDAO'
 import { formatEther, formatDate, formatAddress, calculatePercentage } from '@/lib/utils'
 import { PROPOSAL_STATUS_LABELS } from '@/constants'
 import toast from 'react-hot-toast'
+import { AppShell } from '@/components/AppShell'
 
 // Mock loan data - in real app this would come from contract
 const mockLoanData = {
@@ -189,49 +190,24 @@ export default function LoanDetailsPage() {
   const quorumProgress = calculatePercentage(loan.votesFor + loan.votesAgainst, loan.totalVotingPower)
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-50 to-blue-50">
-      {/* Header */}
-      <header className="bg-white shadow-sm">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
-          <div className="flex items-center justify-between">
-            <div>
-              <Link
-                href="/loans"
-                className="inline-flex items-center text-sm text-gray-600 hover:text-gray-900 mb-2"
-              >
-                <ArrowLeftIcon className="h-4 w-4 mr-1" />
-                Back to Loans
-              </Link>
-              <div className="flex items-center space-x-4">
-                <div className="flex items-center space-x-2">
-                  <BanknotesIcon className="h-8 w-8 text-primary-600" />
-                  <h1 className="text-2xl font-bold text-gray-900">
-                    Loan Proposal #{loan.id}
-                  </h1>
-                  {loan.isPrivate && (
-                    <EyeSlashIcon className="h-5 w-5 text-purple-600" title="Private Loan" />
-                  )}
-                </div>
-                <div className={`px-3 py-1 rounded-full border text-sm font-medium ${getStatusColor(loan.status)}`}>
-                  <div className="flex items-center space-x-1">
-                    {getStatusIcon(loan.status)}
-                    <span>{PROPOSAL_STATUS_LABELS[loan.status as keyof typeof PROPOSAL_STATUS_LABELS]}</span>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            <div className="flex items-center space-x-2">
-              <Button variant="outline" size="sm">
-                <ShareIcon className="h-4 w-4 mr-2" />
-                Share
-              </Button>
+    <AppShell
+      title={`Loan Proposal #${loan.id}`}
+      actions={
+        <div className="flex items-center gap-2">
+          <div className={`px-3 py-1 rounded-full border text-sm font-medium ${getStatusColor(loan.status)}`}>
+            <div className="flex items-center space-x-1">
+              {getStatusIcon(loan.status)}
+              <span>{PROPOSAL_STATUS_LABELS[loan.status as keyof typeof PROPOSAL_STATUS_LABELS]}</span>
             </div>
           </div>
+          <Button variant="outline" size="sm">
+            <ShareIcon className="h-4 w-4 mr-2" />
+            Share
+          </Button>
         </div>
-      </header>
-
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      }
+    >
+      <div>
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
           {/* Main Content */}
           <div className="lg:col-span-2 space-y-6">
@@ -549,6 +525,6 @@ export default function LoanDetailsPage() {
           </div>
         </div>
       </div>
-    </div>
+    </AppShell>
   )
 }

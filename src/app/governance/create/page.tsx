@@ -15,6 +15,7 @@ import {
 } from '@heroicons/react/24/outline'
 import { useUserData } from '@/hooks/useDAO'
 import toast from 'react-hot-toast'
+import { AppShell } from '@/components/AppShell'
 
 export default function CreateProposalPage() {
   const userData = useUserData()
@@ -150,32 +151,11 @@ export default function CreateProposalPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-50 to-blue-50">
-      {/* Header */}
-      <header className="bg-white shadow-sm">
-        <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
-          <div className="flex items-center space-x-4">
-            <Link
-              href="/governance"
-              className="inline-flex items-center text-sm text-gray-600 hover:text-gray-900"
-            >
-              <ArrowLeftIcon className="h-4 w-4 mr-1" />
-              Back to Governance
-            </Link>
-          </div>
-          <div className="mt-4">
-            <div className="flex items-center space-x-4">
-              <DocumentPlusIcon className="h-8 w-8 text-primary-600" />
-              <div>
-                <h1 className="text-2xl font-bold text-gray-900">Create Proposal</h1>
-                <p className="text-sm text-gray-600">Submit a new governance proposal to the DAO</p>
-              </div>
-            </div>
-          </div>
-        </div>
-      </header>
-
-      <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+    <AppShell
+      title="Create Proposal"
+      subtitle="Submit a new governance proposal to the DAO"
+    >
+      <div className="max-w-4xl mx-auto">
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
           {/* Main Form */}
           <div className="lg:col-span-2">
@@ -538,6 +518,6 @@ export default function CreateProposalPage() {
           </div>
         </div>
       </div>
-    </div>
+    </AppShell>
   )
 }

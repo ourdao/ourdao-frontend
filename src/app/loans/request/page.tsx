@@ -40,6 +40,7 @@ interface DocumentMetadata {
   }
 }
 import toast from 'react-hot-toast'
+import { AppShell } from '@/components/AppShell'
 
 export default function RequestLoanPage() {
   const router = useRouter()
@@ -641,18 +642,8 @@ export default function RequestLoanPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-50 to-blue-50 py-12 px-4 sm:px-6 lg:px-8">
+    <AppShell title="Request a Loan" subtitle="Tell the DAO what you need">
       <div className="max-w-2xl mx-auto">
-        <div className="mb-8">
-          <Link
-            href="/dashboard"
-            className="inline-flex items-center text-sm text-gray-600 hover:text-gray-900 mb-4"
-          >
-            <ArrowLeftIcon className="h-4 w-4 mr-1" />
-            Back to Dashboard
-          </Link>
-          <h1 className="text-3xl font-bold text-gray-900 text-center">Request a Loan</h1>
-        </div>
 
         <Card>
           <CardContent className="p-8">
@@ -707,6 +698,6 @@ export default function RequestLoanPage() {
           </Card>
         )}
       </div>
-    </div>
+    </AppShell>
   )
 }

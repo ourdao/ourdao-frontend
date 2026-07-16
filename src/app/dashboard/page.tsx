@@ -20,8 +20,8 @@ import { useDAOStats, useUserData, useRewards, useDAOEvents } from '@/hooks/useD
 import { formatEther, formatDate, formatAddress } from '@/lib/utils'
 import { MEMBER_STATUS_LABELS } from '@/constants'
 import toast from 'react-hot-toast'
-import NotificationCenter from '@/components/NotificationCenter'
 import { useIsMobile, useResponsiveCardLayout } from '@/lib/responsive'
+import { AppShell } from '@/components/AppShell'
 
 export default function DashboardPage() {
   const router = useRouter()
@@ -167,29 +167,10 @@ export default function DashboardPage() {
   const memberStatusBg = userData.member?.status === 1 ? 'bg-green-50' : 'bg-gray-50'
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-50 to-blue-50">
-      {/* Header */}
-      <header className="bg-white shadow-sm">
-        <div className="responsive-container py-4 sm:py-6">
-          <div className="flex justify-between items-center">
-            <div>
-              <h1 className={`${isMobile ? 'text-xl' : 'text-2xl'} font-bold text-gray-900`}>Member Dashboard</h1>
-              <p className={`${isMobile ? 'text-sm' : ''} text-gray-600`}>Welcome back to UnifiedLendingDAO</p>
-            </div>
-            <div className="flex items-center space-x-2 sm:space-x-4">
-              <NotificationCenter />
-              {!isMobile && <ConnectButton />}
-            </div>
-          </div>
-          {isMobile && (
-            <div className="mt-4">
-              <ConnectButton />
-            </div>
-          )}
-        </div>
-      </header>
-
-      <div className="responsive-container py-4 sm:py-8">
+    <AppShell
+      title="Member Dashboard"
+      subtitle="Your membership, rewards, and activity at a glance"
+    >
         {/* Member Status */}
         <div className="mb-8">
           <Card>
@@ -451,7 +432,6 @@ export default function DashboardPage() {
             </Card>
           </div>
         </div>
-      </div>
-    </div>
+    </AppShell>
   )
 }

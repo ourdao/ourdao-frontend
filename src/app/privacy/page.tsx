@@ -15,6 +15,7 @@ import {
   InformationCircleIcon
 } from '@heroicons/react/24/outline'
 import { useUserData } from '@/hooks/useDAO'
+import { AppShell } from '@/components/AppShell'
 
 interface PrivacySettings {
   encryptDocumentsByDefault: boolean
@@ -696,15 +697,11 @@ export default function PrivacyPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-gray-900 py-8 px-4 sm:px-6 lg:px-8">
+    <AppShell
+      title="Privacy & Security"
+      subtitle="Manage your privacy settings, encryption keys, and secure data storage preferences."
+    >
       <div className="max-w-6xl mx-auto">
-        {/* Header */}
-        <div className="mb-8">
-          <h1 className="text-3xl font-bold text-gray-900 dark:text-white">Privacy & Security</h1>
-          <p className="mt-2 text-gray-600 dark:text-gray-400">
-            Manage your privacy settings, encryption keys, and secure data storage preferences.
-          </p>
-        </div>
 
         {/* Tab Navigation */}
         <div className="bg-white dark:bg-gray-800 rounded-lg shadow border border-gray-200 dark:border-gray-700">
@@ -736,6 +733,6 @@ export default function PrivacyPage() {
           </div>
         </div>
       </div>
-    </div>
+    </AppShell>
   )
 }

@@ -18,6 +18,7 @@ import {
 } from '@heroicons/react/24/outline'
 import { useUserData, useDAOStats } from '@/hooks/useDAO'
 import { formatEther, formatAddress } from '@/lib/utils'
+import { AppShell } from '@/components/AppShell'
 
 interface AdminStats {
   totalMembers: number
@@ -719,15 +720,11 @@ export default function AdminPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-gray-900 py-8 px-4 sm:px-6 lg:px-8">
+    <AppShell
+      title="Admin Dashboard"
+      subtitle="Manage DAO operations, members, and system configuration."
+    >
       <div className="max-w-7xl mx-auto">
-        {/* Header */}
-        <div className="mb-8">
-          <h1 className="text-3xl font-bold text-gray-900 dark:text-white">Admin Dashboard</h1>
-          <p className="mt-2 text-gray-600 dark:text-gray-400">
-            Manage DAO operations, members, and system configuration.
-          </p>
-        </div>
 
         {/* Tab Navigation */}
         <div className="bg-white dark:bg-gray-800 rounded-lg shadow border border-gray-200 dark:border-gray-700">
@@ -760,6 +757,6 @@ export default function AdminPage() {
           </div>
         </div>
       </div>
-    </div>
+    </AppShell>
   )
 }

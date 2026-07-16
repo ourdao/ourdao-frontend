@@ -21,6 +21,7 @@ import { useUserData, useVoting } from '@/hooks/useDAO'
 import { formatEther, formatDate, formatAddress, calculatePercentage } from '@/lib/utils'
 import { PROPOSAL_STATUS_LABELS } from '@/constants'
 import toast from 'react-hot-toast'
+import { AppShell } from '@/components/AppShell'
 
 // Mock data for loan proposals - in real app this would come from contract
 const mockLoanProposals = [
@@ -180,41 +181,21 @@ export default function LoansPage() {
   }
 
   return (
-    <div className="min-h-screen bg-white">
-      {/* Header */}
-      <header className="border-b border-gray-100 bg-white">
-        <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-          <div className="py-8">
-            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-              <div>
-                <Link
-                  href="/dashboard"
-                  className="inline-flex items-center text-sm font-medium text-gray-600 hover:text-gray-900 transition-colors mb-4"
-                >
-                  <ArrowLeft className="mr-2 h-4 w-4" />
-                  Back to Dashboard
-                </Link>
-                <h1 className="text-3xl font-bold tracking-tight text-gray-900 sm:text-4xl">
-                  Loan Proposals
-                </h1>
-                <p className="mt-2 text-lg text-gray-600">
-                  Browse and vote on member loan requests
-                </p>
-              </div>
-              {userData.isMember && !userData.hasActiveLoan && (
-                <Link href="/loans/request">
-                  <Button size="lg" className="w-full sm:w-auto">
-                    <Plus className="mr-2 h-5 w-5" />
-                    Request Loan
-                  </Button>
-                </Link>
-              )}
-            </div>
-          </div>
-        </div>
-      </header>
-
-      <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-12">
+    <AppShell
+      title="Loan Proposals"
+      subtitle="Browse and vote on member loan requests"
+      actions={
+        userData.isMember && !userData.hasActiveLoan ? (
+          <Link href="/loans/request">
+            <Button size="lg" className="w-full sm:w-auto">
+              <Plus className="mr-2 h-5 w-5" />
+              Request Loan
+            </Button>
+          </Link>
+        ) : undefined
+      }
+    >
+      <div>
         {/* Filters */}
         <Card className="mb-12 border border-gray-200 shadow-sm">
           <CardHeader className="pb-4">
@@ -492,6 +473,6 @@ export default function LoansPage() {
           )}
         </div>
       </div>
-    </div>
+    </AppShell>
   )
 }
