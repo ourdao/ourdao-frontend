@@ -87,7 +87,7 @@ export default function RegisterPage() {
           <div className="space-y-6">
             <div className="text-center">
               <UserIcon className="h-16 w-16 text-primary-600 mx-auto mb-4" />
-              <h2 className="text-2xl font-bold text-gray-900 mb-2">Welcome to UnifiedLendingDAO</h2>
+              <h2 className="text-2xl font-bold text-gray-900 mb-2">Welcome to OurDAO</h2>
               <p className="text-gray-600">
                 Join our community of {stats.activeMembers} active members and access advanced DeFi lending features.
               </p>
