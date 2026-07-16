@@ -468,3 +468,32 @@ export function useProposeTreasury() {
     )
   return { propose, isPending, isSuccess, error }
 }
+
+// ---------------------------------------------------------------------------
+// Proposal documents (the Filecoin-analog content hash)
+//
+// The contract stores an opaque byte string per proposal; the convention here
+// is that it's a UTF-8 content id (an IPFS CID or digest). We encode on write
+// and decode on read.
+// ---------------------------------------------------------------------------
+
+export function useProposalDocument(kind: 'Loan' | 'Treasury', id: number) {
+  const { data, isLoading, refetch } = useQuery({
+    queryKey: ['document', kind, id],
+    enabled: isContractConfigured() && Number.isFinite(id) && id >= 0,
+    queryFn: async () => {
+      const bytes = await daoRead.getDocument(kind, id)
+      return bytes && bytes.length ? new TextDecoder().decode(bytes) : null
+    },
+  })
+  return { cid: data ?? null, isLoading, refetch }
+}
+
+export function useAttachDocument() {
+  const { run, isPending, isSuccess, error } = useWriteAction()
+  const attach = (kind: 'Loan' | 'Treasury', proposalId: number, cid: string) =>
+    run('Attaching document', (w) =>
+      w.attachDocument(kind, proposalId, new TextEncoder().encode(cid.trim()))
+    )
+  return { attach, isPending, isSuccess, error }
+}

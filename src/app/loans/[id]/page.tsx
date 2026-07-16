@@ -23,9 +23,16 @@ import {
   HandThumbDownIcon,
   ShareIcon,
 } from '@heroicons/react/24/outline'
-import { useUserData, useVoting, useLoanRepayment, useLoanProposal } from '@/hooks/useDAO'
+import {
+  useUserData,
+  useVoting,
+  useLoanRepayment,
+  useLoanProposal,
+  useProposalDocument,
+  useAttachDocument,
+} from '@/hooks/useDAO'
 import { formatEther, formatDate, formatAddress, calculatePercentage } from '@/lib/utils'
-import { PROPOSAL_STATUS_LABELS } from '@/constants'
+import { PROPOSAL_STATUS_LABELS, IPFS_GATEWAY } from '@/constants'
 import toast from 'react-hot-toast'
 import { AppShell } from '@/components/AppShell'
 
@@ -38,6 +45,9 @@ export default function LoanDetailsPage() {
   
   const loanId = parseInt(params.id as string)
   const { proposal, isLoading } = useLoanProposal(loanId)
+  const { cid: documentCid, refetch: refetchDocument } = useProposalDocument('Loan', loanId)
+  const { attach, isPending: attaching } = useAttachDocument()
+  const [cidInput, setCidInput] = useState('')
   // The contract stores the proposal core; borrower profile, history and
   // documents aren't on-chain, so they default to empty until an indexer or
   // attached document supplies them.
@@ -56,7 +66,6 @@ export default function LoanDetailsPage() {
           memberSince: 0,
         },
         loanHistory: [] as { action: string; timestamp: number; details: string }[],
-        documents: [] as { name: string; hash: string; size: string; uploadedAt: number }[],
       }
     : null
 
@@ -345,38 +354,72 @@ export default function LoanDetailsPage() {
               </Card>
             )}
 
-            {/* Documents */}
-            {loan.documents.length > 0 && (
-              <Card>
-                <CardHeader>
-                  <CardTitle>Supporting Documents</CardTitle>
-                  <CardDescription>
-                    Documents provided by the borrower to support their loan application
-                  </CardDescription>
-                </CardHeader>
-                <CardContent>
+            {/* Supporting document (on-chain content hash) */}
+            <Card>
+              <CardHeader>
+                <CardTitle>Supporting Document</CardTitle>
+                <CardDescription>
+                  A content hash (e.g. an IPFS CID) anchoring an off-chain
+                  document to this proposal.
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                {documentCid ? (
+                  <div className="flex items-center justify-between gap-3 rounded-lg border border-gray-200 p-3">
+                    <div className="flex min-w-0 items-center gap-3">
+                      <DocumentTextIcon className="h-8 w-8 shrink-0 text-primary-600" />
+                      <div className="min-w-0">
+                        <p className="font-medium text-gray-900">Attached document</p>
+                        <p className="truncate font-mono text-xs text-gray-500">
+                          {documentCid}
+                        </p>
+                      </div>
+                    </div>
+                    <a
+                      href={`${IPFS_GATEWAY}${documentCid}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                    >
+                      <Button variant="outline" size="sm">
+                        <EyeIcon className="mr-2 h-4 w-4" />
+                        View
+                      </Button>
+                    </a>
+                  </div>
+                ) : (
                   <div className="space-y-3">
-                    {loan.documents.map((doc, index) => (
-                      <div key={index} className="flex items-center justify-between p-3 border border-gray-200 rounded-lg">
-                        <div className="flex items-center space-x-3">
-                          <DocumentTextIcon className="h-8 w-8 text-blue-600" />
-                          <div>
-                            <p className="font-medium text-gray-900">{doc.name}</p>
-                            <p className="text-sm text-gray-600">
-                              {doc.size} • Uploaded {formatDate(doc.uploadedAt)}
-                            </p>
-                          </div>
-                        </div>
-                        <Button variant="outline" size="sm">
-                          <EyeIcon className="h-4 w-4 mr-2" />
-                          View
+                    <p className="text-sm text-gray-600">No document attached yet.</p>
+                    {userData.isMember && (
+                      <div className="flex gap-2">
+                        <input
+                          type="text"
+                          value={cidInput}
+                          onChange={(e) => setCidInput(e.target.value)}
+                          placeholder="IPFS CID or content hash…"
+                          spellCheck={false}
+                          className="flex-1 rounded-lg border border-gray-300 px-3 py-2 font-mono text-sm transition-colors focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-500/20"
+                        />
+                        <Button
+                          size="sm"
+                          disabled={attaching || !cidInput.trim()}
+                          onClick={async () => {
+                            try {
+                              await attach('Loan', loanId, cidInput)
+                              setCidInput('')
+                              refetchDocument()
+                            } catch {
+                              /* toast handled in hook */
+                            }
+                          }}
+                        >
+                          Attach
                         </Button>
                       </div>
-                    ))}
+                    )}
                   </div>
-                </CardContent>
-              </Card>
-            )}
+                )}
+              </CardContent>
+            </Card>
 
             {/* Loan History */}
             <Card>
