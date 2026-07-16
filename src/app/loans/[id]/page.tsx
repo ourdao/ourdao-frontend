@@ -23,71 +23,11 @@ import {
   HandThumbDownIcon,
   ShareIcon,
 } from '@heroicons/react/24/outline'
-import { useUserData, useVoting, useLoanRepayment } from '@/hooks/useDAO'
+import { useUserData, useVoting, useLoanRepayment, useLoanProposal } from '@/hooks/useDAO'
 import { formatEther, formatDate, formatAddress, calculatePercentage } from '@/lib/utils'
 import { PROPOSAL_STATUS_LABELS } from '@/constants'
 import toast from 'react-hot-toast'
 import { AppShell } from '@/components/AppShell'
-
-// Mock loan data - in real app this would come from contract
-const mockLoanData = {
-  1: {
-    id: 1,
-    borrower: '0x742d35Cc7e5e9E8A8c9A8E8fD0E8fD0E8fD0E8fD',
-    amount: BigInt('5000000000000000000'), // 5 ETH
-    purpose: 'I am seeking funding to expand my DeFi development startup. The funds will be used to hire additional developers, conduct security audits, and deploy new yield farming protocols on mainnet. My team has already built and tested the core functionality on testnet with promising results showing 15-20% APY. With this loan, we can accelerate our roadmap and bring innovative DeFi solutions to market.',
-    interestRate: 850, // 8.5% in basis points
-    status: 2, // IN_VOTING
-    votesFor: 12,
-    votesAgainst: 3,
-    totalVotingPower: 50,
-    creationTime: Math.floor(Date.now() / 1000) - 86400 * 2,
-    votingStartTime: Math.floor(Date.now() / 1000) - 86400,
-    votingEndTime: Math.floor(Date.now() / 1000) + 86400 * 6,
-    editEndTime: Math.floor(Date.now() / 1000) - 86400,
-    isPrivate: false,
-    documentHash: 'QmYwAPJzv5CZsnAzt8auVvzgWiVwiWp2cGVJqRDJXjdMJ',
-    hasVoted: false,
-    userVote: null,
-    repaymentDue: 0,
-    repaymentAmount: BigInt('0'),
-    isRepaid: false,
-    loanHistory: [
-      {
-        action: 'Created',
-        timestamp: Math.floor(Date.now() / 1000) - 86400 * 2,
-        details: 'Loan proposal created and submitted for review'
-      },
-      {
-        action: 'Editing Period Ended',
-        timestamp: Math.floor(Date.now() / 1000) - 86400,
-        details: 'Proposal editing period completed, voting has begun'
-      }
-    ],
-    borrowerProfile: {
-      reputation: 85,
-      totalLoans: 2,
-      completedLoans: 2,
-      defaultedLoans: 0,
-      averageRepaymentTime: '11 months',
-      memberSince: Math.floor(Date.now() / 1000) - 86400 * 365
-    },
-    documents: [
-      {
-        name: 'Business Plan.pdf',
-        hash: 'QmYwAPJzv5CZsnAzt8auVvzgWiVwiWp2cGVJqRDJXjdMJ',
-        size: '2.4 MB',
-        uploadedAt: Math.floor(Date.now() / 1000) - 86400 * 3
-      },
-      {
-        name: 'Financial Projections.xlsx',
-        hash: 'QmAbCdEf123456789abcdef123456789abcdef12',
-        size: '1.2 MB',
-        uploadedAt: Math.floor(Date.now() / 1000) - 86400 * 3
-      }
-    ]
-  }
-}
 
 export default function LoanDetailsPage() {
   const params = useParams()
@@ -97,7 +37,28 @@ export default function LoanDetailsPage() {
   const { repayLoan, isPending: isRepaying } = useLoanRepayment()
   
   const loanId = parseInt(params.id as string)
-  const loan = mockLoanData[loanId as keyof typeof mockLoanData]
+  const { proposal, isLoading } = useLoanProposal(loanId)
+  // The contract stores the proposal core; borrower profile, history and
+  // documents aren't on-chain, so they default to empty until an indexer or
+  // attached document supplies them.
+  const loan = proposal
+    ? {
+        ...proposal,
+        totalVotingPower: proposal.votesFor + proposal.votesAgainst,
+        editEndTime: proposal.votingStartTime,
+        isRepaid: proposal.status === 5,
+        borrowerProfile: {
+          reputation: 0,
+          totalLoans: 0,
+          completedLoans: 0,
+          defaultedLoans: 0,
+          averageRepaymentTime: '—',
+          memberSince: 0,
+        },
+        loanHistory: [] as { action: string; timestamp: number; details: string }[],
+        documents: [] as { name: string; hash: string; size: string; uploadedAt: number }[],
+      }
+    : null
 
   const [showRepayment, setShowRepayment] = useState(false)
   const [repaymentAmount, setRepaymentAmount] = useState('')
@@ -108,6 +69,16 @@ export default function LoanDetailsPage() {
       router.push('/loans')
     }
   }, [loan, router])
+
+  if (isLoading) {
+    return (
+      <AppShell>
+        <div className="flex min-h-[60vh] items-center justify-center">
+          <div className="skeleton h-40 w-full max-w-2xl rounded-xl" />
+        </div>
+      </AppShell>
+    )
+  }
 
   if (!loan) {
     return (

@@ -265,3 +265,162 @@ export function useDAOEvents() {
   const setEvents = (_: Record<string, unknown>[]) => {}
   return { events, setEvents }
 }
+
+// ---------------------------------------------------------------------------
+// Proposal enumeration
+//
+// The contract keeps no queryable list of proposals, so we read the total
+// count from the off-chain indexer, then fetch each proposal by id directly
+// from the contract (source of truth). In preview mode (no contract / no
+// backend) the count is 0 and the lists resolve empty.
+// ---------------------------------------------------------------------------
+
+const VOTING_PERIOD = 7 * 24 * 60 * 60
+const MAX_ENUMERATE = 100
+
+const tag = (v: unknown): string => String(Array.isArray(v) ? v[0] : v)
+
+/** Map the contract's phase+status onto the UI's numeric ProposalStatus. */
+function loanStatusCode(raw: Record<string, unknown>): number {
+  const status = tag(raw.status)
+  const phase = tag(raw.phase)
+  if (status === 'Approved') return 3
+  if (status === 'Executed') return 5
+  if (status === 'Rejected' || phase === 'Expired') return 4
+  if (phase === 'Voting') return 2
+  if (phase === 'Editing') return 1
+  return 0
+}
+
+export interface UILoanProposal {
+  id: number
+  borrower: string
+  amount: bigint
+  purpose: string
+  interestRate: number
+  status: number
+  votesFor: number
+  votesAgainst: number
+  creationTime: number
+  votingStartTime: number
+  votingEndTime: number
+  isPrivate: boolean
+  documentHash: string
+  hasVoted: boolean
+}
+
+function mapLoanProposal(raw: Record<string, unknown>): UILoanProposal {
+  const editingEnd = Number(raw.editing_period_end ?? 0)
+  return {
+    id: Number(raw.id ?? 0),
+    borrower: String(raw.borrower ?? ''),
+    amount: asBigInt(raw.amount),
+    purpose: '', // not stored on-chain; attach a document hash instead
+    interestRate: Number(raw.interest_rate ?? 0),
+    status: loanStatusCode(raw),
+    votesFor: Number(raw.for_votes ?? 0),
+    votesAgainst: Number(raw.against_votes ?? 0),
+    creationTime: Number(raw.created_at ?? 0),
+    votingStartTime: editingEnd,
+    votingEndTime: editingEnd ? editingEnd + VOTING_PERIOD : 0,
+    isPrivate: false, // loan proposals are public; treasury proposals can be private
+    documentHash: '',
+    hasVoted: false, // not exposed as a view; write path guards double-votes
+  }
+}
+
+async function fetchByIds<T>(
+  count: number,
+  fetchOne: (id: number) => Promise<Record<string, unknown> | null>,
+  map: (raw: Record<string, unknown>) => T
+): Promise<T[]> {
+  const ids = Array.from({ length: Math.min(count, MAX_ENUMERATE) }, (_, i) => i)
+  const raws = await Promise.all(ids.map((id) => fetchOne(id)))
+  return raws.filter((r): r is Record<string, unknown> => !!r).map(map)
+}
+
+/** All loan proposals (newest first), read live from the contract. */
+export function useLoanProposals() {
+  const { data: stats } = useQuery({
+    queryKey: ['backendStats'],
+    queryFn: () => backend.getStats(),
+    refetchInterval: 15_000,
+  })
+  const count = stats?.totalLoanProposals ?? 0
+
+  const { data, isLoading } = useQuery({
+    queryKey: ['loanProposals', count],
+    enabled: isContractConfigured() && count > 0,
+    queryFn: () =>
+      fetchByIds(count, (id) => daoRead.getLoanProposal(id), mapLoanProposal),
+  })
+
+  const proposals = [...(data ?? [])].sort((a, b) => b.id - a.id)
+  return { proposals, isLoading, count }
+}
+
+/** A single loan proposal by id. */
+export function useLoanProposal(id: number) {
+  const { data, isLoading } = useQuery({
+    queryKey: ['loanProposal', id],
+    enabled: isContractConfigured() && Number.isFinite(id) && id >= 0,
+    queryFn: async () => {
+      const raw = await daoRead.getLoanProposal(id)
+      return raw ? mapLoanProposal(raw) : null
+    },
+  })
+  return { proposal: data ?? null, isLoading }
+}
+
+export interface UITreasuryProposal {
+  id: number
+  proposer: string
+  title: string
+  description: string
+  amount: bigint
+  recipient: string
+  status: number
+  votesFor: number
+  votesAgainst: number
+  creationTime: number
+  isPrivate: boolean
+}
+
+function mapTreasuryProposal(raw: Record<string, unknown>): UITreasuryProposal {
+  const status = tag(raw.status)
+  const code = status === 'Executed' ? 5 : status === 'Rejected' ? 4 : 2
+  const reason = String(raw.reason ?? '')
+  return {
+    id: Number(raw.id ?? 0),
+    proposer: String(raw.proposer ?? ''),
+    title: reason || `Treasury withdrawal #${Number(raw.id ?? 0)}`,
+    description: reason,
+    amount: asBigInt(raw.amount),
+    recipient: String(raw.destination ?? ''),
+    status: code,
+    votesFor: Number(raw.for_votes ?? 0),
+    votesAgainst: Number(raw.against_votes ?? 0),
+    creationTime: Number(raw.created_at ?? 0),
+    isPrivate: !!raw.private,
+  }
+}
+
+/** All treasury withdrawal proposals (newest first), read live from the contract. */
+export function useTreasuryProposals() {
+  const { data: stats } = useQuery({
+    queryKey: ['backendStats'],
+    queryFn: () => backend.getStats(),
+    refetchInterval: 15_000,
+  })
+  const count = stats?.totalTreasuryProposals ?? 0
+
+  const { data, isLoading } = useQuery({
+    queryKey: ['treasuryProposals', count],
+    enabled: isContractConfigured() && count > 0,
+    queryFn: () =>
+      fetchByIds(count, (id) => daoRead.getTreasuryProposal(id), mapTreasuryProposal),
+  })
+
+  const proposals = [...(data ?? [])].sort((a, b) => b.id - a.id)
+  return { proposals, isLoading, count }
+}

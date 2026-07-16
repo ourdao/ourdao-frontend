@@ -17,86 +17,18 @@ import {
   ArrowLeft,
   FileText,
 } from 'lucide-react'
-import { useUserData, useVoting } from '@/hooks/useDAO'
+import { useUserData, useVoting, useLoanProposals, type UILoanProposal } from '@/hooks/useDAO'
 import { formatEther, formatDate, formatAddress, calculatePercentage } from '@/lib/utils'
 import { PROPOSAL_STATUS_LABELS } from '@/constants'
 import toast from 'react-hot-toast'
 import { AppShell } from '@/components/AppShell'
 
-// Mock data for loan proposals - in real app this would come from contract
-const mockLoanProposals = [
-  {
-    id: 1,
-    borrower: '0x742d35Cc7e5e9E8A8c9A8E8fD0E8fD0E8fD0E8fD',
-    amount: BigInt('5000000000000000000'), // 5 ETH
-    purpose: 'Expanding my DeFi development startup to build new yield farming protocols',
-    interestRate: 850, // 8.5% in basis points
-    status: 2, // IN_VOTING
-    votesFor: 12,
-    votesAgainst: 3,
-    creationTime: Math.floor(Date.now() / 1000) - 86400 * 2, // 2 days ago
-    votingStartTime: Math.floor(Date.now() / 1000) - 86400, // 1 day ago
-    votingEndTime: Math.floor(Date.now() / 1000) + 86400 * 6, // 6 days from now
-    isPrivate: false,
-    documentHash: 'QmYwAPJzv5CZsnAzt8auVvzgWiVwiWp2cGVJqRDJXjdMJ',
-    hasVoted: false,
-  },
-  {
-    id: 2,
-    borrower: '0x8ba1f109551bD432803012645Hac136c9.dABCE',
-    amount: BigInt('2500000000000000000'), // 2.5 ETH
-    purpose: 'Working capital for my NFT marketplace platform development',
-    interestRate: 750, // 7.5% in basis points
-    status: 1, // IN_EDITING
-    votesFor: 0,
-    votesAgainst: 0,
-    creationTime: Math.floor(Date.now() / 1000) - 86400, // 1 day ago
-    votingStartTime: 0,
-    votingEndTime: 0,
-    isPrivate: false,
-    documentHash: '',
-    hasVoted: false,
-  },
-  {
-    id: 3,
-    borrower: '0x123456789abcdef123456789abcdef123456789a',
-    amount: BigInt('1000000000000000000'), // 1 ETH (placeholder for private)
-    purpose: 'Confidential business expansion',
-    interestRate: 950, // 9.5% in basis points
-    status: 2, // IN_VOTING
-    votesFor: 8,
-    votesAgainst: 7,
-    creationTime: Math.floor(Date.now() / 1000) - 86400 * 3, // 3 days ago
-    votingStartTime: Math.floor(Date.now() / 1000) - 86400 * 2, // 2 days ago
-    votingEndTime: Math.floor(Date.now() / 1000) + 86400 * 5, // 5 days from now
-    isPrivate: true,
-    documentHash: '',
-    hasVoted: true,
-  },
-  {
-    id: 4,
-    borrower: '0xdef123456789abcdef123456789abcdef12345678',
-    amount: BigInt('7500000000000000000'), // 7.5 ETH
-    purpose: 'Purchasing mining equipment for sustainable crypto mining operation',
-    interestRate: 900, // 9% in basis points
-    status: 3, // APPROVED
-    votesFor: 18,
-    votesAgainst: 2,
-    creationTime: Math.floor(Date.now() / 1000) - 86400 * 10, // 10 days ago
-    votingStartTime: Math.floor(Date.now() / 1000) - 86400 * 7, // 7 days ago
-    votingEndTime: Math.floor(Date.now() / 1000) - 86400, // 1 day ago
-    isPrivate: false,
-    documentHash: 'QmXoYpZvQeFiUKBNGYZ8JZ8XoYpZvQeFiUKBNGYZ8JZ8',
-    hasVoted: true,
-  },
-]
-
 export default function LoansPage() {
   const userData = useUserData()
   const { voteOnProposal, isPending } = useVoting()
-  
-  const [proposals] = useState(mockLoanProposals)
-  const [filteredProposals, setFilteredProposals] = useState(mockLoanProposals)
+  const { proposals, isLoading } = useLoanProposals()
+
+  const [filteredProposals, setFilteredProposals] = useState<UILoanProposal[]>([])
   const [filters, setFilters] = useState({
     status: 'all',
     privacy: 'all',
@@ -172,7 +104,7 @@ export default function LoansPage() {
     }
   }
 
-  const canVote = (proposal: typeof mockLoanProposals[0]) => {
+  const canVote = (proposal: UILoanProposal) => {
     return userData.isMember && 
            proposal.status === 2 && 
            !proposal.hasVoted && 
@@ -324,7 +256,19 @@ export default function LoansPage() {
 
         {/* Proposals List */}
         <div className="space-y-6">
-          {filteredProposals.length === 0 ? (
+          {isLoading ? (
+            <div className="space-y-6">
+              {[0, 1, 2].map((i) => (
+                <Card key={i}>
+                  <CardContent className="p-6">
+                    <div className="skeleton mb-4 h-6 w-48 rounded" />
+                    <div className="skeleton mb-2 h-4 w-full rounded" />
+                    <div className="skeleton h-4 w-2/3 rounded" />
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          ) : filteredProposals.length === 0 ? (
             <Card>
               <CardContent className="p-12 text-center">
                 <Banknote className="h-12 w-12 text-gray-400 mx-auto mb-4" />
