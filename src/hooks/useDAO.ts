@@ -424,3 +424,47 @@ export function useTreasuryProposals() {
   const proposals = [...(data ?? [])].sort((a, b) => b.id - a.id)
   return { proposals, isLoading, count }
 }
+
+// ---------------------------------------------------------------------------
+// Staking + treasury write hooks
+// ---------------------------------------------------------------------------
+
+/** The connected member's current stake (in token base units). */
+export function useStake(): bigint {
+  const { address } = useWallet()
+  const { data } = useQuery({
+    queryKey: ['stake', address],
+    enabled: !!address && isContractConfigured(),
+    queryFn: () => daoRead.getStake(address!),
+    refetchInterval: 15_000,
+  })
+  return asBigInt(data)
+}
+
+export function useStaking() {
+  const { run, isPending, isSuccess, error } = useWriteAction()
+  const stake = (amount: bigint) => run('Staking', (w) => w.stake(amount))
+  const unstake = (amount: bigint) => run('Unstaking', (w) => w.unstake(amount))
+  return { stake, unstake, isPending, isSuccess, error }
+}
+
+export function useTreasuryVoting() {
+  const { run, isPending, isSuccess, error } = useWriteAction()
+  const voteOnTreasury = (proposalId: number, support: boolean) =>
+    run('Casting vote', (w) => w.voteOnTreasuryProposal(proposalId, support))
+  return { voteOnTreasury, isPending, isSuccess, error }
+}
+
+export function useProposeTreasury() {
+  const { run, isPending, isSuccess, error } = useWriteAction()
+  const propose = (
+    amount: bigint,
+    destination: string,
+    reason: string,
+    isPrivate: boolean
+  ) =>
+    run('Proposing withdrawal', (w) =>
+      w.proposeTreasuryWithdrawal(amount, destination, reason, isPrivate)
+    )
+  return { propose, isPending, isSuccess, error }
+}

@@ -16,6 +16,29 @@ export function formatEther(value: bigint | string | number, decimals: number = 
   }
 }
 
+// Format a Soroban token amount (Stellar assets use 7 decimals) for display.
+// Keeps full integer precision via BigInt; trims trailing fractional zeros.
+export function formatToken(
+  value: bigint | string | number,
+  decimals: number = 7
+): string {
+  try {
+    const v = typeof value === 'bigint' ? value : BigInt(String(value).split('.')[0] || '0')
+    const neg = v < 0n
+    const abs = neg ? -v : v
+    const base = 10n ** BigInt(decimals)
+    const whole = (abs / base).toString()
+    const frac = (abs % base)
+      .toString()
+      .padStart(decimals, '0')
+      .slice(0, 4)
+      .replace(/0+$/, '')
+    return `${neg ? '-' : ''}${whole}${frac ? '.' + frac : ''}`
+  } catch {
+    return '0'
+  }
+}
+
 // Format dates to readable format
 export function formatDate(timestamp: number | string | Date): string {
   try {
