@@ -65,7 +65,7 @@ export default function Home() {
     },
     {
       name: 'Yield Generation',
-      description: 'Treasury optimization through Symbiotic restaking with automatic yield distribution.',
+      description: 'Treasury optimization through staking with automatic yield distribution.',
       icon: TrendingUp,
       gradient: 'from-pink-500 to-rose-500',
     },
@@ -135,7 +135,7 @@ export default function Home() {
 
   const testimonials = [
     {
-      content: "UnifiedLendingDAO revolutionized how I access capital. The privacy features give me confidence in sensitive transactions.",
+      content: "OurDAO revolutionized how I access capital. The privacy features give me confidence in sensitive transactions.",
       author: "Alex Chen",
       role: "DeFi Entrepreneur",
     },
@@ -159,10 +159,10 @@ export default function Home() {
           <div className="flex h-16 items-center justify-between">
             <div className="flex items-center space-x-3">
               <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-r from-blue-600 to-purple-600">
-                <DollarSign className="h-6 w-6 text-white" />
+                <span className="text-lg font-bold text-white">O</span>
               </div>
               <Link href="/" className="text-xl font-bold text-gray-900 hover:text-gray-700 transition-colors">
-                UnifiedLendingDAO
+                OurDAO
               </Link>
             </div>
             
@@ -264,7 +264,7 @@ export default function Home() {
             
             <p className="mx-auto mt-6 max-w-2xl text-lg leading-8 text-gray-600 sm:text-xl">
               Join the most advanced peer-to-peer lending DAO with privacy features, 
-              automated governance, and yield generation through restaking.
+              automated governance, and yield generation through staking.
             </p>
             
             <div className="mt-10 flex flex-col gap-4 sm:flex-row sm:justify-center">
@@ -369,12 +369,12 @@ export default function Home() {
         <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-16 items-center">
             <div>
-              <Badge className="mb-6 px-3 py-1" variant="secondary">About UnifiedLendingDAO</Badge>
+              <Badge className="mb-6 px-3 py-1" variant="secondary">About OurDAO</Badge>
               <h2 className="text-3xl sm:text-4xl font-bold tracking-tight text-gray-900 mb-6">
                 Redefining Trustless, Private Lending
               </h2>
               <p className="text-lg text-gray-600 leading-relaxed mb-8">
-                UnifiedLendingDAO is a privacy-first, decentralized lending protocol built for communities.
+                OurDAO is a privacy-first, decentralized lending protocol built for communities.
                 We combine trustless smart contracts, encrypted document storage, zero-knowledge voting,
                 and real-time transparency to deliver a best-in-class experience for borrowers and lenders.
               </p>
@@ -607,9 +607,9 @@ export default function Home() {
               <div className="col-span-1 md:col-span-2">
                 <div className="flex items-center space-x-3 mb-6">
                   <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-r from-blue-600 to-purple-600">
-                    <DollarSign className="h-6 w-6 text-white" />
+                    <span className="text-lg font-bold text-white">O</span>
                   </div>
-                  <h3 className="text-xl font-bold text-white">UnifiedLendingDAO</h3>
+                  <h3 className="text-xl font-bold text-white">OurDAO</h3>
                 </div>
                 <p className="text-base leading-relaxed text-gray-400 mb-6 max-w-md">
                   The most advanced peer-to-peer lending DAO with privacy features, 
@@ -653,7 +653,7 @@ export default function Home() {
           <div className="border-t border-gray-800 py-8">
             <div className="flex flex-col md:flex-row justify-between items-center">
               <p className="text-sm text-gray-400">
-                © {new Date().getFullYear()} UnifiedLendingDAO. All rights reserved.
+                © {new Date().getFullYear()} OurDAO. All rights reserved.
               </p>
               <div className="flex space-x-6 mt-4 md:mt-0">
                 <a href="#" className="text-sm text-gray-400 hover:text-white transition-colors">Privacy Policy</a>

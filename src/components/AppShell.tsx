@@ -50,7 +50,7 @@ function isActive(pathname: string, href: string): boolean {
 function BrandMark() {
   return (
     <Link href="/" className="flex items-center gap-2.5">
-      <span className="grid h-8 w-8 place-items-center rounded-lg bg-gradient-to-br from-blue-600 to-indigo-600 text-sm font-bold text-white shadow-sm">
+      <span className="grid h-8 w-8 place-items-center rounded-lg bg-gradient-to-br from-primary-600 to-primary-500 text-sm font-bold text-white shadow-sm">
         O
       </span>
       <span className="text-lg font-semibold tracking-tight text-gray-900">
@@ -79,14 +79,14 @@ function NavLinks({ onNavigate }: { onNavigate?: () => void }) {
             className={cn(
               'group flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors',
               active
-                ? 'bg-blue-50 text-blue-700'
+                ? 'bg-primary-50 text-primary-700'
                 : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
             )}
           >
             <Icon
               className={cn(
                 'h-5 w-5 shrink-0',
-                active ? 'text-blue-600' : 'text-gray-400 group-hover:text-gray-500'
+                active ? 'text-primary-600' : 'text-gray-400 group-hover:text-gray-500'
               )}
             />
             {item.name}
