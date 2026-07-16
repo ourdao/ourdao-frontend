@@ -26,6 +26,7 @@ import {
 import { useUserData, useVoting } from '@/hooks/useDAO'
 import { formatDate, calculatePercentage, formatAddress } from '@/lib/utils'
 import toast from 'react-hot-toast'
+import { AppShell } from '@/components/AppShell'
 
 // Mock governance data - in real app this would come from contract
 const mockGovernanceData = {
@@ -262,7 +263,8 @@ export default function GovernancePage() {
 
   if (!userData.isConnected) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-gray-50 to-blue-50 flex items-center justify-center">
+      <AppShell>
+        <div className="flex min-h-[60vh] items-center justify-center">
         <Card className="w-full max-w-md">
           <CardContent className="p-6 text-center">
             <ScaleIcon className="h-12 w-12 text-gray-400 mx-auto mb-4" />
@@ -270,7 +272,8 @@ export default function GovernancePage() {
             <p className="text-gray-600">Please connect your wallet to access governance.</p>
           </CardContent>
         </Card>
-      </div>
+        </div>
+      </AppShell>
     )
   }
 

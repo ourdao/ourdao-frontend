@@ -64,7 +64,8 @@ export default function DashboardPage() {
 
   if (!userData.isConnected) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-gray-50 to-blue-50 flex items-center justify-center p-4">
+      <AppShell>
+        <div className="flex min-h-[60vh] items-center justify-center">
         <Card className="w-full max-w-md">
           <CardHeader className="text-center">
             <CardTitle>Access Dashboard</CardTitle>
@@ -88,12 +89,14 @@ export default function DashboardPage() {
           </CardContent>
         </Card>
       </div>
+      </AppShell>
     )
   }
 
   if (!userData.isMember) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-gray-50 to-blue-50 flex items-center justify-center p-4">
+      <AppShell>
+        <div className="flex min-h-[60vh] items-center justify-center">
         <Card className="w-full max-w-md">
           <CardHeader className="text-center">
             <CardTitle>Not a Member</CardTitle>
@@ -115,6 +118,7 @@ export default function DashboardPage() {
           </CardContent>
         </Card>
       </div>
+      </AppShell>
     )
   }
 

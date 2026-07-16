@@ -111,7 +111,8 @@ export default function LoanDetailsPage() {
 
   if (!loan) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-gray-50 to-blue-50 flex items-center justify-center">
+      <AppShell>
+        <div className="flex min-h-[60vh] items-center justify-center">
         <Card className="w-full max-w-md">
           <CardContent className="p-6 text-center">
             <XCircleIcon className="h-12 w-12 text-red-500 mx-auto mb-4" />
@@ -123,6 +124,7 @@ export default function LoanDetailsPage() {
           </CardContent>
         </Card>
       </div>
+      </AppShell>
     )
   }
 

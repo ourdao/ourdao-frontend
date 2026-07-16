@@ -682,7 +682,8 @@ export default function PrivacyPage() {
 
   if (!userData.isConnected) {
     return (
-      <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex items-center justify-center p-4">
+      <AppShell>
+        <div className="flex min-h-[60vh] items-center justify-center">
         <div className="bg-white dark:bg-gray-800 rounded-lg p-6 text-center">
           <ExclamationTriangleIcon className="h-12 w-12 text-yellow-500 mx-auto mb-4" />
           <h2 className="text-xl font-semibold text-gray-900 dark:text-white mb-2">
@@ -693,6 +694,7 @@ export default function PrivacyPage() {
           </p>
         </div>
       </div>
+      </AppShell>
     )
   }
 

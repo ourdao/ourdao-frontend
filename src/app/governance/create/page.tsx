@@ -121,7 +121,8 @@ export default function CreateProposalPage() {
 
   if (!userData.isConnected) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-gray-50 to-blue-50 flex items-center justify-center">
+      <AppShell>
+        <div className="flex min-h-[60vh] items-center justify-center">
         <Card className="w-full max-w-md">
           <CardContent className="p-6 text-center">
             <DocumentPlusIcon className="h-12 w-12 text-gray-400 mx-auto mb-4" />
@@ -129,13 +130,15 @@ export default function CreateProposalPage() {
             <p className="text-gray-600">Please connect your wallet to create proposals.</p>
           </CardContent>
         </Card>
-      </div>
+        </div>
+      </AppShell>
     )
   }
 
   if (!userData.isMember) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-gray-50 to-blue-50 flex items-center justify-center">
+      <AppShell>
+        <div className="flex min-h-[60vh] items-center justify-center">
         <Card className="w-full max-w-md">
           <CardContent className="p-6 text-center">
             <ExclamationTriangleIcon className="h-12 w-12 text-red-500 mx-auto mb-4" />
@@ -146,7 +149,8 @@ export default function CreateProposalPage() {
             </Link>
           </CardContent>
         </Card>
-      </div>
+        </div>
+      </AppShell>
     )
   }
 
