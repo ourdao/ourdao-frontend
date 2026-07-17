@@ -185,11 +185,11 @@ export default function Home() {
             <div className="flex items-center space-x-4">
               {userData.isConnected && userData.isMember && (
                 <>
-                  <Link href="/dashboard">
-                    <Button variant="outline" size="sm" className="hidden sm:inline-flex">
+                  <Button asChild variant="outline" size="sm" className="hidden sm:inline-flex">
+                    <Link href="/dashboard">
                       Dashboard
-                    </Button>
-                  </Link>
+                    </Link>
+                  </Button>
                   <NotificationCenter />
                 </>
               )}
@@ -270,19 +270,19 @@ export default function Home() {
             <div className="mt-10 flex flex-col gap-4 sm:flex-row sm:justify-center">
               {userData.isConnected ? (
                 userData.isMember ? (
-                  <Link href="/dashboard">
-                    <Button size="lg" className="w-full sm:w-auto px-8 py-3 text-base">
+                  <Button asChild size="lg" className="w-full sm:w-auto px-8 py-3 text-base">
+                    <Link href="/dashboard">
                       Go to Dashboard
                       <ArrowRight className="ml-2 h-5 w-5" />
-                    </Button>
-                  </Link>
+                    </Link>
+                  </Button>
                 ) : (
-                  <Link href="/register">
-                    <Button size="lg" className="w-full sm:w-auto px-8 py-3 text-base">
+                  <Button asChild size="lg" className="w-full sm:w-auto px-8 py-3 text-base">
+                    <Link href="/register">
                       Become a Member
                       <ArrowRight className="ml-2 h-5 w-5" />
-                    </Button>
-                  </Link>
+                    </Link>
+                  </Button>
                 )
               ) : (
                 <>
@@ -387,16 +387,16 @@ export default function Home() {
                 ))}
               </div>
               <div className="flex flex-col sm:flex-row gap-4">
-                <Link href="/register">
-                  <Button size="lg" className="w-full sm:w-auto px-6">
+                <Button asChild size="lg" className="w-full sm:w-auto px-6">
+                  <Link href="/register">
                     Get Started
-                  </Button>
-                </Link>
-                <Link href="/governance">
-                  <Button variant="outline" size="lg" className="w-full sm:w-auto px-6">
+                  </Link>
+                </Button>
+                <Button asChild variant="outline" size="lg" className="w-full sm:w-auto px-6">
+                  <Link href="/governance">
                     Explore Governance
-                  </Button>
-                </Link>
+                  </Link>
+                </Button>
               </div>
             </div>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 mt-10 lg:mt-0">
@@ -550,19 +550,19 @@ export default function Home() {
             <div className="flex flex-col sm:flex-row gap-4 justify-center">
               {userData.isConnected ? (
                 userData.isMember ? (
-                  <Link href="/dashboard">
-                    <Button size="lg" className="w-full sm:w-auto bg-white text-blue-600 hover:bg-gray-50 px-8 py-3 text-base font-semibold">
+                  <Button asChild size="lg" className="w-full sm:w-auto bg-white text-blue-600 hover:bg-gray-50 px-8 py-3 text-base font-semibold">
+                    <Link href="/dashboard">
                       Access Dashboard
                       <ArrowRight className="ml-2 h-5 w-5" />
-                    </Button>
-                  </Link>
+                    </Link>
+                  </Button>
                 ) : (
-                  <Link href="/register">
-                    <Button size="lg" className="w-full sm:w-auto bg-white text-blue-600 hover:bg-gray-50 px-8 py-3 text-base font-semibold">
+                  <Button asChild size="lg" className="w-full sm:w-auto bg-white text-blue-600 hover:bg-gray-50 px-8 py-3 text-base font-semibold">
+                    <Link href="/register">
                       Become a Member
                       <ArrowRight className="ml-2 h-5 w-5" />
-                    </Button>
-                  </Link>
+                    </Link>
+                  </Button>
                 )
               ) : (
                 <>

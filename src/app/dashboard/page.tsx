@@ -105,11 +105,11 @@ export default function DashboardPage() {
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
-            <Link href="/register" className="w-full">
-              <Button className="w-full" size="lg">
+            <Button asChild className="w-full" size="lg">
+              <Link href="/register">
                 Join the DAO
-              </Button>
-            </Link>
+              </Link>
+            </Button>
             <div className="text-center">
               <Link href="/" className="text-sm text-gray-600 hover:text-gray-900">
                 ← Back to Home

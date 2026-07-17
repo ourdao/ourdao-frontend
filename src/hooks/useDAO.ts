@@ -1,7 +1,7 @@
 'use client'
 
 import { useQuery } from '@tanstack/react-query'
-import { useCallback, useState } from 'react'
+import { useCallback, useMemo, useState } from 'react'
 import toast from 'react-hot-toast'
 import { useWallet } from '@/lib/wallet'
 import { CONTRACT_ID, isContractConfigured } from '@/lib/stellar'
@@ -355,7 +355,12 @@ export function useLoanProposals() {
       fetchByIds(count, (id) => daoRead.getLoanProposal(id), mapLoanProposal),
   })
 
-  const proposals = [...(data ?? [])].sort((a, b) => b.id - a.id)
+  // Memoize so the array keeps a stable identity across renders; consumers use
+  // it as an effect/memo dependency and a fresh array each render would loop.
+  const proposals = useMemo(
+    () => [...(data ?? [])].sort((a, b) => b.id - a.id),
+    [data]
+  )
   return { proposals, isLoading, count }
 }
 
@@ -421,7 +426,10 @@ export function useTreasuryProposals() {
       fetchByIds(count, (id) => daoRead.getTreasuryProposal(id), mapTreasuryProposal),
   })
 
-  const proposals = [...(data ?? [])].sort((a, b) => b.id - a.id)
+  const proposals = useMemo(
+    () => [...(data ?? [])].sort((a, b) => b.id - a.id),
+    [data]
+  )
   return { proposals, isLoading, count }
 }
 

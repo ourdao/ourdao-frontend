@@ -98,9 +98,9 @@ export default function LoanDetailsPage() {
             <XCircleIcon className="h-12 w-12 text-red-500 mx-auto mb-4" />
             <h3 className="text-lg font-medium text-gray-900 mb-2">Loan Not Found</h3>
             <p className="text-gray-600 mb-4">The requested loan proposal does not exist.</p>
-            <Link href="/loans">
-              <Button>Back to Loans</Button>
-            </Link>
+            <Button asChild>
+              <Link href="/loans">Back to Loans</Link>
+            </Button>
           </CardContent>
         </Card>
       </div>

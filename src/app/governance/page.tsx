@@ -145,12 +145,12 @@ export default function GovernancePage() {
       subtitle="Vote on loan requests and treasury withdrawals"
       actions={
         userData.isMember ? (
-          <Link href="/governance/create">
-            <Button size="sm">
+          <Button asChild size="sm">
+            <Link href="/governance/create">
               <DocumentPlusIcon className="mr-2 h-4 w-4" />
               Create Proposal
-            </Button>
-          </Link>
+            </Link>
+          </Button>
         ) : undefined
       }
     >

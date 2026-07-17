@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useMemo } from 'react'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import Link from 'next/link'
@@ -28,14 +28,13 @@ export default function LoansPage() {
   const { voteOnProposal, isPending } = useVoting()
   const { proposals, isLoading } = useLoanProposals()
 
-  const [filteredProposals, setFilteredProposals] = useState<UILoanProposal[]>([])
   const [filters, setFilters] = useState({
     status: 'all',
     privacy: 'all',
     search: '',
   })
 
-  useEffect(() => {
+  const filteredProposals = useMemo(() => {
     let filtered = proposals
 
     // Filter by status
@@ -60,13 +59,13 @@ export default function LoansPage() {
 
     // Search filter
     if (filters.search) {
-      filtered = filtered.filter(p => 
+      filtered = filtered.filter(p =>
         p.purpose.toLowerCase().includes(filters.search.toLowerCase()) ||
         p.borrower.toLowerCase().includes(filters.search.toLowerCase())
       )
     }
 
-    setFilteredProposals(filtered)
+    return filtered
   }, [filters, proposals])
 
   const handleVote = async (proposalId: number, support: boolean) => {
@@ -118,12 +117,12 @@ export default function LoansPage() {
       subtitle="Browse and vote on member loan requests"
       actions={
         userData.isMember && !userData.hasActiveLoan ? (
-          <Link href="/loans/request">
-            <Button size="lg" className="w-full sm:w-auto">
+          <Button asChild size="lg" className="w-full sm:w-auto">
+            <Link href="/loans/request">
               <Plus className="mr-2 h-5 w-5" />
               Request Loan
-            </Button>
-          </Link>
+            </Link>
+          </Button>
         ) : undefined
       }
     >
@@ -368,12 +367,12 @@ export default function LoansPage() {
                   {/* Actions */}
                   <div className="flex items-center justify-between pt-4">
                     <div className="flex space-x-2">
-                      <Link href={`/loans/${proposal.id}`}>
-                        <Button variant="outline" size="sm">
+                      <Button asChild variant="outline" size="sm">
+                        <Link href={`/loans/${proposal.id}`}>
                           <Eye className="h-4 w-4 mr-2" />
                           View Details
-                        </Button>
-                      </Link>
+                        </Link>
+                      </Button>
                       {proposal.documentHash && (
                         <Button variant="outline" size="sm" disabled>
                           <FileText className="h-4 w-4 mr-2" />

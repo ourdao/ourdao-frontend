@@ -631,11 +631,11 @@ export default function RequestLoanPage() {
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
-            <Link href={userData.isConnected ? "/register" : "/"}>
-              <Button className="w-full" size="lg">
+            <Button asChild className="w-full" size="lg">
+              <Link href={userData.isConnected ? "/register" : "/"}>
                 {userData.isConnected ? "Become a Member" : "Go Home"}
-              </Button>
-            </Link>
+              </Link>
+            </Button>
           </CardContent>
         </Card>
       </div>
