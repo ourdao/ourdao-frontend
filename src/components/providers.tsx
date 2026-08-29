@@ -27,16 +27,22 @@ export function Providers({ children }: { children: React.ReactNode }) {
             position="top-right"
             toastOptions={{
               duration: 4000,
+              // Styled from the same semantic CSS custom properties as the
+              // rest of the app (globals.css), not hardcoded hex — these
+              // resolve correctly in both themes via the inherited `.dark`
+              // override, with no JS-side theme check and no hydration
+              // mismatch (#67).
               style: {
-                background: '#1f2937',
-                color: '#f9fafb',
+                background: 'var(--color-card)',
+                color: 'var(--color-card-foreground)',
+                border: '1px solid var(--color-border)',
                 borderRadius: '8px',
               },
               success: {
-                iconTheme: { primary: '#10b981', secondary: '#f9fafb' },
+                iconTheme: { primary: 'var(--color-success)', secondary: 'var(--color-success-foreground)' },
               },
               error: {
-                iconTheme: { primary: '#ef4444', secondary: '#f9fafb' },
+                iconTheme: { primary: 'var(--color-destructive)', secondary: 'var(--color-destructive-foreground)' },
               },
             }}
           />

@@ -123,6 +123,14 @@ export interface ContractConfig {
 export interface UserData {
   isConnected: boolean
   address?: string
+  /**
+   * True while the membership/admin read is in flight for the connected
+   * address. `isMember`/`isAdmin` collapse "not yet known" and "false" into
+   * the same value, so consumers that redirect or hard-gate on them must
+   * wait for this to go false before treating either as a real answer — see
+   * the dashboard/register redirect effects and the admin panel guard.
+   */
+  isLoading: boolean
   isMember: boolean
   isAdmin: boolean
   member?: Member

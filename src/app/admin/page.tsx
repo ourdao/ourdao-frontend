@@ -19,6 +19,7 @@ import {
 } from '@/hooks/useDAO'
 import { formatToken, formatAddress, formatDate } from '@/lib/utils'
 import { AppShell } from '@/components/AppShell'
+import { LoadingSpinner } from '@/components/ui/skeleton'
 
 type Tab = 'overview' | 'governance' | 'activity'
 
@@ -41,6 +42,19 @@ export default function AdminPage() {
           title="Wallet Not Connected"
           message="Please connect your wallet to access the admin panel."
         />
+      </AppShell>
+    )
+  }
+
+  if (userData.isLoading) {
+    // Same "not yet known" collapse as isMember (#69) — isAdmin reads false
+    // until the query resolves, which would otherwise flash "Access Denied"
+    // at real admins on every load.
+    return (
+      <AppShell>
+        <div className="flex min-h-[60vh] items-center justify-center">
+          <LoadingSpinner size="lg" />
+        </div>
       </AppShell>
     )
   }

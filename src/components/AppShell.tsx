@@ -18,13 +18,13 @@ import {
   ShieldCheckIcon,
   Cog6ToothIcon,
   Bars3Icon,
-  XMarkIcon,
   ExclamationTriangleIcon,
 } from '@heroicons/react/24/outline'
 import { ConnectButton } from '@/components/ConnectButton'
 import NotificationCenter from '@/components/NotificationCenter'
 import { OrbitMark } from '@/components/OrbitMark'
 import { ThemeToggle } from '@/components/ThemeToggle'
+import { Sheet, SheetContent, SheetTitle, SheetTrigger } from '@/components/ui/sheet'
 import { useUserData } from '@/hooks/useDAO'
 import { isContractConfigured } from '@/lib/stellar'
 import { cn } from '@/lib/utils'
@@ -110,18 +110,26 @@ export function AppShell({ title, subtitle, actions, children }: AppShellProps) 
   const [mobileOpen, setMobileOpen] = useState(false)
 
   return (
+    // Wraps the whole shell (not just the drawer) so SheetTrigger — deep in
+    // the header — and SheetContent — deep in the mobile-drawer section —
+    // both sit under the same Radix Dialog.Root context despite being far
+    // apart in the JSX. Using SheetTrigger (rather than a plain onClick)
+    // is what lets Radix track and restore focus to this exact button when
+    // the drawer closes (#68).
+    <Sheet open={mobileOpen} onOpenChange={setMobileOpen}>
     <div className="min-h-screen bg-gray-50 dark:bg-gray-950">
       {/* Top bar */}
       <header className="sticky top-0 z-40 border-b border-gray-200 bg-white/80 backdrop-blur dark:border-gray-800 dark:bg-gray-900/80">
         <div className="flex h-16 items-center gap-3 px-4 sm:px-6">
-          <button
-            type="button"
-            onClick={() => setMobileOpen(true)}
-            className="rounded-lg p-2 text-gray-500 hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-gray-800 lg:hidden"
-            aria-label="Open navigation"
-          >
-            <Bars3Icon className="h-6 w-6" />
-          </button>
+          <SheetTrigger asChild>
+            <button
+              type="button"
+              className="rounded-lg p-2 text-gray-500 hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-gray-800 lg:hidden"
+              aria-label="Open navigation"
+            >
+              <Bars3Icon className="h-6 w-6" />
+            </button>
+          </SheetTrigger>
           <BrandMark />
           <div className="ml-auto flex items-center gap-2 sm:gap-3">
             <ThemeToggle />
@@ -150,29 +158,23 @@ export function AppShell({ title, subtitle, actions, children }: AppShellProps) 
           <NavLinks />
         </aside>
 
-        {/* Mobile drawer */}
-        {mobileOpen && (
-          <div className="fixed inset-0 z-50 lg:hidden">
-            <div
-              className="absolute inset-0 bg-gray-900/40"
-              onClick={() => setMobileOpen(false)}
-            />
-            <div className="absolute left-0 top-0 flex h-full w-64 flex-col bg-white py-4 shadow-xl dark:bg-gray-900">
-              <div className="mb-2 flex items-center justify-between px-4">
-                <BrandMark />
-                <button
-                  type="button"
-                  onClick={() => setMobileOpen(false)}
-                  className="rounded-lg p-2 text-gray-500 hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-gray-800"
-                  aria-label="Close navigation"
-                >
-                  <XMarkIcon className="h-6 w-6" />
-                </button>
-              </div>
-              <NavLinks onNavigate={() => setMobileOpen(false)} />
+        {/* Mobile drawer — built on the vendored Radix-based Sheet primitive
+            instead of a hand-rolled div, so Escape-to-close, focus trapping
+            + restoration to the hamburger button, role="dialog"/aria-modal,
+            and body scroll lock all come from Radix rather than being
+            reimplemented by hand (#68). */}
+        <SheetContent
+          side="left"
+          className="w-64 gap-0 bg-white p-0 dark:bg-gray-900 lg:hidden"
+        >
+          <SheetTitle className="sr-only">Navigation menu</SheetTitle>
+          <div className="flex h-full flex-col py-4">
+            <div className="mb-2 px-4">
+              <BrandMark />
             </div>
+            <NavLinks onNavigate={() => setMobileOpen(false)} />
           </div>
-        )}
+        </SheetContent>
 
         {/* Main content */}
         <main className="min-w-0 flex-1 px-4 py-6 sm:px-6 lg:px-8">
@@ -193,5 +195,6 @@ export function AppShell({ title, subtitle, actions, children }: AppShellProps) 
         </main>
       </div>
     </div>
+    </Sheet>
   )
 }

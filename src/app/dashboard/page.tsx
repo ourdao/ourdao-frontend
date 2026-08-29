@@ -22,6 +22,7 @@ import { MEMBER_STATUS_LABELS } from '@/constants'
 import toast from 'react-hot-toast'
 import { useIsMobile, useResponsiveCardLayout } from '@/lib/responsive'
 import { AppShell } from '@/components/AppShell'
+import { DashboardSkeleton } from '@/components/ui/skeleton'
 
 export default function DashboardPage() {
   const router = useRouter()
@@ -33,10 +34,14 @@ export default function DashboardPage() {
   const { getCardGridClass } = useResponsiveCardLayout()
 
   useEffect(() => {
-    if (userData.isConnected && !userData.isMember) {
+    // Wait for the membership read to settle before deciding — otherwise
+    // this fires while isMember is still the "not yet known" default
+    // (false), bouncing every legitimate member through /register on every
+    // load (#69).
+    if (userData.isConnected && !userData.isLoading && !userData.isMember) {
       router.push('/register')
     }
-  }, [userData.isConnected, userData.isMember, router])
+  }, [userData.isConnected, userData.isLoading, userData.isMember, router])
 
   useEffect(() => {
     if (isSuccess) {
@@ -91,6 +96,10 @@ export default function DashboardPage() {
       </div>
       </AppShell>
     )
+  }
+
+  if (userData.isLoading) {
+    return <DashboardSkeleton />
   }
 
   if (!userData.isMember) {

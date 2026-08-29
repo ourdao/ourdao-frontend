@@ -54,7 +54,7 @@ export function useDAOContract() {
 export function useUserData(): UserData {
   const { address, isConnected } = useWallet()
 
-  const { data } = useQuery({
+  const { data, isLoading } = useQuery({
     queryKey: ['userData', address],
     enabled: !!address && isContractConfigured(),
     queryFn: async () => {
@@ -82,6 +82,10 @@ export function useUserData(): UserData {
   return {
     isConnected,
     address: address || undefined,
+    // `enabled: false` (no address) resolves isLoading to false rather than
+    // hanging forever — fine here since every isLoading consumer already
+    // gates on isConnected first.
+    isLoading,
     isMember: !!data?.isMember,
     isAdmin: !!data?.isAdmin,
     member: m

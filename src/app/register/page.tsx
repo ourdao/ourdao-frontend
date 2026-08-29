@@ -30,10 +30,13 @@ export default function RegisterPage() {
   const maxSteps = 2
 
   useEffect(() => {
-    if (userData.isConnected && userData.isMember) {
+    // Mirror of the dashboard's redirect (#69) — wait for the membership
+    // read to settle so a member mid-registration-flow-check isn't bounced
+    // to /dashboard based on the still-loading default.
+    if (userData.isConnected && !userData.isLoading && userData.isMember) {
       router.push('/dashboard')
     }
-  }, [userData.isConnected, userData.isMember, router])
+  }, [userData.isConnected, userData.isLoading, userData.isMember, router])
 
   useEffect(() => {
     if (isSuccess) {
