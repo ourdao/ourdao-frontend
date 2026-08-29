@@ -203,7 +203,9 @@ export default function DocumentViewer({
           src={previewUrl}
           controls
           className="max-w-full max-h-96 mx-auto rounded-lg shadow-lg"
+          aria-label={doc.name}
         >
+          <track kind="captions" />
           Your browser does not support the video tag.
         </video>
       )
@@ -215,7 +217,9 @@ export default function DocumentViewer({
           src={previewUrl}
           controls
           className="w-full"
+          aria-label={doc.name}
         >
+          <track kind="captions" />
           Your browser does not support the audio tag.
         </audio>
       )
@@ -236,6 +240,7 @@ export default function DocumentViewer({
             <button
               onClick={onClose}
               className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
+              aria-label="Close document"
             >
               <XMarkIcon className="h-5 w-5" />
             </button>
@@ -276,7 +281,7 @@ export default function DocumentViewer({
               <button
                 onClick={downloadDocument}
                 className="p-2 text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white"
-                title="Download"
+                aria-label="Download document"
               >
                 <ArrowDownTrayIcon className="h-5 w-5" />
               </button>
@@ -284,7 +289,7 @@ export default function DocumentViewer({
                 onClick={shareDocument}
                 data-share-button
                 className="p-2 text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white"
-                title="Share"
+                aria-label="Share document"
               >
                 <ShareIcon className="h-5 w-5" />
               </button>
@@ -294,6 +299,7 @@ export default function DocumentViewer({
             <button
               onClick={onClose}
               className="p-2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
+              aria-label="Close document"
             >
               <XMarkIcon className="h-5 w-5" />
             </button>
@@ -328,6 +334,8 @@ export default function DocumentViewer({
                   type="button"
                   onClick={() => setShowPassword(!showPassword)}
                   className="absolute inset-y-0 right-0 pr-3 flex items-center"
+                  aria-label={showPassword ? 'Hide password' : 'Show password'}
+                  aria-pressed={showPassword}
                 >
                   {showPassword ? (
                     <EyeSlashIcon className="h-4 w-4 text-gray-400" />

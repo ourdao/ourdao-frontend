@@ -112,7 +112,9 @@ const NotificationCenter: React.FC<NotificationCenterProps> = ({ className = '' 
       <button
         onClick={() => setIsOpen(!isOpen)}
         className="relative p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
-        title="Notifications"
+        aria-label="Notifications"
+        aria-expanded={isOpen}
+        aria-haspopup="dialog"
       >
         <Bell className="w-6 h-6" />
         {unreadCount > 0 && (
@@ -129,6 +131,10 @@ const NotificationCenter: React.FC<NotificationCenterProps> = ({ className = '' 
           <div 
             className="fixed inset-0 z-40 bg-black/20"
             onClick={() => setIsOpen(false)}
+            onKeyDown={(e) => { if (e.key === 'Escape') setIsOpen(false) }}
+            role="button"
+            tabIndex={-1}
+            aria-hidden="true"
           />
           
           {/* Panel */}
@@ -140,6 +146,7 @@ const NotificationCenter: React.FC<NotificationCenterProps> = ({ className = '' 
                 <button
                   onClick={() => setIsOpen(false)}
                   className="p-1 hover:bg-gray-100 dark:hover:bg-gray-800 rounded"
+                  aria-label="Close notifications"
                 >
                   <X className="w-5 h-5" />
                 </button>
@@ -201,14 +208,14 @@ const NotificationCenter: React.FC<NotificationCenterProps> = ({ className = '' 
                         <button
                           onClick={markAllAsRead}
                           className="text-xs text-blue-600 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300"
-                          title="Mark all as read"
+                          aria-label="Mark all as read"
                         >
                           <CheckCheck className="w-4 h-4" />
                         </button>
                         <button
                           onClick={clearAllNotifications}
                           className="text-xs text-gray-600 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300"
-                          title="Clear all"
+                          aria-label="Clear all notifications"
                         >
                           <X className="w-4 h-4" />
                         </button>
@@ -265,6 +272,17 @@ const NotificationCenter: React.FC<NotificationCenterProps> = ({ className = '' 
                             setIsOpen(false)
                           }
                         }}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter' || e.key === ' ') {
+                            markAsRead(notification.id)
+                            if (notification.actionUrl) {
+                              window.location.href = notification.actionUrl
+                              setIsOpen(false)
+                            }
+                          }
+                        }}
+                        role="button"
+                        tabIndex={0}
                       >
                         <div className="flex items-start justify-between">
                           <div className="flex-1 min-w-0">
@@ -292,7 +310,7 @@ const NotificationCenter: React.FC<NotificationCenterProps> = ({ className = '' 
                                     markAsRead(notification.id)
                                   }}
                                   className="text-xs text-blue-600 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300"
-                                  title="Mark as read"
+                                  aria-label="Mark as read"
                                 >
                                   <Check className="w-3 h-3" />
                                 </button>
@@ -305,7 +323,7 @@ const NotificationCenter: React.FC<NotificationCenterProps> = ({ className = '' 
                               removeNotification(notification.id)
                             }}
                             className="ml-2 p-1 hover:bg-gray-200 dark:hover:bg-gray-700 rounded"
-                            title="Remove"
+                            aria-label="Remove notification"
                           >
                             <X className="w-3 h-3" />
                           </button>

@@ -131,6 +131,8 @@ export default function Home() {
               <button
                 className="md:hidden p-2 rounded-md text-gray-400 hover:text-gray-500 dark:text-gray-500 dark:hover:text-gray-400"
                 onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+                aria-label={mobileMenuOpen ? 'Close menu' : 'Open menu'}
+                aria-expanded={mobileMenuOpen}
               >
                 {mobileMenuOpen ? (
                   <X className="h-6 w-6" />
@@ -475,6 +477,7 @@ export default function Home() {
                     target="_blank"
                     rel="noreferrer"
                     className="text-gray-400 hover:text-white transition-colors"
+                    aria-label="OurDAO GitHub"
                   >
                     <Github className="h-6 w-6" />
                   </a>
@@ -494,10 +497,10 @@ export default function Home() {
               <div>
                 <h4 className="text-base font-semibold text-white mb-4">Resources</h4>
                 <ul className="space-y-3">
-                  <li><a href="#" className="text-gray-400 hover:text-white text-sm transition-colors">Documentation</a></li>
-                  <li><a href="#" className="text-gray-400 hover:text-white text-sm transition-colors">GitHub</a></li>
-                  <li><a href="#" className="text-gray-400 hover:text-white text-sm transition-colors">Discord</a></li>
-                  <li><a href="#" className="text-gray-400 hover:text-white text-sm transition-colors">Support</a></li>
+                  <li><span className="text-gray-400 text-sm">Documentation</span></li>
+                  <li><a href="https://github.com/ourdao" target="_blank" rel="noreferrer" className="text-gray-400 hover:text-white text-sm transition-colors">GitHub</a></li>
+                  <li><span className="text-gray-400 text-sm">Discord</span></li>
+                  <li><span className="text-gray-400 text-sm">Support</span></li>
                 </ul>
               </div>
             </div>
@@ -509,8 +512,8 @@ export default function Home() {
                 © {new Date().getFullYear()} OurDAO. All rights reserved.
               </p>
               <div className="flex space-x-6 mt-4 md:mt-0">
-                <a href="#" className="text-sm text-gray-400 hover:text-white transition-colors">Privacy Policy</a>
-                <a href="#" className="text-sm text-gray-400 hover:text-white transition-colors">Terms of Service</a>
+                <span className="text-sm text-gray-400">Privacy Policy</span>
+                <span className="text-sm text-gray-400">Terms of Service</span>
               </div>
             </div>
           </div>

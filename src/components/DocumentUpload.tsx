@@ -191,6 +191,9 @@ export default function DocumentUpload({
         onDrop={handleDrop}
         onDragOver={handleDragOver}
         onClick={() => fileInputRef.current?.click()}
+        onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); fileInputRef.current?.click() } }}
+        role="button"
+        tabIndex={0}
         className="relative border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-lg p-6 hover:border-blue-500 dark:hover:border-blue-400 transition-colors cursor-pointer"
       >
         <div className="text-center">
@@ -244,6 +247,7 @@ export default function DocumentUpload({
                 <button
                   onClick={() => removeFile(index)}
                   className="p-1 text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300"
+                  aria-label={`Remove ${file.name}`}
                 >
                   <XMarkIcon className="h-4 w-4" />
                 </button>
@@ -280,12 +284,15 @@ export default function DocumentUpload({
                   placeholder="Enter encryption password"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
+                  aria-label="Encryption password"
                   className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-800 dark:text-white pr-10"
                 />
                 <button
                   type="button"
                   onClick={() => setShowPassword(!showPassword)}
                   className="absolute inset-y-0 right-0 pr-3 flex items-center"
+                  aria-label={showPassword ? 'Hide password' : 'Show password'}
+                  aria-pressed={showPassword}
                 >
                   {showPassword ? (
                     <EyeSlashIcon className="h-4 w-4 text-gray-400 dark:text-gray-500" />
@@ -321,11 +328,12 @@ export default function DocumentUpload({
           </div>
 
           <div className="space-y-2">
-            <label className="block text-sm font-medium text-gray-900 dark:text-white">
+            <label htmlFor="allowed-user" className="block text-sm font-medium text-gray-900 dark:text-white">
               Allowed Users (Addresses)
             </label>
             <div className="flex space-x-2">
               <input
+                id="allowed-user"
                 type="text"
                 placeholder="0x..."
                 value={newUser}
@@ -351,6 +359,7 @@ export default function DocumentUpload({
                     <button
                       onClick={() => removeAllowedUser(user)}
                       className="ml-1 text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300"
+                      aria-label={`Remove user ${user.slice(0, 8)}...`}
                     >
                       <XMarkIcon className="h-3 w-3" />
                     </button>
@@ -361,11 +370,12 @@ export default function DocumentUpload({
           </div>
 
           <div className="space-y-2">
-            <label className="block text-sm font-medium text-gray-900 dark:text-white">
+            <label htmlFor="allowed-role" className="block text-sm font-medium text-gray-900 dark:text-white">
               Allowed Roles
             </label>
             <div className="flex space-x-2">
               <select
+                id="allowed-role"
                 value={newRole}
                 onChange={(e) => setNewRole(e.target.value)}
                 className="flex-1 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
@@ -396,6 +406,7 @@ export default function DocumentUpload({
                     <button
                       onClick={() => removeAllowedRole(role)}
                       className="ml-1 text-green-600 hover:text-green-800 dark:text-green-400 dark:hover:text-green-300"
+                      aria-label={`Remove role ${role}`}
                     >
                       <XMarkIcon className="h-3 w-3" />
                     </button>

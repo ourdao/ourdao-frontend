@@ -1,9 +1,18 @@
 import nextCoreWebVitals from "eslint-config-next/core-web-vitals";
 import nextTypescript from "eslint-config-next/typescript";
+import jsxA11y from "eslint-plugin-jsx-a11y";
 
 const eslintConfig = [
   ...nextCoreWebVitals,
   ...nextTypescript,
+  // The plugin is already registered by eslint-config-next; only add the
+  // recommended ruleset without re-declaring the plugin entry.
+  {
+    plugins: {},
+    rules: {
+      ...jsxA11y.flatConfigs.recommended.rules,
+    },
+  },
   {
     ignores: [
       "node_modules/**",
