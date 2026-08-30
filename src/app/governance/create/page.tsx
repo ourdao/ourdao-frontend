@@ -51,10 +51,10 @@ export default function CreateProposalPage() {
           <Card className="w-full max-w-md">
             <CardContent className="p-6 text-center">
               <ExclamationTriangleIcon className="mx-auto mb-4 h-12 w-12 text-amber-500 dark:text-amber-400" />
-              <h3 className="mb-2 text-lg font-medium text-gray-900 dark:text-white">
+              <h3 className="mb-2 text-lg font-medium text-foreground">
                 Member Only
               </h3>
-              <p className="text-gray-600 dark:text-gray-400">
+              <p className="text-muted-foreground">
                 Only DAO members can create governance proposals.
               </p>
             </CardContent>
@@ -109,7 +109,7 @@ export default function CreateProposalPage() {
           <CardContent>
             <form onSubmit={handleSubmit} className="space-y-6">
               <div>
-                <label htmlFor="proposal-amount" className="mb-1 block text-sm font-medium text-gray-700 dark:text-gray-300">
+                <label className="mb-1 block text-sm font-medium text-foreground">
                   Amount
                 </label>
                 <input
@@ -121,12 +121,12 @@ export default function CreateProposalPage() {
                   value={form.amount}
                   onChange={(e) => set('amount', e.target.value)}
                   placeholder="0.00"
-                  className="w-full rounded-lg border border-gray-300 dark:border-gray-600 px-3 py-2.5 text-sm transition-colors focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-500/20"
+                  className="w-full rounded-lg border border-input px-3 py-2.5 text-sm transition-colors focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-500/20"
                 />
               </div>
 
               <div>
-                <label htmlFor="proposal-destination" className="mb-1 block text-sm font-medium text-gray-700 dark:text-gray-300">
+                <label className="mb-1 block text-sm font-medium text-foreground">
                   Destination address
                 </label>
                 <input
@@ -136,12 +136,12 @@ export default function CreateProposalPage() {
                   onChange={(e) => set('destination', e.target.value)}
                   placeholder="G… or C…"
                   spellCheck={false}
-                  className="w-full rounded-lg border border-gray-300 dark:border-gray-600 px-3 py-2.5 font-mono text-sm transition-colors focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-500/20"
+                  className="w-full rounded-lg border border-input px-3 py-2.5 font-mono text-sm transition-colors focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-500/20"
                 />
               </div>
 
               <div>
-                <label htmlFor="proposal-reason" className="mb-1 block text-sm font-medium text-gray-700 dark:text-gray-300">
+                <label className="mb-1 block text-sm font-medium text-foreground">
                   Reason
                 </label>
                 <textarea
@@ -150,24 +150,24 @@ export default function CreateProposalPage() {
                   value={form.reason}
                   onChange={(e) => set('reason', e.target.value)}
                   placeholder="Explain what this withdrawal is for…"
-                  className="w-full rounded-lg border border-gray-300 dark:border-gray-600 px-3 py-2.5 text-sm transition-colors focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-500/20"
+                  className="w-full rounded-lg border border-input px-3 py-2.5 text-sm transition-colors focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-500/20"
                 />
               </div>
 
-              <div className="flex items-start gap-3 rounded-lg border border-gray-200 dark:border-gray-700 p-4">
+              <label className="flex items-start gap-3 rounded-lg border border-border p-4">
                 <input
                   id="proposal-private"
                   type="checkbox"
                   checked={form.isPrivate}
                   onChange={(e) => set('isPrivate', e.target.checked)}
-                  className="mt-0.5 h-4 w-4 rounded border-gray-300 dark:border-gray-600 text-primary-600 focus:ring-primary-500"
+                  className="mt-0.5 h-4 w-4 rounded border-input text-primary-600 focus:ring-primary-500"
                 />
-                <label htmlFor="proposal-private" className="text-sm">
-                  <span className="flex items-center gap-1.5 font-medium text-gray-900 dark:text-white">
+                <span className="text-sm">
+                  <span className="flex items-center gap-1.5 font-medium text-foreground">
                     <EyeSlashIcon className="h-4 w-4" />
                     Private voting (commit-reveal)
                   </span>
-                  <span className="mt-0.5 block text-gray-500 dark:text-gray-400">
+                  <span className="mt-0.5 block text-muted-foreground">
                     Members submit a hidden vote first, then reveal it — no one
                     sees the tally influence others while voting is open.
                   </span>
