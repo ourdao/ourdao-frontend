@@ -506,10 +506,10 @@ export default function Home() {
               <div>
                 <h4 className="text-base font-semibold text-white mb-4">Resources</h4>
                 <ul className="space-y-3">
-                  <li><a href="#" className="text-gray-400 hover:text-white text-sm transition-colors">Documentation</a></li>
+                  <li><span className="text-gray-400 text-sm">Documentation</span></li>
                   <li><a href="https://github.com/ourdao" target="_blank" rel="noopener noreferrer" className="text-gray-400 hover:text-white text-sm transition-colors">GitHub</a></li>
                   <li><a href={getContractUrl()} target="_blank" rel="noopener noreferrer" className="text-gray-400 hover:text-white text-sm transition-colors">View Contract</a></li>
-                  <li><a href="#" className="text-gray-400 hover:text-white text-sm transition-colors">Support</a></li>
+                  <li><span className="text-gray-400 text-sm">Support</span></li>
                 </ul>
               </div>
             </div>

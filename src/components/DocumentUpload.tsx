@@ -188,9 +188,12 @@ export default function DocumentUpload({
     <div className={`space-y-4 ${className}`}>
       {/* Upload Area */}
       <div
+        role="button"
+        tabIndex={0}
         onDrop={handleDrop}
         onDragOver={handleDragOver}
         onClick={() => fileInputRef.current?.click()}
+        onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); fileInputRef.current?.click() } }}
         className="relative border-2 border-dashed border-input rounded-lg p-6 hover:border-blue-500 dark:hover:border-blue-400 transition-colors cursor-pointer"
       >
         <div className="text-center">
@@ -323,7 +326,7 @@ export default function DocumentUpload({
           </div>
 
           <div className="space-y-2">
-            <label className="block text-sm font-medium text-foreground">
+            <label htmlFor="allowed-user" className="block text-sm font-medium text-foreground">
               Allowed Users (Addresses)
             </label>
             <div className="flex space-x-2">
@@ -365,7 +368,7 @@ export default function DocumentUpload({
           </div>
 
           <div className="space-y-2">
-            <label className="block text-sm font-medium text-foreground">
+            <label htmlFor="allowed-role" className="block text-sm font-medium text-foreground">
               Allowed Roles
             </label>
             <div className="flex space-x-2">

@@ -155,7 +155,7 @@ export default function TreasuryPage() {
               separately from the treasury and can be withdrawn at any time.
             </p>
             <div>
-              <label className="mb-1 block text-sm font-medium text-foreground">
+              <label htmlFor="stake-amount" className="mb-1 block text-sm font-medium text-foreground">
                 Amount
               </label>
               <input
