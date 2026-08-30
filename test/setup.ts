@@ -2,13 +2,27 @@ import '@testing-library/jest-dom/vitest'
 import { afterEach } from 'vitest'
 import { cleanup } from '@testing-library/react'
 
-// vitest.config.ts sets `globals: false`, so @testing-library/react's
-// automatic afterEach-cleanup detection (which looks for a global
-// `afterEach`) never fires — every render() across every test file was
-// accumulating in the DOM instead of being unmounted between tests. Existing
-// tests didn't notice because they render headless hook harnesses (no
-// meaningful DOM), but any test that queries rendered output by role/text
-// needs this to see one render at a time.
+// `globals: false` in vitest.config.ts means RTL's own auto-cleanup (which
+// relies on detecting a global `afterEach`) never registers, so a page
+// rendered in one test stays in the DOM for the next `it()` in the same
+// file. Component tests that query by text/role need this explicit.
 afterEach(() => {
   cleanup()
 })
+
+// jsdom doesn't implement matchMedia. src/lib/responsive.ts's useScreenSize
+// (used by several pages via useIsMobile/useResponsiveCardLayout) calls it
+// unconditionally, so any component test that renders one of those pages
+// throws without this.
+if (typeof window !== 'undefined' && !window.matchMedia) {
+  window.matchMedia = ((query: string) => ({
+    matches: false,
+    media: query,
+    onchange: null,
+    addListener: () => {},
+    removeListener: () => {},
+    addEventListener: () => {},
+    removeEventListener: () => {},
+    dispatchEvent: () => false,
+  })) as typeof window.matchMedia
+}

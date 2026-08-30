@@ -1,6 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { render, screen } from '@testing-library/react'
-import type { ReactNode } from 'react'
 import type { UserData } from '@/types/dao'
 
 // #69: a pending membership query must not be treated as "not a member" —
@@ -48,16 +47,9 @@ vi.mock('@/hooks/useDAO', () => ({
 vi.mock('@/lib/responsive', () => ({
   useIsMobile: () => false,
   useResponsiveCardLayout: () => ({ getCardGridClass: () => 'grid-cols-4' }),
-  // DashboardSkeleton (rendered while userData.isLoading) pulls this in
-  // transitively via ui/skeleton.tsx's Skeleton/LoadingSpinner.
+  // LoadingSpinner (rendered while userData.isLoading) pulls this in
+  // transitively via ui/skeleton.tsx.
   useNetworkAware: () => ({ shouldOptimize: false }),
-}))
-
-// AppShell pulls in ConnectButton/NotificationCenter/ThemeToggle/wallet
-// state that's irrelevant to the redirect logic under test — stub it down
-// to just its children, the same way a shallow render would.
-vi.mock('@/components/AppShell', () => ({
-  AppShell: ({ children }: { children: ReactNode }) => <div>{children}</div>,
 }))
 
 const baseUserData: UserData = {
@@ -74,7 +66,10 @@ const baseUserData: UserData = {
 }
 
 async function renderDashboard() {
-  const { default: DashboardPage } = await import('@/app/dashboard/page')
+  // Moved into the (app) route group upstream — AppShell is now applied
+  // once by (app)/layout.tsx rather than per-page, so this page no longer
+  // needs its own AppShell mock.
+  const { default: DashboardPage } = await import('@/app/(app)/dashboard/page')
   return render(<DashboardPage />)
 }
 
