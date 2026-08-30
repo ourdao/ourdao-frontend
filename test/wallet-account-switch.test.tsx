@@ -7,39 +7,36 @@ import { render, waitFor, act } from '@testing-library/react'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import React from 'react'
 import { WalletProvider, useWallet } from '@/lib/wallet'
+import * as freighter from '@stellar/freighter-api'
 
 // ---------------------------------------------------------------------------
 // Mock @stellar/freighter-api
 // ---------------------------------------------------------------------------
 
-type WatchCallback = (params: { address: string; network: string; networkPassphrase: string; error?: unknown }) => void
+type WatchCallback = (params: {
+  address: string
+  network: string
+  networkPassphrase: string
+  error?: unknown
+}) => void
 
 // Shared handle so tests can drive the watcher.
 let watchCallback: WatchCallback | null = null
 const mockWatcherStop = vi.fn()
-
-const MockWatchWalletChanges = vi.fn().mockImplementation(() => ({
-  watch: vi.fn((cb: WatchCallback) => {
-    watchCallback = cb
-    return {}
-  }),
-  stop: mockWatcherStop,
-}))
 
 vi.mock('@stellar/freighter-api', () => ({
   isAllowed: vi.fn().mockResolvedValue(false),
   requestAccess: vi.fn(),
   getAddress: vi.fn(),
   signTransaction: vi.fn(),
-  WatchWalletChanges: MockWatchWalletChanges,
+  WatchWalletChanges: vi.fn().mockImplementation(() => ({
+    watch: vi.fn((cb: WatchCallback) => {
+      watchCallback = cb
+      return {}
+    }),
+    stop: mockWatcherStop,
+  })),
 }))
-
-// eslint-disable-next-line @typescript-eslint/no-require-imports
-const freighterMock = require('@stellar/freighter-api') as {
-  isAllowed: ReturnType<typeof vi.fn>
-  requestAccess: ReturnType<typeof vi.fn>
-  getAddress: ReturnType<typeof vi.fn>
-}
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -51,13 +48,16 @@ function Harness({ onRender }: { onRender: (w: ReturnType<typeof useWallet>) => 
   return null
 }
 
-function renderProvider(queryClient: QueryClient, onRender: (w: ReturnType<typeof useWallet>) => void) {
+function renderProvider(
+  queryClient: QueryClient,
+  onRender: (w: ReturnType<typeof useWallet>) => void,
+) {
   return render(
     <QueryClientProvider client={queryClient}>
       <WalletProvider>
         <Harness onRender={onRender} />
       </WalletProvider>
-    </QueryClientProvider>
+    </QueryClientProvider>,
   )
 }
 
@@ -73,45 +73,53 @@ describe('WalletProvider — Freighter account switch (issue #59)', () => {
   beforeEach(() => {
     watchCallback = null
     mockWatcherStop.mockClear()
-    MockWatchWalletChanges.mockClear()
-    freighterMock.isAllowed.mockResolvedValue(false)
+    vi.mocked(freighter.WatchWalletChanges).mockClear()
+    vi.mocked(freighter.isAllowed).mockResolvedValue(false)
   })
 
   afterEach(() => vi.clearAllMocks())
 
   it('updates the displayed address when Freighter reports a different account', async () => {
     // Simulate a pre-authorized session with account A.
-    freighterMock.isAllowed.mockResolvedValue({ isAllowed: true })
-    freighterMock.getAddress.mockResolvedValue({ address: 'ACCOUNT_A' })
+    vi.mocked(freighter.isAllowed).mockResolvedValue({ isAllowed: true } as never)
+    vi.mocked(freighter.getAddress).mockResolvedValue({ address: 'ACCOUNT_A' } as never)
 
     const qc = makeQueryClient()
     let latest: ReturnType<typeof useWallet> | undefined
-    renderProvider(qc, (w) => { latest = w })
+    renderProvider(qc, (w) => {
+      latest = w
+    })
 
     // Wait for the restore effect to populate address A.
     await waitFor(() => expect(latest?.address).toBe('ACCOUNT_A'))
 
     // The watcher should now be running.
-    expect(MockWatchWalletChanges).toHaveBeenCalled()
+    expect(freighter.WatchWalletChanges).toHaveBeenCalled()
     expect(watchCallback).not.toBeNull()
 
     // Simulate the user switching to account B inside Freighter.
     act(() => {
-      watchCallback!({ address: 'ACCOUNT_B', network: 'TESTNET', networkPassphrase: 'Test SDF Network ; September 2015' })
+      watchCallback!({
+        address: 'ACCOUNT_B',
+        network: 'TESTNET',
+        networkPassphrase: 'Test SDF Network ; September 2015',
+      })
     })
 
     await waitFor(() => expect(latest?.address).toBe('ACCOUNT_B'))
   })
 
   it('invalidates wallet-scoped query caches on account switch', async () => {
-    freighterMock.isAllowed.mockResolvedValue({ isAllowed: true })
-    freighterMock.getAddress.mockResolvedValue({ address: 'ACCOUNT_A' })
+    vi.mocked(freighter.isAllowed).mockResolvedValue({ isAllowed: true } as never)
+    vi.mocked(freighter.getAddress).mockResolvedValue({ address: 'ACCOUNT_A' } as never)
 
     const qc = makeQueryClient()
     const invalidate = vi.spyOn(qc, 'invalidateQueries')
 
     let latest: ReturnType<typeof useWallet> | undefined
-    renderProvider(qc, (w) => { latest = w })
+    renderProvider(qc, (w) => {
+      latest = w
+    })
 
     await waitFor(() => expect(latest?.address).toBe('ACCOUNT_A'))
     invalidate.mockClear() // clear any calls made during restore
@@ -123,21 +131,25 @@ describe('WalletProvider — Freighter account switch (issue #59)', () => {
     await waitFor(() => expect(latest?.address).toBe('ACCOUNT_B'))
 
     // userData, userLoans, and stake caches must all be invalidated.
-    const invalidatedKeys = invalidate.mock.calls.map((c) => (c[0] as { queryKey: unknown[] }).queryKey[0])
+    const invalidatedKeys = invalidate.mock.calls.map(
+      (c) => (c[0] as { queryKey: unknown[] }).queryKey[0],
+    )
     expect(invalidatedKeys).toContain('userData')
     expect(invalidatedKeys).toContain('userLoans')
     expect(invalidatedKeys).toContain('stake')
   })
 
   it('does not re-render or invalidate when the same address is reported again', async () => {
-    freighterMock.isAllowed.mockResolvedValue({ isAllowed: true })
-    freighterMock.getAddress.mockResolvedValue({ address: 'ACCOUNT_A' })
+    vi.mocked(freighter.isAllowed).mockResolvedValue({ isAllowed: true } as never)
+    vi.mocked(freighter.getAddress).mockResolvedValue({ address: 'ACCOUNT_A' } as never)
 
     const qc = makeQueryClient()
     const invalidate = vi.spyOn(qc, 'invalidateQueries')
 
     let latest: ReturnType<typeof useWallet> | undefined
-    renderProvider(qc, (w) => { latest = w })
+    renderProvider(qc, (w) => {
+      latest = w
+    })
 
     await waitFor(() => expect(latest?.address).toBe('ACCOUNT_A'))
     invalidate.mockClear()
@@ -156,28 +168,32 @@ describe('WalletProvider — Freighter account switch (issue #59)', () => {
 
   it('does not start the watcher when Freighter is not installed (address remains null)', async () => {
     // isAllowed rejects — simulates extension absent.
-    freighterMock.isAllowed.mockRejectedValue(new Error('not installed'))
+    vi.mocked(freighter.isAllowed).mockRejectedValue(new Error('not installed'))
 
     const qc = makeQueryClient()
     let latest: ReturnType<typeof useWallet> | undefined
-    renderProvider(qc, (w) => { latest = w })
+    renderProvider(qc, (w) => {
+      latest = w
+    })
 
     await waitFor(() => expect(latest?.address).toBeNull())
 
     // Watcher constructor must never have been called (no address to watch).
-    expect(MockWatchWalletChanges).not.toHaveBeenCalled()
+    expect(freighter.WatchWalletChanges).not.toHaveBeenCalled()
   })
 
   it('stops the watcher when the wallet is disconnected', async () => {
-    freighterMock.isAllowed.mockResolvedValue({ isAllowed: true })
-    freighterMock.getAddress.mockResolvedValue({ address: 'ACCOUNT_A' })
+    vi.mocked(freighter.isAllowed).mockResolvedValue({ isAllowed: true } as never)
+    vi.mocked(freighter.getAddress).mockResolvedValue({ address: 'ACCOUNT_A' } as never)
 
     const qc = makeQueryClient()
     let latest: ReturnType<typeof useWallet> | undefined
-    renderProvider(qc, (w) => { latest = w })
+    renderProvider(qc, (w) => {
+      latest = w
+    })
 
     await waitFor(() => expect(latest?.address).toBe('ACCOUNT_A'))
-    expect(MockWatchWalletChanges).toHaveBeenCalled()
+    expect(freighter.WatchWalletChanges).toHaveBeenCalled()
 
     act(() => {
       latest!.disconnect()
