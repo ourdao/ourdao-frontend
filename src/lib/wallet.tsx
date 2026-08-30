@@ -17,6 +17,7 @@ import {
   WatchWalletChanges,
 } from '@stellar/freighter-api'
 import { Networks } from '@stellar/stellar-sdk'
+import { useQueryClient } from '@tanstack/react-query'
 import toast from 'react-hot-toast'
 import { NETWORK_PASSPHRASE } from './stellar'
 
@@ -76,14 +77,24 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
   const [connecting, setConnecting] = useState(false)
   const [walletNetworkPassphrase, setWalletNetworkPassphrase] = useState<string | null>(null)
   const [walletNetwork, setWalletNetwork] = useState<string | null>(null)
-  const watcherRef = useRef<WatchWalletChanges | null>(null)
+  const queryClient = useQueryClient()
+  // Keep a ref so the watcher callback always sees the latest address without
+  // needing to restart the watcher on every render.
+  const addressRef = useRef<string | null>(null)
+  addressRef.current = address
 
   const networkMismatch =
     !!address && !!walletNetworkPassphrase && walletNetworkPassphrase !== NETWORK_PASSPHRASE
 
-  // Watch Freighter's active network continuously (on connect and on any
-  // later change) rather than only checking once at connect time — the
-  // user can switch networks in the extension without reloading the app.
+  // Single WatchWalletChanges watcher that handles both concerns:
+  //   1. Network mismatch — update walletNetworkPassphrase/walletNetwork on
+  //      every poll so the banner reflects the extension's current network.
+  //   2. Account switch (issue #59) — when the address changes, update the
+  //      in-app address state and invalidate all wallet-scoped React Query
+  //      caches so no previous account's data lingers.
+  //
+  // The watcher is only active while a wallet is connected; it stops on
+  // disconnect or unmount.
   useEffect(() => {
     if (!address) {
       setWalletNetworkPassphrase(null)
@@ -92,18 +103,28 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
     }
 
     const watcher = new WatchWalletChanges(WALLET_WATCH_INTERVAL_MS)
-    watcherRef.current = watcher
-    watcher.watch(params => {
+    watcher.watch((params) => {
       if (params.error) return
+
+      // --- network mismatch tracking ---
       setWalletNetworkPassphrase(params.networkPassphrase || null)
       setWalletNetwork(params.network || null)
+
+      // --- account switch tracking ---
+      const newAddr = params.address
+      if (newAddr && newAddr !== addressRef.current) {
+        setAddress(newAddr)
+        queryClient.invalidateQueries({ queryKey: ['userData'] })
+        queryClient.invalidateQueries({ queryKey: ['userLoans'] })
+        queryClient.invalidateQueries({ queryKey: ['stake'] })
+      }
     })
 
     return () => {
       watcher.stop()
-      watcherRef.current = null
     }
-  }, [address])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [!!address, queryClient])
 
   // Restore a previously-authorized session on load (no popup if already allowed).
   useEffect(() => {
