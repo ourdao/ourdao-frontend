@@ -1,11 +1,11 @@
 'use client'
 
-import { useInfiniteQuery, useQuery, useQueryClient, type QueryKey } from '@tanstack/react-query'
+import { useQuery } from '@tanstack/react-query'
 import { useCallback, useMemo, useState } from 'react'
 import toast from 'react-hot-toast'
 import { useWallet } from '@/lib/wallet'
-import { CONTRACT_ID, isContractConfigured } from '@/lib/stellar'
-import { daoRead, daoWrite, type InvokeResult } from '@/lib/dao-client'
+import { CONTRACT_ID, isContractConfigured, getTransactionUrl } from '@/lib/stellar'
+import { daoRead, daoWrite } from '@/lib/dao-client'
 import { backend, type BackendEvent, type BackendLoan } from '@/lib/backend'
 import type { UserData, DAOStats, Loan } from '@/types/dao'
 import { MemberStatus } from '@/types/dao'
@@ -76,6 +76,7 @@ export function useUserData(): UserData {
     enabled: !!address,
     queryFn: () => backend.getLoans(address!),
     refetchInterval: 15_000,
+    refetchIntervalInBackground: false,
   })
 
   const m = data?.member
@@ -141,6 +142,7 @@ export function useDAOStats(): ExtendedStats {
     queryKey: ['daoStatsBackend'],
     queryFn: () => backend.getStats(),
     refetchInterval: 15_000,
+    refetchIntervalInBackground: false,
   })
 
   const membershipFee = asBigInt(
@@ -170,26 +172,12 @@ export function useDAOStats(): ExtendedStats {
   }
 }
 
-const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms))
-
-// A transaction confirmed via invoke()'s getTransaction poll is final on the
-// ledger, but a simulateTransaction call issued immediately after can still
-// land on an RPC node whose view of that ledger hasn't caught up yet — which
-// reads back as pre-transaction state and looks like the write silently
-// failed. This short delay before invalidating gives that propagation a
-// window to close; it's a mitigation; not tested against a live testnet
-// contract (see PR description), so revisit if staleness is still observed.
-const RPC_PROPAGATION_DELAY_MS = 500
-
 /**
  * Shared plumbing for a write action: resolves the wallet + signer, tracks
- * pending/success/error, surfaces toasts, and invalidates the query keys the
- * action affects once the write is confirmed. A failed write invalidates
- * nothing — the cache should only move once the chain actually has.
+ * pending/success/error, and surfaces toasts. Returns a runner plus state.
  */
 function useWriteAction() {
   const { address, signXDR, isConnected } = useWallet()
-  const queryClient = useQueryClient()
   const [isPending, setPending] = useState(false)
   const [isSuccess, setSuccess] = useState(false)
   const [error, setError] = useState<Error | null>(null)
@@ -197,8 +185,7 @@ function useWriteAction() {
   const run = useCallback(
     async (
       label: string,
-      fn: (w: ReturnType<typeof daoWrite>) => Promise<InvokeResult>,
-      invalidates: QueryKey[] = []
+      fn: (w: ReturnType<typeof daoWrite>) => Promise<{ hash: string }>
     ) => {
       if (!isConnected || !address) {
         toast.error('Connect your wallet first')
@@ -211,13 +198,20 @@ function useWriteAction() {
       try {
         const res = await fn(daoWrite(address, signXDR))
         setSuccess(true)
-        toast.success(`${label} confirmed`, { id: toastId })
-        if (invalidates.length) {
-          await sleep(RPC_PROPAGATION_DELAY_MS)
-          await Promise.all(
-            invalidates.map((queryKey) => queryClient.invalidateQueries({ queryKey }))
-          )
-        }
+        toast.success(
+          <span>
+            {label} confirmed{' '}
+            <a
+              href={getTransactionUrl(res.hash)}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="underline"
+            >
+              View transaction
+            </a>
+          </span>,
+          { id: toastId, duration: 8000 }
+        )
         return res
       } catch (err) {
         const e = err instanceof Error ? err : new Error(String(err))
@@ -228,56 +222,41 @@ function useWriteAction() {
         setPending(false)
       }
     },
-    [address, isConnected, signXDR, queryClient]
+    [address, isConnected, signXDR]
   )
 
-  return { run, isPending, isSuccess, error, address }
+  return { run, isPending, isSuccess, error }
 }
 
 export function useMemberRegistration() {
-  const { run, isPending, isSuccess, error, address } = useWriteAction()
-  const registerMember = () =>
-    run('Registering membership', (w) => w.registerMember(), [
-      ['userData', address],
-      ['daoStats'],
-    ])
+  const { run, isPending, isSuccess, error } = useWriteAction()
+  const registerMember = () => run('Registering membership', (w) => w.registerMember())
   return { registerMember, isPending, error, isSuccess }
 }
 
 export function useLoanRequest() {
   const { run, isPending, isSuccess, error } = useWriteAction()
-  // Returns the new proposal's id (request_loan's on-chain return value) so
-  // callers can immediately attach a supporting document to it.
-  const requestLoan = (amount: bigint) =>
-    run('Requesting loan', (w) => w.requestLoan(amount), [['backendStats']]).then(
-      (res) => Number(res.returnValue)
-    )
+  const requestLoan = (
+    amount: bigint,
+    _isPrivate = false,
+    _commitment?: string,
+    _documentHash?: string
+  ) => run('Requesting loan', (w) => w.requestLoan(amount))
   return { requestLoan, isPending, error, isSuccess }
 }
 
 export function useVoting() {
   const { run, isPending, isSuccess, error } = useWriteAction()
   const voteOnProposal = (proposalId: number, support: boolean) =>
-    run('Casting vote', (w) => w.voteOnLoanProposal(proposalId, support), [
-      ['loanProposal', proposalId],
-      ['loanProposals'],
-      // A vote can push a proposal past quorum and trigger disbursement in
-      // the same transaction, moving the treasury balance.
-      ['daoStats'],
-    ])
+    run('Casting vote', (w) => w.voteOnLoanProposal(proposalId, support))
   return { voteOnProposal, isPending, error, isSuccess }
 }
 
 export function useLoanRepayment() {
-  const { run, isPending, isSuccess, error, address } = useWriteAction()
+  const { run, isPending, isSuccess, error } = useWriteAction()
   // repay_loan takes no amount argument — the contract always collects the
   // full outstanding balance (total_repayment - amount_repaid) in one shot.
-  const repayLoan = (loanId: number) =>
-    run('Repaying loan', (w) => w.repayLoan(loanId), [
-      ['loan', loanId],
-      ['userData', address],
-      ['daoStats'],
-    ])
+  const repayLoan = (loanId: number) => run('Repaying loan', (w) => w.repayLoan(loanId))
   return { repayLoan, isPending, error, isSuccess }
 }
 
@@ -285,20 +264,15 @@ export function useMarkLoanDefaulted() {
   const { run, isPending, isSuccess, error } = useWriteAction()
   // Permissionless: mark_loan_defaulted takes no caller argument, so this
   // works even for a connected wallet that isn't the borrower or an admin.
-  // The borrower's own member record changes too, but that's a different
-  // address than whoever calls this — out of reach for this client's cache,
-  // and covered by their own next poll like any other member's actions.
   const markLoanDefaulted = (loanId: number) =>
-    run('Marking loan defaulted', (w) => w.markLoanDefaulted(loanId), [['loan', loanId]])
+    run('Marking loan defaulted', (w) => w.markLoanDefaulted(loanId))
   return { markLoanDefaulted, isPending, error, isSuccess }
 }
 
 export function useRewards() {
-  const { run, isPending, isSuccess, error, address } = useWriteAction()
-  const claimRewards = () =>
-    run('Claiming rewards', (w) => w.claimRewards(), [['userData', address]])
-  const claimYield = () =>
-    run('Claiming yield', (w) => w.claimRewards(), [['userData', address]])
+  const { run, isPending, isSuccess, error } = useWriteAction()
+  const claimRewards = () => run('Claiming rewards', (w) => w.claimRewards())
+  const claimYield = () => run('Claiming yield', (w) => w.claimRewards())
   return { claimRewards, claimYield, isPending, error, isSuccess }
 }
 
@@ -310,6 +284,7 @@ export function useDAOEvents() {
     queryKey: ['daoEvents'],
     queryFn: () => backend.getEvents(50),
     refetchInterval: 15_000,
+    refetchIntervalInBackground: false,
   })
   const events = (data ?? []) as unknown as Record<string, unknown>[]
   const setEvents = (_: Record<string, unknown>[]) => {}
@@ -361,18 +336,10 @@ export function eventLabel(symbol: unknown): string {
 // count from the off-chain indexer, then fetch each proposal by id directly
 // from the contract (source of truth). In preview mode (no contract / no
 // backend) the count is 0 and the lists resolve empty.
-//
-// Enumeration walks backwards from `count - 1` (newest id first) one page at
-// a time, since the list UI is newest-first and only recent proposals are
-// still votable — the ones a truncated, oldest-first scan would drop first.
-// Each page bounds concurrent contract reads (a public RPC endpoint can rate
-// limit or flake under an unbounded burst) and settles them independently,
-// so one rejected read drops a single row instead of emptying the page.
 // ---------------------------------------------------------------------------
 
 const VOTING_PERIOD = 7 * 24 * 60 * 60
-export const PROPOSAL_PAGE_SIZE = 20
-export const FETCH_CONCURRENCY = 8
+const MAX_ENUMERATE = 100
 
 export const tag = (v: unknown): string => String(Array.isArray(v) ? v[0] : v)
 
@@ -425,103 +392,40 @@ export function mapLoanProposal(raw: Record<string, unknown>): UILoanProposal {
   }
 }
 
-/** Run `fn` over `items` with at most `limit` calls in flight at once,
- *  settling each independently (unlike Promise.all, one rejection doesn't
- *  fail the whole batch). */
-async function settleWithConcurrency<A, B>(
-  items: A[],
-  limit: number,
-  fn: (item: A) => Promise<B>
-): Promise<PromiseSettledResult<B>[]> {
-  const results: PromiseSettledResult<B>[] = new Array(items.length)
-  let next = 0
-  const worker = async () => {
-    while (next < items.length) {
-      const i = next++
-      try {
-        results[i] = { status: 'fulfilled', value: await fn(items[i]) }
-      } catch (reason) {
-        results[i] = { status: 'rejected', reason }
-      }
-    }
-  }
-  await Promise.all(Array.from({ length: Math.min(limit, items.length) }, worker))
-  return results
-}
-
-export interface ProposalPage<T> {
-  items: T[]
-  /** true if at least one id in this page failed to fetch and was dropped. */
-  hasErrors: boolean
-  /** offset to request for the next page, or null once the oldest id (0) has been reached. */
-  nextOffset: number | null
-}
-
-/** Fetch one page of proposals, walking backwards from `count - 1` so the
- *  newest ids come first. `offset` is how many newest-first proposals prior
- *  pages already covered. */
-export async function fetchProposalPage<T>(
+async function fetchByIds<T>(
   count: number,
-  offset: number,
   fetchOne: (id: number) => Promise<Record<string, unknown> | null>,
-  map: (raw: Record<string, unknown>) => T,
-  pageSize: number = PROPOSAL_PAGE_SIZE
-): Promise<ProposalPage<T>> {
-  const start = count - 1 - offset
-  if (start < 0) return { items: [], hasErrors: false, nextOffset: null }
-
-  const end = Math.max(start - pageSize + 1, 0)
-  const ids: number[] = []
-  for (let id = start; id >= end; id--) ids.push(id)
-
-  const settled = await settleWithConcurrency(ids, FETCH_CONCURRENCY, fetchOne)
-
-  const items: T[] = []
-  let hasErrors = false
-  for (const result of settled) {
-    if (result.status === 'rejected') {
-      hasErrors = true
-    } else if (result.value) {
-      items.push(map(result.value))
-    }
-  }
-
-  return { items, hasErrors, nextOffset: end > 0 ? offset + pageSize : null }
+  map: (raw: Record<string, unknown>) => T
+): Promise<T[]> {
+  const ids = Array.from({ length: Math.min(count, MAX_ENUMERATE) }, (_, i) => i)
+  const raws = await Promise.all(ids.map((id) => fetchOne(id)))
+  return raws.filter((r): r is Record<string, unknown> => !!r).map(map)
 }
 
-/** All loan proposals (newest first), read live from the contract, paginated. */
+/** All loan proposals (newest first), read live from the contract. */
 export function useLoanProposals() {
   const { data: stats } = useQuery({
     queryKey: ['backendStats'],
     queryFn: () => backend.getStats(),
     refetchInterval: 15_000,
+    refetchIntervalInBackground: false,
   })
   const count = stats?.totalLoanProposals ?? 0
 
-  const { data, isLoading, fetchNextPage, hasNextPage, isFetchingNextPage } =
-    useInfiniteQuery({
-      queryKey: ['loanProposals', count],
-      enabled: isContractConfigured() && count > 0,
-      initialPageParam: 0,
-      queryFn: ({ pageParam }) =>
-        fetchProposalPage(count, pageParam, (id) => daoRead.getLoanProposal(id), mapLoanProposal),
-      getNextPageParam: (lastPage) => lastPage.nextOffset,
-    })
+  const { data, isLoading } = useQuery({
+    queryKey: ['loanProposals', count],
+    enabled: isContractConfigured() && count > 0,
+    queryFn: () =>
+      fetchByIds(count, (id) => daoRead.getLoanProposal(id), mapLoanProposal),
+  })
 
   // Memoize so the array keeps a stable identity across renders; consumers use
   // it as an effect/memo dependency and a fresh array each render would loop.
-  const proposals = useMemo(() => (data?.pages ?? []).flatMap((p) => p.items), [data])
-  const hasErrors = useMemo(() => (data?.pages ?? []).some((p) => p.hasErrors), [data])
-
-  return {
-    proposals,
-    isLoading,
-    count,
-    hasMore: !!hasNextPage,
-    loadMore: fetchNextPage,
-    isLoadingMore: isFetchingNextPage,
-    hasErrors,
-  }
+  const proposals = useMemo(
+    () => [...(data ?? [])].sort((a, b) => b.id - a.id),
+    [data]
+  )
+  return { proposals, isLoading, count }
 }
 
 /** A single loan proposal by id. */
@@ -586,6 +490,7 @@ export function useLoan(id: number, enabled: boolean) {
       return raw ? mapLoan(raw) : null
     },
     refetchInterval: 15_000,
+    refetchIntervalInBackground: false,
   })
   return { loan: data ?? null, isLoading, refetch }
 }
@@ -623,37 +528,28 @@ export function mapTreasuryProposal(raw: Record<string, unknown>): UITreasuryPro
   }
 }
 
-/** All treasury withdrawal proposals (newest first), read live from the contract, paginated. */
+/** All treasury withdrawal proposals (newest first), read live from the contract. */
 export function useTreasuryProposals() {
   const { data: stats } = useQuery({
     queryKey: ['backendStats'],
     queryFn: () => backend.getStats(),
     refetchInterval: 15_000,
+    refetchIntervalInBackground: false,
   })
   const count = stats?.totalTreasuryProposals ?? 0
 
-  const { data, isLoading, fetchNextPage, hasNextPage, isFetchingNextPage } =
-    useInfiniteQuery({
-      queryKey: ['treasuryProposals', count],
-      enabled: isContractConfigured() && count > 0,
-      initialPageParam: 0,
-      queryFn: ({ pageParam }) =>
-        fetchProposalPage(count, pageParam, (id) => daoRead.getTreasuryProposal(id), mapTreasuryProposal),
-      getNextPageParam: (lastPage) => lastPage.nextOffset,
-    })
+  const { data, isLoading } = useQuery({
+    queryKey: ['treasuryProposals', count],
+    enabled: isContractConfigured() && count > 0,
+    queryFn: () =>
+      fetchByIds(count, (id) => daoRead.getTreasuryProposal(id), mapTreasuryProposal),
+  })
 
-  const proposals = useMemo(() => (data?.pages ?? []).flatMap((p) => p.items), [data])
-  const hasErrors = useMemo(() => (data?.pages ?? []).some((p) => p.hasErrors), [data])
-
-  return {
-    proposals,
-    isLoading,
-    count,
-    hasMore: !!hasNextPage,
-    loadMore: fetchNextPage,
-    isLoadingMore: isFetchingNextPage,
-    hasErrors,
-  }
+  const proposals = useMemo(
+    () => [...(data ?? [])].sort((a, b) => b.id - a.id),
+    [data]
+  )
+  return { proposals, isLoading, count }
 }
 
 // ---------------------------------------------------------------------------
@@ -668,28 +564,22 @@ export function useStake(): bigint {
     enabled: !!address && isContractConfigured(),
     queryFn: () => daoRead.getStake(address!),
     refetchInterval: 15_000,
+    refetchIntervalInBackground: false,
   })
   return asBigInt(data)
 }
 
 export function useStaking() {
-  const { run, isPending, isSuccess, error, address } = useWriteAction()
-  const stake = (amount: bigint) =>
-    run('Staking', (w) => w.stake(amount), [['stake', address], ['daoStats']])
-  const unstake = (amount: bigint) =>
-    run('Unstaking', (w) => w.unstake(amount), [['stake', address], ['daoStats']])
+  const { run, isPending, isSuccess, error } = useWriteAction()
+  const stake = (amount: bigint) => run('Staking', (w) => w.stake(amount))
+  const unstake = (amount: bigint) => run('Unstaking', (w) => w.unstake(amount))
   return { stake, unstake, isPending, isSuccess, error }
 }
 
 export function useTreasuryVoting() {
   const { run, isPending, isSuccess, error } = useWriteAction()
   const voteOnTreasury = (proposalId: number, support: boolean) =>
-    run('Casting vote', (w) => w.voteOnTreasuryProposal(proposalId, support), [
-      ['treasuryProposals'],
-      // A vote can push a proposal past quorum and execute the withdrawal in
-      // the same transaction, moving the treasury balance.
-      ['daoStats'],
-    ])
+    run('Casting vote', (w) => w.voteOnTreasuryProposal(proposalId, support))
   return { voteOnTreasury, isPending, isSuccess, error }
 }
 
@@ -701,10 +591,8 @@ export function useProposeTreasury() {
     reason: string,
     isPrivate: boolean
   ) =>
-    run(
-      'Proposing withdrawal',
-      (w) => w.proposeTreasuryWithdrawal(amount, destination, reason, isPrivate),
-      [['backendStats']]
+    run('Proposing withdrawal', (w) =>
+      w.proposeTreasuryWithdrawal(amount, destination, reason, isPrivate)
     )
   return { propose, isPending, isSuccess, error }
 }
@@ -732,10 +620,8 @@ export function useProposalDocument(kind: 'Loan' | 'Treasury', id: number) {
 export function useAttachDocument() {
   const { run, isPending, isSuccess, error } = useWriteAction()
   const attach = (kind: 'Loan' | 'Treasury', proposalId: number, cid: string) =>
-    run(
-      'Attaching document',
-      (w) => w.attachDocument(kind, proposalId, new TextEncoder().encode(cid.trim())),
-      [['document', kind, proposalId]]
+    run('Attaching document', (w) =>
+      w.attachDocument(kind, proposalId, new TextEncoder().encode(cid.trim()))
     )
   return { attach, isPending, isSuccess, error }
 }
@@ -751,18 +637,12 @@ export function useAttachDocument() {
 
 export function useAdminActions() {
   const { run, isPending, isSuccess, error } = useWriteAction()
-  const pause = () => run('Pausing the DAO', (w) => w.pause(), [['daoStats']])
-  const unpause = () => run('Unpausing the DAO', (w) => w.unpause(), [['daoStats']])
-  // The admin log itself is backend-indexed (not read directly off-chain),
-  // so it isn't invalidated here — the indexer needs to have processed the
-  // event first, which the existing poll already covers.
-  const addAdmin = (admin: string) => run('Adding admin', (w) => w.addAdmin(admin), [['admins']])
-  const removeAdmin = (admin: string) =>
-    run('Removing admin', (w) => w.removeAdmin(admin), [['admins']])
+  const pause = () => run('Pausing the DAO', (w) => w.pause())
+  const unpause = () => run('Unpausing the DAO', (w) => w.unpause())
+  const addAdmin = (admin: string) => run('Adding admin', (w) => w.addAdmin(admin))
+  const removeAdmin = (admin: string) => run('Removing admin', (w) => w.removeAdmin(admin))
   const setThreshold = (thresholdBps: number) =>
-    run('Updating consensus threshold', (w) => w.setConsensusThreshold(thresholdBps), [
-      ['daoStats'],
-    ])
+    run('Updating consensus threshold', (w) => w.setConsensusThreshold(thresholdBps))
   return { pause, unpause, addAdmin, removeAdmin, setThreshold, isPending, isSuccess, error }
 }
 
@@ -796,6 +676,7 @@ export function useAdminLog(limit = 50) {
     queryKey: ['adminLog', limit],
     queryFn: () => backend.getAdminLog(limit),
     refetchInterval: 15_000,
+    refetchIntervalInBackground: false,
   })
   const entries = useMemo(() => (data ?? []).map(toAdminLogEntry), [data])
   return { entries, isLoading }

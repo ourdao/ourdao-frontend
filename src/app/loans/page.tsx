@@ -21,13 +21,12 @@ import { useUserData, useVoting, useLoanProposals, type UILoanProposal } from '@
 import { useNow } from '@/hooks/useNow'
 import { formatToken, formatDate, formatAddress, calculatePercentage } from '@/lib/utils'
 import { PROPOSAL_STATUS_LABELS } from '@/constants'
-import toast from 'react-hot-toast'
 import { AppShell } from '@/components/AppShell'
 
 export default function LoansPage() {
   const userData = useUserData()
   const { voteOnProposal, isPending } = useVoting()
-  const { proposals, isLoading } = useLoanProposals()
+  const { proposals, isLoading, hasMore, loadMore, isLoadingMore, hasErrors } = useLoanProposals()
   const now = useNow()
 
   const [filters, setFilters] = useState({
@@ -71,13 +70,7 @@ export default function LoansPage() {
   }, [filters, proposals])
 
   const handleVote = async (proposalId: number, support: boolean) => {
-    try {
-      await voteOnProposal(proposalId, support)
-      toast.success(`Vote cast ${support ? 'in favor' : 'against'} proposal ${proposalId}`)
-    } catch (error) {
-      console.error('Voting failed:', error)
-      toast.error('Failed to cast vote')
-    }
+    await voteOnProposal(proposalId, support)
   }
 
   const getStatusIcon = (status: number) => {
@@ -259,6 +252,11 @@ export default function LoansPage() {
 
         {/* Proposals List */}
         <div className="space-y-6">
+          {hasErrors && (
+            <div className="rounded-lg border border-yellow-200 bg-yellow-50 p-4 text-sm text-yellow-800 dark:border-yellow-900 dark:bg-yellow-950/30 dark:text-yellow-300">
+              Some proposals couldn&apos;t be loaded and are missing from this list. Try again shortly.
+            </div>
+          )}
           {isLoading ? (
             <div className="space-y-6">
               {[0, 1, 2].map((i) => (
@@ -423,6 +421,13 @@ export default function LoansPage() {
                 </CardContent>
               </Card>
             ))
+          )}
+          {!isLoading && hasMore && (
+            <div className="flex justify-center">
+              <Button variant="outline" onClick={() => loadMore()} disabled={isLoadingMore}>
+                {isLoadingMore ? 'Loading…' : 'Load more proposals'}
+              </Button>
+            </div>
           )}
         </div>
       </div>

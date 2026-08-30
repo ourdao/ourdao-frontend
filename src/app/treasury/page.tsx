@@ -24,15 +24,8 @@ import {
   useTreasuryProposals,
   useTreasuryVoting,
 } from '@/hooks/useDAO'
-import { formatToken, formatAddress } from '@/lib/utils'
+import { formatToken, formatAddress, parseToken } from '@/lib/utils'
 import { PROPOSAL_STATUS_LABELS } from '@/constants'
-
-// Human amount -> token base units (Stellar assets use 7 decimals).
-function toBaseUnits(input: string): bigint {
-  const n = parseFloat(input)
-  if (!Number.isFinite(n) || n <= 0) return BigInt(0)
-  return BigInt(Math.round(n * 1e7))
-}
 
 function StatCard({
   label,
@@ -65,7 +58,7 @@ export default function TreasuryPage() {
   const stats = useDAOStats()
   const myStake = useStake()
   const { stake, unstake, isPending: staking } = useStaking()
-  const { proposals, isLoading } = useTreasuryProposals()
+  const { proposals, isLoading, hasMore, loadMore, isLoadingMore, hasErrors } = useTreasuryProposals()
   const { voteOnTreasury, isPending: voting } = useTreasuryVoting()
 
   const [amount, setAmount] = useState('')
@@ -91,7 +84,7 @@ export default function TreasuryPage() {
   }
 
   const handleStake = async () => {
-    const base = toBaseUnits(amount)
+    const base = parseToken(amount)
     if (base <= BigInt(0)) return
     try {
       await stake(base)
@@ -102,7 +95,7 @@ export default function TreasuryPage() {
   }
 
   const handleUnstake = async () => {
-    const base = toBaseUnits(amount)
+    const base = parseToken(amount)
     if (base <= BigInt(0)) return
     try {
       await unstake(base)
@@ -214,6 +207,11 @@ export default function TreasuryPage() {
             </CardTitle>
           </CardHeader>
           <CardContent>
+            {hasErrors && (
+              <div className="mb-4 rounded-lg border border-yellow-200 bg-yellow-50 p-4 text-sm text-yellow-800 dark:border-yellow-900 dark:bg-yellow-950/30 dark:text-yellow-300">
+                Some treasury proposals couldn&apos;t be loaded and are missing from this list. Try again shortly.
+              </div>
+            )}
             {isLoading ? (
               <div className="space-y-3">
                 {[0, 1].map((i) => (
@@ -285,6 +283,13 @@ export default function TreasuryPage() {
                   </li>
                 ))}
               </ul>
+            )}
+            {!isLoading && hasMore && (
+              <div className="mt-4 flex justify-center">
+                <Button variant="outline" onClick={() => loadMore()} disabled={isLoadingMore}>
+                  {isLoadingMore ? 'Loading…' : 'Load more'}
+                </Button>
+              </div>
             )}
           </CardContent>
         </Card>
