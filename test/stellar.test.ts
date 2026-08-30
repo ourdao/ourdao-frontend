@@ -41,7 +41,8 @@ describe('stellar explorer URL helpers', () => {
 })
 
 describe('isStellarAddress', () => {
-  // Canonical Stellar addresses are uppercase base32: G or C + 55 chars [A-Z0-9]
+  // Canonical Stellar addresses are uppercase base32: G or C + 55 chars
+  // from the RFC 4648 alphabet [A-Z2-7] — 0, 1, 8 and 9 are never valid.
   const validG = 'GAHJJJKMOKYE4RVPZEWZTKH5FVI4PA3VL7GK2LFNUBSGBV3MQAXRWUDX'
   const validC = 'CA7QYNF7SOWQ3GLR2BGMZEHXR73EWBMGM7OPKJNNOHHEJLBSXMZPQNUD'
 
@@ -68,4 +69,22 @@ describe('isStellarAddress', () => {
   it('returns false for an empty string', () => {
     expect(isStellarAddress('')).toBe(false)
   })
+
+  it('returns false for an address one character too long', () => {
+    expect(isStellarAddress(validG + 'A')).toBe(false)
+  })
+
+  // ── #66: base32 excludes 0, 1, 8, 9 — a regression the previous
+  // [A-Z0-9] pattern (still used in useNotifications.ts before this fix)
+  // wrongly admitted. ───────────────────────────────────────────────────
+  it.each(['0', '1', '8', '9'])(
+    'returns false for an otherwise-valid address containing "%s" (not a base32 character)',
+    (digit) => {
+      // Swap one character in the body (keeping the G prefix and overall
+      // length intact) for the invalid digit under test.
+      const withInvalidDigit = validG.slice(0, 5) + digit + validG.slice(6)
+      expect(withInvalidDigit).toHaveLength(validG.length)
+      expect(isStellarAddress(withInvalidDigit)).toBe(false)
+    },
+  )
 })
