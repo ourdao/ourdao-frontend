@@ -112,20 +112,20 @@ export const useScreenSize = () => {
 
 // Hook to check if screen is mobile
 export const useIsMobile = () => {
-  const { screenSize } = useScreenSize()
-  return screenSize === 'sm'
+  const { width } = useScreenSize()
+  return width < breakpoints.sm
 }
 
 // Hook to check if screen is tablet
 export const useIsTablet = () => {
-  const { screenSize } = useScreenSize()
-  return screenSize === 'md'
+  const { width } = useScreenSize()
+  return width >= breakpoints.sm && width < breakpoints.lg
 }
 
 // Hook to check if screen is desktop
 export const useIsDesktop = () => {
-  const { screenSize } = useScreenSize()
-  return ['lg', 'xl', '2xl'].includes(screenSize)
+  const { width } = useScreenSize()
+  return width >= breakpoints.lg
 }
 
 // Responsive grid utilities
@@ -218,7 +218,7 @@ export const useResponsiveTable = (columns: string[]) => {
   const { screenSize } = useScreenSize()
   
   // On mobile, show only essential columns
-  const visibleColumns = screenSize === 'sm' 
+  const visibleColumns = screenSize === 'sm'
     ? columns.slice(0, 2) 
     : screenSize === 'md'
     ? columns.slice(0, 3)
