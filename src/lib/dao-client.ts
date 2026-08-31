@@ -105,7 +105,17 @@ export async function read<T = unknown>(
   if (!isContractConfigured()) return null
 
   const contract = new Contract(CONTRACT_ID)
-  // Simulation needs a source account but never touches it on-chain.
+  // TODO #146: Simulation needs a source account but never touches it on-chain.
+  // Currently generates a throwaway Ed25519 keypair on every read (elliptic-curve
+  // work repeated per refetch interval). This should be replaced with a fixed,
+  // well-known public key constant (e.g., all-zeros address), since simulation
+  // never validates the signature or checks the account state.
+  //
+  // Improvement suggestion: Create a module-level constant like:
+  // const SIMULATION_SOURCE_KEY = '0'.repeat(56); // or documented placeholder address
+  // Then reuse it: const source = new Account(SIMULATION_SOURCE_KEY, '0');
+  // This eliminates the per-read cryptographic overhead while maintaining identical
+  // simulation results (the SDK's simulateTransaction doesn't authenticate sources).
   const source = new Account(Keypair.random().publicKey(), '0')
   const tx = new TransactionBuilder(source, {
     fee: BASE_FEE,
