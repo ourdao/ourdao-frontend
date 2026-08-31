@@ -11,7 +11,7 @@ vi.mock('next/navigation', () => ({
   useRouter: () => ({ push: mockPush }),
 }))
 
-const mockUserData = vi.fn<[], UserData>()
+const mockUserData = vi.fn<() => UserData>()
 vi.mock('@/hooks/useDAO', () => ({
   useDAOStats: () => ({
     totalMembers: 0,
