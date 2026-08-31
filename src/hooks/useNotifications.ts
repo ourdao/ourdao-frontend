@@ -11,7 +11,7 @@ import { useCallback, useMemo, useState } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { useWallet } from '@/lib/wallet'
 import { backend, type BackendEvent, type BackendNotification } from '@/lib/backend'
-import { formatStellarAddress } from '@/lib/stellar'
+import { formatStellarAddress, isStellarAddress } from '@/lib/stellar'
 import type { ActivityItem, NotificationData } from '@/lib/pushNotifications'
 
 const POLL_MS = 15_000
@@ -141,7 +141,7 @@ const ACTIVITY_META: Record<string, { type: ActivityItem['type']; title: string;
 
 function firstAddress(data: unknown): string | undefined {
   if (!Array.isArray(data)) return undefined
-  const hit = data.find((v) => typeof v === 'string' && /^[GC][A-Z0-9]{55}$/.test(v))
+  const hit = data.find((v) => typeof v === 'string' && isStellarAddress(v))
   return typeof hit === 'string' ? formatStellarAddress(hit) : undefined
 }
 
