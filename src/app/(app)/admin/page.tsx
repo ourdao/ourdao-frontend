@@ -18,6 +18,7 @@ import {
   useAdminLog,
 } from '@/hooks/useDAO'
 import { formatToken, formatAddress, formatDate } from '@/lib/utils'
+import { LoadingSpinner } from '@/components/ui/skeleton'
 import { isStellarAddress } from '@/lib/stellar'
 import { PageHeader } from '@/components/PageHeader'
 
@@ -41,6 +42,18 @@ export default function AdminPage() {
         title="Wallet Not Connected"
         message="Please connect your wallet to access the admin panel."
       />
+    )
+  }
+
+  if (userData.isLoading) {
+    // Same "not yet known" collapse as isMember (#69) — isAdmin reads false
+    // until the query resolves, which would otherwise flash "Access Denied"
+    // at real admins on every load. No AppShell wrapper needed — the (app)
+    // route-group layout already provides it.
+    return (
+      <div className="flex min-h-[60vh] items-center justify-center">
+        <LoadingSpinner size="lg" />
+      </div>
     )
   }
 

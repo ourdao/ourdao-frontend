@@ -1,0 +1,76 @@
+import { describe, expect, it } from 'vitest'
+import { formatToken, parseToken } from '@/lib/utils'
+
+describe('formatToken', () => {
+  it('renders a bare "0" for an exact zero value', () => {
+    expect(formatToken(BigInt(0))).toBe('0')
+  })
+
+  it('does not render a non-zero sub-display-precision value as bare "0" (#61)', () => {
+    // 999 stroops = 0.0000999 tokens at 7 decimals — below the 4-digit
+    // display precision, but not actually zero.
+    expect(formatToken(BigInt(999))).not.toBe('0')
+    expect(formatToken(BigInt(999))).toBe('<0.0001')
+  })
+
+  it('renders a value exactly at the display-precision boundary normally', () => {
+    // 1000 stroops = 0.0001 tokens — exactly representable at 4 display digits.
+    expect(formatToken(BigInt(1000))).toBe('0.0001')
+  })
+
+  it('trims trailing fractional zeros', () => {
+    // 5000000 stroops = 0.5 tokens.
+    expect(formatToken(BigInt(5000000))).toBe('0.5')
+  })
+
+  it('handles large values above Number.MAX_SAFE_INTEGER without precision loss', () => {
+    const huge = BigInt(Number.MAX_SAFE_INTEGER) * BigInt(1000) + BigInt(1234567)
+    // Full display precision (7) so nothing is deliberately rounded away —
+    // this is a precision-loss check, not a display-rounding check.
+    const formatted = formatToken(huge, { displayDecimals: 7 })
+    // Round-tripping at full display precision must recover the exact value —
+    // this would silently fail if formatToken had gone through `Number`.
+    expect(parseToken(formatted, 7)).toBe(huge)
+  })
+
+  it('renders negative values with a leading "-", including the sub-precision case', () => {
+    expect(formatToken(BigInt(-5000000))).toBe('-0.5')
+    expect(formatToken(BigInt(-999))).toBe('-<0.0001')
+  })
+
+  it('respects an explicit displayDecimals rather than the hardcoded 4', () => {
+    expect(formatToken(BigInt(999), { displayDecimals: 7 })).toBe('0.0000999')
+    expect(formatToken(BigInt(1), { displayDecimals: 0 })).toBe('<1')
+  })
+
+  it('respects an explicit decimals (token precision) independent of displayDecimals', () => {
+    // 2 decimals of precision, value 150 -> 1.50 -> trimmed to "1.5".
+    expect(formatToken(BigInt(150), { decimals: 2 })).toBe('1.5')
+  })
+})
+
+describe('formatToken / parseToken round trip', () => {
+  const cases: Array<[label: string, value: bigint]> = [
+    ['zero', BigInt(0)],
+    ['sub-display-precision', BigInt(999)],
+    ['exact display-precision boundary', BigInt(1000)],
+    ['a whole number', BigInt(5) * BigInt(10) ** BigInt(7)],
+    ['large (above Number.MAX_SAFE_INTEGER)', BigInt(Number.MAX_SAFE_INTEGER) * BigInt(1000) + BigInt(1)],
+    ['negative', BigInt(-1234567)],
+  ]
+
+  it.each(cases)('round-trips %s losslessly at full display precision', (_label, value) => {
+    const formatted = formatToken(value, { displayDecimals: 7 })
+    expect(parseToken(formatted, 7)).toBe(value)
+  })
+
+  it('does NOT round-trip losslessly at reduced display precision (by design — display rounding is lossy)', () => {
+    const value = BigInt(999) // 0.0000999, below default 4-digit display precision
+    const formatted = formatToken(value)
+    expect(formatted).toBe('<0.0001')
+    // parseToken can't recover a value from the "<0.0001" placeholder — it
+    // falls back to its documented zero default, which is the expected,
+    // intentional lossy behavior of display-precision rounding.
+    expect(parseToken(formatted, 7)).toBe(BigInt(0))
+  })
+})

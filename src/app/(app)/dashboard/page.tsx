@@ -21,6 +21,7 @@ import { formatToken, formatDate, formatAddress } from '@/lib/utils'
 import { MEMBER_STATUS_LABELS } from '@/constants'
 import toast from 'react-hot-toast'
 import { useIsMobile, useResponsiveCardLayout } from '@/lib/responsive'
+import { LoadingSpinner } from '@/components/ui/skeleton'
 import { PageHeader } from '@/components/PageHeader'
 
 export default function DashboardPage() {
@@ -33,10 +34,14 @@ export default function DashboardPage() {
   const { getCardGridClass } = useResponsiveCardLayout()
 
   useEffect(() => {
-    if (userData.isConnected && !userData.isMember) {
+    // Wait for the membership read to settle before deciding — otherwise
+    // this fires while isMember is still the "not yet known" default
+    // (false), bouncing every legitimate member through /register on every
+    // load (#69).
+    if (userData.isConnected && !userData.isLoading && !userData.isMember) {
       router.push('/register')
     }
-  }, [userData.isConnected, userData.isMember, router])
+  }, [userData.isConnected, userData.isLoading, userData.isMember, router])
 
   useEffect(() => {
     if (isSuccess) {
@@ -77,6 +82,19 @@ export default function DashboardPage() {
             </div>
           </CardContent>
         </Card>
+      </div>
+    )
+  }
+
+  if (userData.isLoading) {
+    // Same "not yet known" collapse as isAdmin on the admin panel (#69) —
+    // isMember reads false until the query resolves, which would otherwise
+    // redirect to /register and flash the "Not a Member" card on every
+    // load. No AppShell wrapper needed — the (app) route-group layout
+    // already provides it.
+    return (
+      <div className="flex min-h-[60vh] items-center justify-center">
+        <LoadingSpinner size="lg" />
       </div>
     )
   }

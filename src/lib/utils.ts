@@ -13,9 +13,16 @@ export function cn(...inputs: ClassValue[]) {
 
 // Format a Soroban token amount (Stellar assets use 7 decimals) for display.
 // Keeps full integer precision via BigInt; trims trailing fractional zeros.
+//
+// `decimals` is the token's actual precision (7 for Stellar assets);
+// `displayDecimals` is how many fractional digits to *show* — a separate,
+// named concern rather than a magic number buried in the slice call. When a
+// value is non-zero but rounds away to nothing at display precision, this
+// returns a "<0.0001"-style lower bound instead of the bare string '0', so
+// the UI never claims a non-empty balance is empty (#61).
 export function formatToken(
   value: bigint | string | number,
-  decimals: number = 7
+  { decimals = 7, displayDecimals = 4 }: { decimals?: number; displayDecimals?: number } = {}
 ): string {
   try {
     const v = typeof value === 'bigint' ? value : BigInt(String(value).split('.')[0] || '0')
@@ -23,11 +30,14 @@ export function formatToken(
     const abs = neg ? -v : v
     const base = BigInt(10) ** BigInt(decimals)
     const whole = (abs / base).toString()
-    const frac = (abs % base)
-      .toString()
-      .padStart(decimals, '0')
-      .slice(0, 4)
-      .replace(/0+$/, '')
+    const fracFull = (abs % base).toString().padStart(decimals, '0')
+    const frac = fracFull.slice(0, displayDecimals).replace(/0+$/, '')
+
+    if (whole === '0' && !frac && abs > BigInt(0)) {
+      const bound = displayDecimals > 0 ? `0.${'0'.repeat(displayDecimals - 1)}1` : '1'
+      return `${neg ? '-' : ''}<${bound}`
+    }
+
     return `${neg ? '-' : ''}${whole}${frac ? '.' + frac : ''}`
   } catch {
     return '0'
@@ -80,11 +90,19 @@ export function parseToken(value: string, decimals: number = 7): bigint {
     if (!cleanValue || isNaN(Number(cleanValue))) {
       throw new Error('Invalid number')
     }
-    const [wholePart, fracPart = ''] = cleanValue.split('.')
+    // Strip the sign and negate the combined total at the end, rather than
+    // negating just the whole part — BigInt has no negative zero, so
+    // `BigInt('-0')` collapses to 0n and `BigInt('-5') * base + positiveFrac`
+    // computes the wrong magnitude for any negative value with a fractional
+    // part (e.g. "-5.25" previously round-tripped to -4.75).
+    const neg = cleanValue.startsWith('-')
+    const abs = neg ? cleanValue.slice(1) : cleanValue
+    const [wholePart, fracPart = ''] = abs.split('.')
     const base = BigInt(10) ** BigInt(decimals)
     const whole = BigInt(wholePart || '0') * base
     const frac = BigInt((fracPart + '0'.repeat(decimals)).slice(0, decimals) || '0')
-    return whole + frac
+    const total = whole + frac
+    return neg ? -total : total
   } catch {
     return BigInt(0)
   }
