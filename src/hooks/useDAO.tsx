@@ -236,12 +236,7 @@ export function useMemberRegistration() {
 
 export function useLoanRequest() {
   const { run, isPending, isSuccess, error } = useWriteAction()
-  const requestLoan = (
-    amount: bigint,
-    _isPrivate = false,
-    _commitment?: string,
-    _documentHash?: string
-  ) => run('Requesting loan', (w) => w.requestLoan(amount))
+  const requestLoan = (amount: bigint) => run('Requesting loan', (w) => w.requestLoan(amount))
   return { requestLoan, isPending, error, isSuccess }
 }
 
@@ -287,7 +282,7 @@ export function useDAOEvents() {
     refetchIntervalInBackground: false,
   })
   const events = (data ?? []) as unknown as Record<string, unknown>[]
-  const setEvents = (_: Record<string, unknown>[]) => {}
+  const setEvents = () => {}
   return { events, setEvents }
 }
 

@@ -76,7 +76,7 @@ export default function DocumentViewer({
           text: `Document: ${doc.name}`,
           url: previewUrl
         })
-      } catch (err) {
+      } catch {
         // Fallback to clipboard
         copyToClipboard()
       }
@@ -131,10 +131,16 @@ export default function DocumentViewer({
 
     if (doc.type.startsWith('image/')) {
       return (
+        // eslint-disable-next-line @next/next/no-img-element -- previewUrl is a blob: URL (URL.createObjectURL) which next/image cannot optimize; using <img> with explicit dimensions and lazy-loading to avoid layout shift
         <img
           src={previewUrl}
           alt={doc.name}
-          className="max-w-full max-h-96 mx-auto rounded-lg shadow-lg"
+          width={800}
+          height={600}
+          loading="lazy"
+          decoding="async"
+          style={{ maxWidth: '100%', height: 'auto', maxHeight: '24rem' }}
+          className="mx-auto rounded-lg shadow-lg"
         />
       )
     }
