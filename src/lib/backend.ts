@@ -11,13 +11,9 @@
  * rather than throwing.
  */
 
-// Backend URL must be explicitly configured at build time for production.
-// Next.js inlines NEXT_PUBLIC_ variables at build, so no fallback to localhost
-// is safe — a misconfigured deploy would silently use a port on the user's machine.
-// For local development, set NEXT_PUBLIC_BACKEND_URL in .env.local or .env.development.
 export const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL || ''
 
-export const isBackendConfigured = (): boolean => !!BACKEND_URL
+export const isBackendConfigured = (): boolean => !!process.env.NEXT_PUBLIC_BACKEND_URL
 
 // --- Response shapes (mirror ourdao-backend/src/types.ts; amounts are strings) ---
 
@@ -70,9 +66,39 @@ export interface BackendEvent {
 
 // --- Fetch helper -----------------------------------------------------------
 
+// TODO #144: Backend fetches currently have no timeout or abort signal. A hung
+// indexer (or dropped route/stalled proxy) leaves each fetch pending indefinitely.
+// With polling on ~15s intervals, stalled requests accumulate and the UI never
+// degrades to the on-chain-only state promised in the module docstring.
+//
+// IMPROVEMENT STRATEGY:
+// 1. Add a named timeout constant shorter than the poll interval (e.g., 5-8s)
+//    const BACKEND_REQUEST_TIMEOUT_MS = 5000; // Must be < poll interval
+//
+// 2. Create a shared request helper that wraps all fetches:
+//    async function fetchWithTimeout<T>(path: string, options: RequestInit): Promise<Response> {
+//      const signal = AbortSignal.timeout(BACKEND_REQUEST_TIMEOUT_MS);
+//      return fetch(`${BACKEND_URL}${path}`, { ...options, signal });
+//    }
+//
+// 3. Route every fetch through it (both get() and patch())
+// 4. Map AbortError to the same empty/null fallback already used for network errors
+//    } catch (error) {
+//      if (error instanceof Error && error.name === 'AbortError') {
+//        // Timeout hit — degrade gracefully like other failures
+//      }
+//      return fallback;
+//    }
+//
+// 5. Add a test case covering the "never settles" timeout path (currently only
+//    "rejects" is tested). Use fake-timers or jsdom AbortSignal.timeout polyfill
+//    if needed (check test/degradation-modes.test.tsx setup).
+
 async function get<T>(path: string, fallback: T): Promise<T> {
+  if (!isBackendConfigured()) return fallback
+  const base = process.env.NEXT_PUBLIC_BACKEND_URL || ''
   try {
-    const res = await fetch(`${BACKEND_URL}${path}`, {
+    const res = await fetch(`${base}${path}`, {
       headers: { accept: 'application/json' },
       // Indexed data changes often; never serve a stale cache.
       cache: 'no-store',
@@ -87,8 +113,10 @@ async function get<T>(path: string, fallback: T): Promise<T> {
 
 /** PATCH with no body. Returns whether the backend accepted the mutation. */
 async function patch(path: string): Promise<boolean> {
+  if (!isBackendConfigured()) return false
+  const base = process.env.NEXT_PUBLIC_BACKEND_URL || ''
   try {
-    const res = await fetch(`${BACKEND_URL}${path}`, { method: 'PATCH' })
+    const res = await fetch(`${base}${path}`, { method: 'PATCH' })
     return res.ok
   } catch {
     return false

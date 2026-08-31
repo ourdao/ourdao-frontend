@@ -38,6 +38,7 @@ export function useUserData(): UserData {
     enabled: !!address,
     queryFn: () => backend.getLoans(address!),
     refetchInterval: 15_000,
+    refetchIntervalInBackground: false,
   })
 
   const m = data?.member
@@ -104,6 +105,7 @@ export function useDAOStats(): ExtendedStats {
     queryKey: ['daoStatsBackend'],
     queryFn: () => backend.getStats(),
     refetchInterval: 15_000,
+    refetchIntervalInBackground: false,
   })
 
   const membershipFee = asBigInt(
@@ -141,6 +143,7 @@ export function useDAOEvents() {
     queryKey: ['daoEvents'],
     queryFn: () => backend.getEvents(50),
     refetchInterval: 15_000,
+    refetchIntervalInBackground: false,
   })
   const events = (data ?? []) as unknown as Record<string, unknown>[]
   const setEvents = () => {}
