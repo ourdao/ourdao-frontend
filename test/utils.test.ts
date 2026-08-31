@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { formatToken, parseToken } from '@/lib/utils'
+import { formatToken, parseToken, formatThreshold } from '@/lib/utils'
 
 describe('formatToken', () => {
   it('renders a bare "0" for an exact zero value', () => {
@@ -72,5 +72,23 @@ describe('formatToken / parseToken round trip', () => {
     // falls back to its documented zero default, which is the expected,
     // intentional lossy behavior of display-precision rounding.
     expect(parseToken(formatted, 7)).toBe(BigInt(0))
+  })
+})
+
+describe('formatThreshold', () => {
+  it('formats a whole-number basis-points value without trailing zeros', () => {
+    expect(formatThreshold(5100)).toBe('51%')
+  })
+
+  it('formats a fractional basis-points value with two decimals', () => {
+    expect(formatThreshold(5150)).toBe('51.50%')
+  })
+
+  it('formats zero as "0%"', () => {
+    expect(formatThreshold(0)).toBe('0%')
+  })
+
+  it('formats a value that yields one decimal place', () => {
+    expect(formatThreshold(515)).toBe('5.15%')
   })
 })
