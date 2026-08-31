@@ -48,10 +48,13 @@ export const formatStellarAddress = (address?: string, chars = 4): string => {
 /**
  * Returns true when `value` is a well-formed Stellar public key or contract
  * address in canonical (uppercase) form: starts with G or C followed by
- * exactly 55 uppercase alphanumeric characters (base32 alphabet).
+ * exactly 55 uppercase base32 characters — the RFC 4648 alphabet Stellar
+ * strkeys actually use, `[A-Z2-7]`, which excludes 0, 1, 8 and 9.
  *
- * This is the same pattern used in useNotifications.ts (`/^[GC][A-Z0-9]{55}$/`)
- * lifted here so every part of the codebase shares a single source of truth.
+ * The single shared predicate every address-accepting field in the app
+ * validates against (governance proposal destinations, admin panel
+ * add-admin, notification activity-log address extraction), so the
+ * base32 character class only has to be correct in one place (#66).
  */
 export const isStellarAddress = (value: string): boolean =>
-  /^[GC][A-Z0-9]{55}$/.test(value)
+  /^[GC][A-Z2-7]{55}$/.test(value)

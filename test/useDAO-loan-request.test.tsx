@@ -14,12 +14,16 @@ vi.mock('@/lib/wallet', () => ({
   }),
 }))
 
-vi.mock('@/lib/dao-client', () => ({
-  daoWrite: () => ({
-    requestLoan: (...args: unknown[]) => mockRequestLoan(...args),
-    attachDocument: (...args: unknown[]) => mockAttachDocument(...args),
-  }),
-}))
+vi.mock('@/lib/dao-client', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@/lib/dao-client')>()
+  return {
+    ...actual,
+    daoWrite: () => ({
+      requestLoan: (...args: unknown[]) => mockRequestLoan(...args),
+      attachDocument: (...args: unknown[]) => mockAttachDocument(...args),
+    }),
+  }
+})
 
 vi.mock('react-hot-toast', () => ({
   default: { success: vi.fn(), error: vi.fn(), loading: vi.fn(() => 'id') },
