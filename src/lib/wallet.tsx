@@ -81,7 +81,9 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
   // Keep a ref so the watcher callback always sees the latest address without
   // needing to restart the watcher on every render.
   const addressRef = useRef<string | null>(null)
-  addressRef.current = address
+  useEffect(() => {
+    addressRef.current = address
+  }, [address])
 
   const networkMismatch =
     !!address && !!walletNetworkPassphrase && walletNetworkPassphrase !== NETWORK_PASSPHRASE

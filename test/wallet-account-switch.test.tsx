@@ -29,13 +29,15 @@ vi.mock('@stellar/freighter-api', () => ({
   requestAccess: vi.fn(),
   getAddress: vi.fn(),
   signTransaction: vi.fn(),
-  WatchWalletChanges: vi.fn().mockImplementation(() => ({
-    watch: vi.fn((cb: WatchCallback) => {
-      watchCallback = cb
-      return {}
-    }),
-    stop: mockWatcherStop,
-  })),
+  WatchWalletChanges: vi.fn().mockImplementation(function () {
+    return {
+      watch: vi.fn((cb: WatchCallback) => {
+        watchCallback = cb
+        return {}
+      }),
+      stop: mockWatcherStop,
+    }
+  }),
 }))
 
 // ---------------------------------------------------------------------------
@@ -74,7 +76,7 @@ describe('WalletProvider — Freighter account switch (issue #59)', () => {
     watchCallback = null
     mockWatcherStop.mockClear()
     vi.mocked(freighter.WatchWalletChanges).mockClear()
-    vi.mocked(freighter.isAllowed).mockResolvedValue(false)
+    vi.mocked(freighter.isAllowed).mockResolvedValue({ isAllowed: false } as never)
   })
 
   afterEach(() => vi.clearAllMocks())

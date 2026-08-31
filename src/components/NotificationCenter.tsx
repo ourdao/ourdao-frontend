@@ -149,21 +149,6 @@ const NotificationCenter: React.FC<NotificationCenterProps> = ({ className = '' 
         )}
       </button>
 
-      {/* Notification Panel */}
-      {isOpen && (
-        <>
-          {/* Backdrop */}
-          <div 
-            className="fixed inset-0 z-40 bg-black/20"
-            onClick={() => setIsOpen(false)}
-            onKeyDown={(e) => { if (e.key === 'Escape') setIsOpen(false) }}
-            role="button"
-            tabIndex={-1}
-            aria-hidden="true"
-          />
-          
-          {/* Panel */}
-          <div className={`absolute ${isMobile ? 'left-0 right-0 top-full' : 'right-0 top-full'} mt-2 ${isMobile ? 'w-screen' : 'w-96'} bg-card ${isMobile ? 'rounded-t-xl' : 'rounded-xl'} shadow-xl border border-border z-50 ${isMobile ? 'max-h-screen' : 'max-h-96'} flex flex-col`}>
             {/* Header */}
             <div className="p-4 border-b border-border">
               <div className="flex items-center justify-between mb-3">
@@ -171,7 +156,6 @@ const NotificationCenter: React.FC<NotificationCenterProps> = ({ className = '' 
                 <button
                   onClick={() => setIsOpen(false)}
                   aria-label="Close notifications"
-                  className="p-1 hover:bg-gray-100 dark:hover:bg-gray-800 rounded"
                   className="p-1 hover:bg-accent rounded"
                 >
                   <X className="w-5 h-5" />
