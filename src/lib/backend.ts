@@ -11,8 +11,11 @@
  * rather than throwing.
  */
 
-export const BACKEND_URL =
-  process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:4000'
+// Backend URL must be explicitly configured at build time for production.
+// Next.js inlines NEXT_PUBLIC_ variables at build, so no fallback to localhost
+// is safe — a misconfigured deploy would silently use a port on the user's machine.
+// For local development, set NEXT_PUBLIC_BACKEND_URL in .env.local or .env.development.
+export const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL || ''
 
 export const isBackendConfigured = (): boolean => !!BACKEND_URL
 
