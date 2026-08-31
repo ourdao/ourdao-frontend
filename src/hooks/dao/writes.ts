@@ -4,7 +4,7 @@ import { useQueryClient, type QueryKey } from '@tanstack/react-query'
 import { useCallback, useState } from 'react'
 import toast from 'react-hot-toast'
 import { useWallet } from '@/lib/wallet'
-import { daoWrite, type InvokeResult } from '@/lib/dao-client'
+import { daoWrite, InvokeError, type InvokeResult } from '@/lib/dao-client'
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms))
 
@@ -29,6 +29,9 @@ function useWriteAction() {
   const [isPending, setPending] = useState(false)
   const [isSuccess, setSuccess] = useState(false)
   const [error, setError] = useState<Error | null>(null)
+  // Surfaced separately from `error` so a caller can offer a "Try again"
+  // affordance without having to `instanceof`-check the error itself (#58).
+  const [isRetryable, setRetryable] = useState(false)
 
   const run = useCallback(
     async (
@@ -43,6 +46,7 @@ function useWriteAction() {
       setPending(true)
       setSuccess(false)
       setError(null)
+      setRetryable(false)
       const toastId = toast.loading(`${label}…`)
       try {
         const res = await fn(daoWrite(address, signXDR))
@@ -57,8 +61,13 @@ function useWriteAction() {
         return res
       } catch (err) {
         const e = err instanceof Error ? err : new Error(String(err))
+        const retryable = e instanceof InvokeError && e.retryable
         setError(e)
-        toast.error(`${label} failed: ${e.message}`, { id: toastId })
+        setRetryable(retryable)
+        toast.error(
+          retryable ? `${label} failed: ${e.message} You can try again.` : `${label} failed: ${e.message}`,
+          { id: toastId }
+        )
         throw e
       } finally {
         setPending(false)
@@ -67,7 +76,7 @@ function useWriteAction() {
     [address, isConnected, signXDR, queryClient]
   )
 
-  return { run, isPending, isSuccess, error, address }
+  return { run, isPending, isSuccess, error, isRetryable, address }
 }
 
 export function useMemberRegistration() {

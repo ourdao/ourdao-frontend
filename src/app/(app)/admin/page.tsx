@@ -19,6 +19,7 @@ import {
 } from '@/hooks/useDAO'
 import { formatToken, formatAddress, formatDate } from '@/lib/utils'
 import { LoadingSpinner } from '@/components/ui/skeleton'
+import { isStellarAddress } from '@/lib/stellar'
 import { PageHeader } from '@/components/PageHeader'
 
 type Tab = 'overview' | 'governance' | 'activity'
@@ -185,11 +186,19 @@ function GovernanceTab({ stats }: { stats: ReturnType<typeof useDAOStats> }) {
   const [newAdmin, setNewAdmin] = useState('')
   const [threshold, setThresholdInput] = useState('')
 
+  // Same class of input as the governance proposal form's destination
+  // address, validated against the same shared predicate before a
+  // transaction is ever built — granting admin rights is among the
+  // highest-stakes actions in the app and deserves at least what the
+  // withdrawal-adjacent form already has (#66).
+  const trimmedNewAdmin = newAdmin.trim()
+  const newAdminError = trimmedNewAdmin.length > 0 && !isStellarAddress(trimmedNewAdmin)
+
   const submitAddAdmin = async (e: FormEvent) => {
     e.preventDefault()
-    if (!newAdmin.trim()) return
-    if (!window.confirm(`Add ${formatAddress(newAdmin.trim())} as an admin? This grants full admin privileges.`)) return
-    await addAdmin(newAdmin.trim())
+    if (!trimmedNewAdmin || !isStellarAddress(trimmedNewAdmin)) return
+    if (!window.confirm(`Add ${formatAddress(trimmedNewAdmin)} as an admin? This grants full admin privileges.`)) return
+    await addAdmin(trimmedNewAdmin)
     setNewAdmin('')
     refetch()
   }
@@ -230,17 +239,25 @@ function GovernanceTab({ stats }: { stats: ReturnType<typeof useDAOStats> }) {
             </div>
           ))}
         </div>
-        <form onSubmit={submitAddAdmin} className="p-6 flex space-x-2 border-t border-border">
-          <input
-            type="text"
-            value={newAdmin}
-            onChange={(e) => setNewAdmin(e.target.value)}
-            placeholder="G… address to add as admin"
-            className="flex-1 px-3 py-2 border border-input rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-muted dark:text-foreground"
-          />
+        <form onSubmit={submitAddAdmin} className="p-6 flex items-start space-x-2 border-t border-border">
+          <div className="flex-1">
+            <input
+              type="text"
+              value={newAdmin}
+              onChange={(e) => setNewAdmin(e.target.value)}
+              placeholder="G… address to add as admin"
+              aria-invalid={newAdminError}
+              className="w-full px-3 py-2 border border-input rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-muted dark:text-foreground"
+            />
+            {newAdminError && (
+              <p className="mt-1 text-sm text-red-600 dark:text-red-400">
+                Enter a valid Stellar destination address (G… or C…)
+              </p>
+            )}
+          </div>
           <button
             type="submit"
-            disabled={isPending || !newAdmin.trim()}
+            disabled={isPending || !trimmedNewAdmin || !isStellarAddress(trimmedNewAdmin)}
             className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50 dark:bg-blue-500 dark:hover:bg-blue-600"
           >
             Add Admin
