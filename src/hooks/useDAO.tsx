@@ -254,10 +254,20 @@ export function useVoting() {
 
 export function useLoanRepayment() {
   const { run, isPending, isSuccess, error } = useWriteAction()
-  // repay_loan takes no amount argument — the contract always collects the
-  // full outstanding balance (total_repayment - amount_repaid) in one shot.
-  const repayLoan = (loanId: number) => run('Repaying loan', (w) => w.repayLoan(loanId))
-  return { repayLoan, isPending, error, isSuccess }
+  // repay_loan collects the full outstanding balance; repay_loan_partial
+  // takes an explicit amount applied to interest first, then principal.
+  const repayLoan = (loanId: number, amount?: bigint) => {
+    if (amount !== undefined) {
+      if (amount <= BigInt(0)) throw new Error('Repayment amount must be greater than zero')
+      return run('Repaying loan', (w) => w.repayLoanPartial(loanId, amount))
+    }
+    return run('Repaying loan', (w) => w.repayLoan(loanId))
+  }
+  const repayLoanPartial = (loanId: number, amount: bigint) => {
+    if (amount <= BigInt(0)) throw new Error('Repayment amount must be greater than zero')
+    return run('Repaying loan', (w) => w.repayLoanPartial(loanId, amount))
+  }
+  return { repayLoan, repayLoanPartial, isPending, error, isSuccess }
 }
 
 export function useMarkLoanDefaulted() {
