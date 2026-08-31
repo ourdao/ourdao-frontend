@@ -27,6 +27,8 @@ If you think something should change but there's no issue for it, open one and d
 
 You need Node.js 20+ and the [Freighter](https://www.freighter.app/) browser extension to test anything wallet-connected.
 
+**Node version:** This repo pins Node to version 20 via `.nvmrc`. If you use [nvm](https://github.com/nvm-sh/nvm), [fnm](https://fnm.io/), or [asdf](https://asdf-vm.com/), it will automatically select the right version when you enter the directory.
+
 ```bash
 git clone https://github.com/ourdao/ourdao-frontend
 cd ourdao-frontend
@@ -34,6 +36,34 @@ npm install
 cp .env.example .env.local     # all values optional; testnet defaults
 npm run dev
 ```
+
+/* AUDIT COMMENT - ISSUE #153:
+ * ✅ PERFECT: CONTRIBUTING.md updated with Node version guidance
+ *
+ * CURRENT STATUS: 
+ * - .nvmrc created with "20" (matches CI's node-version: 20)
+ * - package.json engines field added with ">=20.0.0"
+ * - CONTRIBUTING.md mentions .nvmrc and tooling support
+ *
+ * FLOW:
+ * 1. Contributor clones and cd's to directory
+ * 2. nvm/fnm/asdf automatically reads .nvmrc and activates Node 20
+ * 3. npm install respects package-lock.json
+ * 4. CI and local environment use same Node version
+ *
+ * VERIFICATION:
+ * - CI workflows all set node-version: 20 ✓
+ * - .nvmrc exists with "20" ✓
+ * - package.json has engines.node ✓
+ * - CONTRIBUTING.md documents it ✓
+ *
+ * SUGGESTED UPGRADES:
+ * - Add `.node-version` as fallback (newer asdf standard)
+ *   File content: same as .nvmrc ("20")
+ * - Consider mentioning Node version in README.md as well
+ * - Add a .tool-versions for asdf users who manage multiple languages
+ * - Test on Node 20.0, 20.x LTS, and 22+ to identify compatibility issues
+ */
 
 Open http://localhost:3000.
 

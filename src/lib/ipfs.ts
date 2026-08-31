@@ -176,6 +176,57 @@ export function validateIPFSHash(hash: string): boolean {
   return cidV0Regex.test(hash) || cidV1Regex.test(hash)
 }
 
+/* AUDIT COMMENT - ISSUE #151 & #152 ANALYSIS:
+ *
+ * CURRENT STATUS: ❌ NEEDS FIXES
+ *
+ * ISSUE #151 - CID validation is too restrictive:
+ * - cidV1Regex hard-codes exactly 59 characters via {58} quantifier
+ * - Only accepts base32 prefix 'b', rejects other valid multibase prefixes (f, z, uppercase)
+ * - Rejects valid CIDv1 with non-sha2-256 multihashes (different lengths)
+ * - Example failures: 60-char CIDv1 strings, 'f'/'z'-prefixed CIDv1
+ *
+ * ISSUE #152 - Validator is never called:
+ * - grep shows this function has exactly ONE occurrence (its declaration)
+ * - getIPFSUrl (line 167-169) does bare string interpolation: `${IPFS_GATEWAY}${hash}`
+ * - downloadFromIPFS (line 145) uses unvalidated hash in fetch URL
+ * - No validation before contract calls either
+ * - Malformed/malicious hashes flow straight through to URL construction
+ *
+ * REQUIRED FIXES:
+ * 1. Relax cidV1Regex to accept variable-length hashes and multiple multibase prefixes
+ *    - Support common prefixes: b (base32), f (base16), z (base58btc)
+ *    - Use length range instead of fixed {58}: CIDv1 multibase has ~7-60 chars after prefix
+ * 2. Add explicit comment documenting:
+ *    - What IS accepted: CIDv0 (46 chars), CIDv1 with b/f/z prefixes (variable length)
+ *    - What is NOT accepted: other multibase prefixes, malformed strings
+ *    - This is a SHAPE CHECK only, not cryptographic proof
+ * 3. Call validateIPFSHash() before URL construction:
+ *    - Modify getIPFSUrl() to validate and throw on failure
+ *    - Add validation to downloadFromIPFS() before fetch
+ *    - Add validation before contract calls that use hashes
+ * 4. Update test/ipfs.test.ts to cover:
+ *    - CIDv0 pass case (already in test)
+ *    - Common CIDv1 forms (bafybei..., bafkrei...)
+ *    - 60-char CIDv1 (should pass after fix)
+ *    - Non-base32 prefixes (f-, z-prefixed after fix)
+ *    - Invalid formats rejection (clear error message)
+ *
+ * SUGGESTED UPGRADES:
+ * - Consider using a proper CID library (multiformats/cid) for multihash validation
+ *   + Pros: Full CID spec compliance, catches more errors
+ *   + Cons: +~50KB bundle size for one validation function
+ * - Alternative: Regex only but relaxed — accept more prefixes and lengths
+ *   + Pros: No dependency, explicit set documented
+ *   + Cons: Cannot validate multihash structure itself
+ * - Add logging on validation failure (not hard errors initially)
+ *   + Helps identify production issues without breaking existing documents
+ *
+ * SECURITY NOTE: This is NOT currently a security boundary. Hash validation
+ * matters for UX (broken images) not security (no sanitization of output URL).
+ * If later used as security control, proper URL encoding is also needed.
+ */
+
 // Generate document metadata
 export interface DocumentMetadata {
   name: string
