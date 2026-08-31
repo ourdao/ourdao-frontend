@@ -44,6 +44,17 @@ export function formatToken(
   }
 }
 
+// Format a consensus threshold stored in basis points for display.
+// Divides by 100, trims trailing zeros, and appends "%".
+// Never rounds up — the displayed value is always ≤ the true threshold.
+export function formatThreshold(basisPoints: number): string {
+  const pct = basisPoints / 100
+  const fixed = pct.toFixed(2)
+  const [whole, frac] = fixed.split('.')
+  const trimmedFrac = frac?.replace(/0+$/, '')
+  return trimmedFrac ? `${whole}.${trimmedFrac}%` : `${whole}%`
+}
+
 // Format dates to readable format
 export function formatDate(timestamp: number | string | Date): string {
   try {

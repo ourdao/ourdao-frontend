@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { formatToken, parseToken } from '@/lib/utils'
+import { formatToken, parseToken, formatThreshold } from '@/lib/utils'
 
 describe('formatToken', () => {
   it('renders a bare "0" for an exact zero value', () => {
@@ -72,5 +72,35 @@ describe('formatToken / parseToken round trip', () => {
     // falls back to its documented zero default, which is the expected,
     // intentional lossy behavior of display-precision rounding.
     expect(parseToken(formatted, 7)).toBe(BigInt(0))
+  })
+})
+
+describe('formatThreshold', () => {
+  it('formats 5100bp as "51%" (whole percent, trimmed trailing .00)', () => {
+    expect(formatThreshold(5100)).toBe('51%')
+  })
+
+  it('formats 5150bp as "51.5%" (fractional, two decimals, no rounding up)', () => {
+    expect(formatThreshold(5150)).toBe('51.5%')
+  })
+
+  it('formats 0bp as "0%" (edge case)', () => {
+    expect(formatThreshold(0)).toBe('0%')
+  })
+
+  it('formats 10000bp as "100%" (maximum)', () => {
+    expect(formatThreshold(10000)).toBe('100%')
+  })
+
+  it('formats 500bp as "5%" (single digit)', () => {
+    expect(formatThreshold(500)).toBe('5%')
+  })
+
+  it('formats 5050bp as "50.5%" (fractional)', () => {
+    expect(formatThreshold(5050)).toBe('50.5%')
+  })
+
+  it('formats 5010bp as "50.1%" (one decimal)', () => {
+    expect(formatThreshold(5010)).toBe('50.1%')
   })
 })
