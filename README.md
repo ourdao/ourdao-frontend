@@ -29,6 +29,7 @@ This repository is one of three that make up OurDAO:
 - [Routes](#routes)
 - [Architecture](#architecture)
 - [Where the Stellar integration lives](#where-the-stellar-integration-lives)
+- [Contract interface artifact](#contract-interface-artifact)
 - [Theming](#theming)
 - [Scripts](#scripts)
 - [Testing](#testing)
@@ -113,6 +114,14 @@ Data flows through [TanStack Query](https://tanstack.com/query) throughout: `use
 | `src/lib/dao-client.ts` | Soroban read/invoke + typed wrappers for every contract method |
 | `src/components/ConnectButton.tsx` | Freighter connect/disconnect UI |
 | `src/hooks/useDAO.ts` | React Query hooks the pages consume |
+
+## Contract interface artifact
+
+The frontend hard-codes argument shapes, enum variants, and event symbols for a specific version of the Soroban contract. `contract/interface.json` pins which version that is by recording the contract's read/write surface alongside the `ourdao-contracts` commit SHA it was verified against.
+
+- **What it is:** A JSON summary of every public entrypoint and enum the contract exposes. It is not the raw WASM or IDL — it is the human-readable shape the frontend depends on.
+- **How to regenerate:** After updating the contract, run `stellar contract inspect --wasm <path-to-contract.wasm>` (or the equivalent `soroban contract inspect` output) and update this file.
+- **Why it matters:** A contract redeploy that renames a variant or reorders arguments silently breaks the frontend — this file makes the expected surface explicit and reviewable.
 
 ## Theming
 
