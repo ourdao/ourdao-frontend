@@ -16,7 +16,7 @@ const mockGetTransaction = vi.fn()
 // validates the checksum, so an arbitrary "CAAA...AAA" string is rejected.
 // Named with the `mock` prefix so vitest's vi.mock hoisting allows the
 // factory below to reference it.
-const mockContractId = StrKey.encodeContract(new Uint8Array(32))
+const mockContractId = StrKey.encodeContract(Buffer.alloc(32))
 
 vi.mock('@/lib/stellar', () => ({
   CONTRACT_ID: mockContractId,

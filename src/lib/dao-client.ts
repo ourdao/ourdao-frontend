@@ -13,6 +13,7 @@ import {
   BASE_FEE,
   Contract,
   Keypair,
+  Transaction,
   TransactionBuilder,
   nativeToScVal,
   scValToNative,
@@ -219,9 +220,12 @@ export async function invoke(
   // Poll until the transaction's own time bounds expire rather than a
   // hardcoded iteration count, so the poll budget always matches the
   // window during which the network could actually still include it.
-  const deadlineMs = signedTx.timeBounds?.maxTime
-    ? Number(signedTx.timeBounds.maxTime) * 1000
-    : Date.now() + DEFAULT_POLL_BUDGET_MS
+  // FeeBumpTransaction has no timeBounds of its own (only its inner
+  // Transaction does), so fall back to the default budget for those.
+  const deadlineMs =
+    signedTx instanceof Transaction && signedTx.timeBounds?.maxTime
+      ? Number(signedTx.timeBounds.maxTime) * 1000
+      : Date.now() + DEFAULT_POLL_BUDGET_MS
 
   let result = await server.getTransaction(sent.hash)
   while (result.status === 'NOT_FOUND' && Date.now() < deadlineMs) {
