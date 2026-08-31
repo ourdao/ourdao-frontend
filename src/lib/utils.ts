@@ -75,6 +75,13 @@ export function formatAddress(address: string, startLength: number = 6, endLengt
   return `${address.slice(0, startLength)}...${address.slice(-endLength)}`
 }
 
+// Format a basis-points consensus threshold (e.g. 5150 → "51.50%").
+// Trims trailing zeros so whole-number thresholds stay clean ("51%", not "51.00%").
+export function formatThreshold(basisPoints: number): string {
+  const pct = basisPoints / 100
+  return pct % 1 === 0 ? `${pct}%` : `${pct.toFixed(2)}%`
+}
+
 // Calculate percentage for voting results
 export function calculatePercentage(votes: number, totalVotes: number): number {
   if (totalVotes === 0) return 0
