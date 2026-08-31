@@ -3,7 +3,6 @@ import { IPFS_GATEWAY } from '@/constants'
 // Encryption utilities
 export async function encryptData(data: string, password: string): Promise<string> {
   const encoder = new TextEncoder()
-  const decoder = new TextDecoder()
   
   // Generate salt and IV
   const salt = crypto.getRandomValues(new Uint8Array(16))

@@ -143,6 +143,6 @@ export function useDAOEvents() {
     refetchInterval: 15_000,
   })
   const events = (data ?? []) as unknown as Record<string, unknown>[]
-  const setEvents = (_: Record<string, unknown>[]) => {}
+  const setEvents = () => {}
   return { events, setEvents }
 }
