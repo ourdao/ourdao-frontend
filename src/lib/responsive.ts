@@ -149,7 +149,7 @@ export const useResponsiveCardLayout = () => {
     if (screenSize === 'sm') {
       return 'grid-cols-1'
     } else if (screenSize === 'md') {
-      return itemCount <= 2 ? 'grid-cols-2' : 'grid-cols-2'
+      return itemCount <= 1 ? 'grid-cols-1' : 'grid-cols-2'
     } else {
       return itemCount <= 2 ? 'grid-cols-2' : itemCount <= 3 ? 'grid-cols-3' : 'grid-cols-4'
     }

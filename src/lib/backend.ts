@@ -11,10 +11,9 @@
  * rather than throwing.
  */
 
-export const BACKEND_URL =
-  process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:4000'
+export const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL || ''
 
-export const isBackendConfigured = (): boolean => !!BACKEND_URL
+export const isBackendConfigured = (): boolean => !!process.env.NEXT_PUBLIC_BACKEND_URL
 
 // --- Response shapes (mirror ourdao-backend/src/types.ts; amounts are strings) ---
 
@@ -96,8 +95,10 @@ export interface BackendEvent {
 //    if needed (check test/degradation-modes.test.tsx setup).
 
 async function get<T>(path: string, fallback: T): Promise<T> {
+  if (!isBackendConfigured()) return fallback
+  const base = process.env.NEXT_PUBLIC_BACKEND_URL || ''
   try {
-    const res = await fetch(`${BACKEND_URL}${path}`, {
+    const res = await fetch(`${base}${path}`, {
       headers: { accept: 'application/json' },
       // Indexed data changes often; never serve a stale cache.
       cache: 'no-store',
@@ -112,8 +113,10 @@ async function get<T>(path: string, fallback: T): Promise<T> {
 
 /** PATCH with no body. Returns whether the backend accepted the mutation. */
 async function patch(path: string): Promise<boolean> {
+  if (!isBackendConfigured()) return false
+  const base = process.env.NEXT_PUBLIC_BACKEND_URL || ''
   try {
-    const res = await fetch(`${BACKEND_URL}${path}`, { method: 'PATCH' })
+    const res = await fetch(`${base}${path}`, { method: 'PATCH' })
     return res.ok
   } catch {
     return false
