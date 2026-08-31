@@ -16,7 +16,7 @@ export function useDAOContract() {
 export function useUserData(): UserData {
   const { address, isConnected } = useWallet()
 
-  const { data } = useQuery({
+  const { data, isLoading } = useQuery({
     queryKey: ['userData', address],
     enabled: !!address && isContractConfigured(),
     queryFn: async () => {
@@ -43,6 +43,7 @@ export function useUserData(): UserData {
   const m = data?.member
   return {
     isConnected,
+    isLoading,
     address: address || undefined,
     isMember: !!data?.isMember,
     isAdmin: !!data?.isAdmin,
