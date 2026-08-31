@@ -2,8 +2,10 @@
 
 import { useQueryClient, type QueryKey } from '@tanstack/react-query'
 import { useCallback, useState } from 'react'
+import React from 'react'
 import toast from 'react-hot-toast'
 import { useWallet } from '@/lib/wallet'
+import { getTransactionUrl } from '@/lib/stellar'
 import { daoWrite, InvokeError, type InvokeResult } from '@/lib/dao-client'
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms))
@@ -51,7 +53,24 @@ function useWriteAction() {
       try {
         const res = await fn(daoWrite(address, signXDR))
         setSuccess(true)
-        toast.success(`${label} confirmed`, { id: toastId })
+        toast.success(
+          React.createElement(
+            'span',
+            null,
+            `${label} confirmed `,
+            React.createElement(
+              'a',
+              {
+                href: getTransactionUrl(res.hash),
+                target: '_blank',
+                rel: 'noopener noreferrer',
+                className: 'underline',
+              },
+              'View transaction'
+            )
+          ),
+          { id: toastId, duration: 8000 }
+        )
         if (invalidates.length) {
           await sleep(RPC_PROPAGATION_DELAY_MS)
           await Promise.all(
