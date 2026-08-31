@@ -19,9 +19,8 @@ import {
 } from '@heroicons/react/24/outline'
 import { useUserData, useProposeTreasury } from '@/hooks/useDAO'
 import { parseToken } from '@/lib/utils'
+import { isStellarAddress } from '@/lib/stellar'
 import toast from 'react-hot-toast'
-
-const STELLAR_ADDRESS = /^[GC][A-Z2-7]{55}$/
 
 export default function CreateProposalPage() {
   const router = useRouter()
@@ -64,7 +63,7 @@ export default function CreateProposalPage() {
       toast.error('Enter a valid amount greater than zero')
       return
     }
-    if (!STELLAR_ADDRESS.test(form.destination.trim())) {
+    if (!isStellarAddress(form.destination.trim())) {
       toast.error('Enter a valid Stellar destination address (G… or C…)')
       return
     }

@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { screen, waitFor } from '@testing-library/react'
+import { screen, waitFor, fireEvent } from '@testing-library/react'
 import { renderWithProviders } from './test-utils'
 import AdminPage from '@/app/(app)/admin/page'
 
@@ -16,6 +16,7 @@ const mockGetLoanPolicy = vi.fn()
 const mockIsPaused = vi.fn()
 const mockGetLoans = vi.fn()
 const mockGetAdminLog = vi.fn()
+const mockAddAdmin = vi.fn()
 
 vi.mock('next/navigation', () => ({
   usePathname: () => '/admin',
@@ -52,7 +53,7 @@ vi.mock('@/lib/dao-client', () => ({
     getLoanPolicy: (...a: unknown[]) => mockGetLoanPolicy(...a),
     isPaused: (...a: unknown[]) => mockIsPaused(...a),
   },
-  daoWrite: () => ({ pause: vi.fn(), unpause: vi.fn(), addAdmin: vi.fn(), removeAdmin: vi.fn() }),
+  daoWrite: () => ({ pause: vi.fn(), unpause: vi.fn(), addAdmin: mockAddAdmin, removeAdmin: vi.fn() }),
 }))
 
 vi.mock('@/lib/backend', () => ({
@@ -114,5 +115,65 @@ describe('AdminPage', () => {
     mockIsAdmin.mockResolvedValue(false)
     renderWithProviders(<AdminPage />)
     await waitFor(() => expect(screen.getByText('Access Denied')).toBeInTheDocument())
+  })
+
+  // ── add-admin address validation (#66) ────────────────────────────────
+  describe('add-admin field', () => {
+    async function openGovernanceTab() {
+      mockIsMember.mockResolvedValue(true)
+      mockIsAdmin.mockResolvedValue(true)
+      renderWithProviders(<AdminPage />)
+      await waitFor(() => expect(screen.getByText('Admin Dashboard')).toBeInTheDocument())
+      fireEvent.click(screen.getByRole('button', { name: /Governance/ }))
+      await waitFor(() =>
+        expect(screen.getByPlaceholderText('G… address to add as admin')).toBeInTheDocument(),
+      )
+    }
+
+    it('disables Add Admin and shows an error for a malformed address, without calling addAdmin', async () => {
+      await openGovernanceTab()
+
+      const input = screen.getByPlaceholderText('G… address to add as admin')
+      fireEvent.change(input, { target: { value: 'not-a-valid-address' } })
+
+      const submit = screen.getByRole('button', { name: 'Add Admin' })
+      expect(submit).toBeDisabled()
+      expect(
+        screen.getByText('Enter a valid Stellar destination address (G… or C…)'),
+      ).toBeInTheDocument()
+
+      fireEvent.click(submit)
+      expect(mockAddAdmin).not.toHaveBeenCalled()
+    })
+
+    it('rejects an address containing non-base32 characters (0, 1, 8, 9), matching isStellarAddress', async () => {
+      await openGovernanceTab()
+
+      // Same shape/length as a real address, with a non-base32 digit swapped
+      // in — the exact case the old [A-Z0-9] regex wrongly admitted.
+      const invalid = 'GAHJJJKMOKYE0RVPZEWZTKH5FVI4PA3VL7GK2LFNUBSGBV3MQAXRWUDX'
+      fireEvent.change(screen.getByPlaceholderText('G… address to add as admin'), {
+        target: { value: invalid },
+      })
+
+      expect(screen.getByRole('button', { name: 'Add Admin' })).toBeDisabled()
+    })
+
+    it('enables Add Admin once a well-formed address is entered', async () => {
+      await openGovernanceTab()
+
+      const input = screen.getByPlaceholderText('G… address to add as admin')
+      fireEvent.change(input, { target: { value: 'not-a-valid-address' } })
+      expect(screen.getByRole('button', { name: 'Add Admin' })).toBeDisabled()
+
+      fireEvent.change(input, {
+        target: { value: 'GAHJJJKMOKYE4RVPZEWZTKH5FVI4PA3VL7GK2LFNUBSGBV3MQAXRWUDX' },
+      })
+
+      expect(
+        screen.queryByText('Enter a valid Stellar destination address (G… or C…)'),
+      ).not.toBeInTheDocument()
+      expect(screen.getByRole('button', { name: 'Add Admin' })).not.toBeDisabled()
+    })
   })
 })
