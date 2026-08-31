@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { backend, BACKEND_URL, isBackendConfigured } from '@/lib/backend'
+import { backend, isBackendConfigured } from '@/lib/backend'
 
 function jsonResponse(body: unknown, ok = true) {
   return { ok, json: () => Promise.resolve(body) } as Response

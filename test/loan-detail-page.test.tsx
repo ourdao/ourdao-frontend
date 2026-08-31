@@ -145,7 +145,6 @@ describe('LoanDetailsPage', () => {
     const principal = BigInt(1000_0000000) // 1000 tokens
     const totalRepayment = BigInt(1100_0000000) // 1100 tokens (100 interest)
     const amountRepaidZero = BigInt(0)
-    const outstanding = totalRepayment - amountRepaidZero
 
     function approvedProposal() {
       return {
