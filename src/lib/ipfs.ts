@@ -330,8 +330,8 @@ export function filterDocuments(
     if (filter.tags && !filter.tags.some(tag => doc.tags?.includes(tag))) return false
     if (filter.dateFrom && doc.uploadedAt < filter.dateFrom) return false
     if (filter.dateTo && doc.uploadedAt > filter.dateTo) return false
-    if (filter.sizeMin && doc.size < filter.sizeMin) return false
-    if (filter.sizeMax && doc.size > filter.sizeMax) return false
+    if (filter.sizeMin !== undefined && doc.size < filter.sizeMin) return false
+    if (filter.sizeMax !== undefined && doc.size > filter.sizeMax) return false
     return true
   })
 }
