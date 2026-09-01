@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { vi } from 'vitest'
-import { downloadFromIPFS, getIPFSUrl, uploadToIPFS, encryptData, decryptData } from '@/lib/ipfs'
+import { downloadFromIPFS, getIPFSUrl, uploadToIPFS, uploadMultipleDocuments, encryptData, decryptData } from '@/lib/ipfs'
 
 function jsonResponse(body: unknown, ok = true, status = ok ? 200 : 500) {
   return { ok, status, json: () => Promise.resolve(body), text: () => Promise.resolve('') } as Response
@@ -176,5 +176,29 @@ describe('downloadFromIPFS', () => {
 describe('getIPFSUrl', () => {
   it('builds a URL against the configured gateway', () => {
     expect(getIPFSUrl('QmSomeHash')).toContain('QmSomeHash')
+  })
+})
+
+describe('uploadMultipleDocuments', () => {
+  beforeEach(() => {
+    vi.stubGlobal('fetch', vi.fn())
+  })
+  afterEach(() => {
+    vi.unstubAllGlobals()
+  })
+
+  it('forwards permissions to every uploaded document', async () => {
+    vi.mocked(fetch).mockResolvedValue(jsonResponse({ hash: 'QmHashA' }))
+    const files = [
+      new File(['a'], 'a.txt', { type: 'text/plain' }),
+      new File(['b'], 'b.txt', { type: 'text/plain' }),
+    ]
+    const permissions = { public: false, allowedUsers: ['GUSER'], allowedRoles: ['admin'] }
+
+    const result = await uploadMultipleDocuments(files, false, undefined, undefined, permissions)
+
+    expect(result).toHaveLength(2)
+    expect(result[0].permissions).toEqual(permissions)
+    expect(result[1].permissions).toEqual(permissions)
   })
 })
