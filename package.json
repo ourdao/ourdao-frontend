@@ -6,28 +6,7 @@
   "engines": {
     "node": ">=20.0.0"
   },
-  /* AUDIT COMMENT - ISSUE #153:
-   * ✅ PERFECT: engines field added per issue requirements
-   *
-   * CURRENT STATUS: This field documents the Node version requirement
-   * that CI enforces. See .github/workflows/ci.yml: node-version: 20
-   *
-   * CONTEXT: Repo has both package-lock.json and bun.lock, indicating
-   * multiple toolchains in use. Contributors on different Node versions
-   * will now get:
-   * - npm warning if version < 20 (advisory, not enforced by default)
-   * - Automatic detection by nvm/fnm/asdf via .nvmrc (when present)
-   * - Clear documentation in CONTRIBUTING.md
-   *
-   * NOTE: engines is advisory-only in npm by default (only warns).
-   * Set engine-strict=true in .npmrc if strict enforcement is desired.
-   *
-   * SUGGESTED UPGRADES:
-   * - Keep as ">=20.0.0" (range, not pinned) to avoid friction
-   * - Consider "^20.0.0" (caret range) for LTS stability
-   * - Monitor if contributors on Node 22+ LTS encounter issues
-   */
-  "scripts": {
+    "scripts": {
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
