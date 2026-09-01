@@ -194,7 +194,7 @@ export default function DashboardPage() {
                       {formatAddress(userData.address || '')}
                     </h3>
                     <p className="text-sm text-muted-foreground">
-                      Status: {MEMBER_STATUS_LABELS[userData.member?.status || 0]}
+                      Status: {userData.member ? MEMBER_STATUS_LABELS[userData.member.status as keyof typeof MEMBER_STATUS_LABELS] : 'Non-Member'}
                     </p>
                     <p className="text-sm text-muted-foreground">
                       Member since: {formatDate(userData.member?.joinDate || 0)}
