@@ -108,20 +108,11 @@ export default function DocumentUpload({
         files,
         encrypt,
         password || undefined,
-        setUploadProgress
+        setUploadProgress,
+        encrypt ? permissions : { public: true }
       )
 
-      // Apply permissions to metadata
-      const documentsWithPermissions = uploadedDocuments.map(doc => ({
-        ...doc,
-        permissions: encrypt ? {
-          public: permissions.public,
-          allowedUsers: permissions.allowedUsers,
-          allowedRoles: permissions.allowedRoles
-        } : { public: true }
-      }))
-
-      onUpload?.(documentsWithPermissions)
+      onUpload?.(uploadedDocuments)
       setFiles([])
       setPassword('')
       setUploadProgress(0)
