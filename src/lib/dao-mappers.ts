@@ -43,7 +43,7 @@ export function toLoan(l: BackendLoan): Loan {
 // array of it; normalize both to our numeric MemberStatus.
 export function toMemberStatus(raw: unknown): MemberStatus {
   const t = Array.isArray(raw) ? raw[0] : raw
-  return t === 'ActiveMember' ? MemberStatus.ACTIVE_MEMBER : MemberStatus.INACTIVE_MEMBER
+  return t === 'ActiveMember' ? MemberStatus.ACTIVE_MEMBER : MemberStatus.INACTIVE
 }
 
 const VOTING_PERIOD = 7 * 24 * 60 * 60

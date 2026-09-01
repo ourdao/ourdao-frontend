@@ -162,7 +162,7 @@ export default function DashboardPage() {
       href: '/privacy',
       color: 'text-yellow-600 dark:text-yellow-400',
     },
-    ...(userData.member?.status === 3 ? [{
+    ...(userData.isAdmin ? [{
       title: 'Admin Panel',
       description: 'Manage DAO operations and configuration',
       icon: ShieldCheckIcon,
@@ -194,7 +194,7 @@ export default function DashboardPage() {
                       {formatAddress(userData.address || '')}
                     </h3>
                     <p className="text-sm text-muted-foreground">
-                      Status: {MEMBER_STATUS_LABELS[userData.member?.status || 0]}
+                      Status: {userData.member ? MEMBER_STATUS_LABELS[userData.member.status] : 'Non-Member'}
                     </p>
                     <p className="text-sm text-muted-foreground">
                       Member since: {formatDate(userData.member?.joinDate || 0)}

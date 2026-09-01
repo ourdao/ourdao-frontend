@@ -10,10 +10,8 @@ export const DAO_CONSTANTS = {
 } as const
 
 export const MEMBER_STATUS_LABELS = {
-  0: 'Non-Member',
+  0: 'Inactive',
   1: 'Active Member',
-  2: 'Inactive Member',
-  3: 'Suspended Member',
 } as const
 
 export const PROPOSAL_STATUS_LABELS = {

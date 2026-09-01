@@ -89,8 +89,8 @@ describe('toMemberStatus', () => {
   })
 
   it('maps anything else to INACTIVE_MEMBER', () => {
-    expect(toMemberStatus('Inactive')).toBe(MemberStatus.INACTIVE_MEMBER)
-    expect(toMemberStatus(undefined)).toBe(MemberStatus.INACTIVE_MEMBER)
+    expect(toMemberStatus('Inactive')).toBe(MemberStatus.INACTIVE)
+    expect(toMemberStatus(undefined)).toBe(MemberStatus.INACTIVE)
   })
 })
 

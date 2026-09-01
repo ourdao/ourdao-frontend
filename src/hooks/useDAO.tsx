@@ -35,7 +35,7 @@ export function toLoan(l: BackendLoan): Loan {
 // array of it; normalize both to our numeric MemberStatus.
 export function toMemberStatus(raw: unknown): MemberStatus {
   const tag = Array.isArray(raw) ? raw[0] : raw
-  return tag === 'ActiveMember' ? MemberStatus.ACTIVE_MEMBER : MemberStatus.INACTIVE_MEMBER
+  return tag === 'ActiveMember' ? MemberStatus.ACTIVE_MEMBER : MemberStatus.INACTIVE
 }
 
 export const asBigInt = (v: unknown): bigint => {
