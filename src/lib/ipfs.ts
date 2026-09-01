@@ -51,10 +51,12 @@ export async function decryptData(encryptedData: string, password: string): Prom
   const encoder = new TextEncoder()
   const decoder = new TextDecoder()
   
-  // Decode base64
-  const combined = new Uint8Array(
-    atob(encryptedData).split('').map(char => char.charCodeAt(0))
-  )
+  // Decode base64 without per-character array allocations.
+  const decoded = atob(encryptedData)
+  const combined = new Uint8Array(decoded.length)
+  for (let i = 0; i < decoded.length; i++) {
+    combined[i] = decoded.charCodeAt(i)
+  }
   
   // Extract components
   const salt = combined.slice(0, 16)
