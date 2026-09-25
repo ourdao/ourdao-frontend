@@ -8,6 +8,8 @@ import { backend } from '@/lib/backend'
 import type { UserData, DAOStats } from '@/types/dao'
 import { asBigInt, resolveLoanPolicy, toLoan, toMemberStatus } from '@/lib/dao-mappers'
 import type { UILoanPolicy } from '@/lib/dao-mappers'
+import { queryKeys } from '@/lib/query-keys'
+import { QUERY_REFRESH_INTERVAL_MS } from '@/constants'
 
 export function useDAOContract() {
   return { contractId: CONTRACT_ID, configured: isContractConfigured() }
@@ -18,7 +20,7 @@ export function useUserData(): UserData {
   const { address, isConnected } = useWallet()
 
   const { data, isLoading } = useQuery({
-    queryKey: ['userData', address],
+    queryKey: address ? queryKeys.userData(address) : queryKeys.userDataDisabled(),
     enabled: !!address && isContractConfigured(),
     queryFn: async () => {
       const [isMember, isAdmin, member, pendingYield, exitShare] = await Promise.all([
@@ -36,10 +38,10 @@ export function useUserData(): UserData {
   // queryable per-member loan list). Independent of contract configuration so
   // it still resolves when only the backend URL is set.
   const { data: loans } = useQuery({
-    queryKey: ['userLoans', address],
+    queryKey: address ? queryKeys.userLoans(address) : queryKeys.userLoansDisabled(),
     enabled: !!address,
     queryFn: () => backend.getLoans(address!),
-    refetchInterval: 15_000,
+    refetchInterval: QUERY_REFRESH_INTERVAL_MS,
     refetchIntervalInBackground: false,
   })
 
@@ -101,7 +103,7 @@ export type ExtendedStats = DAOStats & {
  *  read lands the labelled fallbacks stand in (`fromChain` is false). */
 export function useLoanPolicy(): UILoanPolicy {
   const { data } = useQuery({
-    queryKey: ['loanPolicy'],
+    queryKey: queryKeys.loanPolicy(),
     enabled: isContractConfigured(),
     queryFn: async () => {
       const [policy, threshold] = await Promise.all([
@@ -116,7 +118,7 @@ export function useLoanPolicy(): UILoanPolicy {
 
 export function useDAOStats(): ExtendedStats {
   const { data } = useQuery({
-    queryKey: ['daoStats'],
+    queryKey: queryKeys.daoStats(),
     enabled: isContractConfigured(),
     queryFn: async () => {
       const [totalMembers, activeMembers, threshold, treasury, policy, isPaused] =
@@ -135,9 +137,9 @@ export function useDAOStats(): ExtendedStats {
   // Loan counts and total stake are aggregated by the off-chain indexer, which
   // sees the full event history the contract doesn't keep queryable.
   const { data: agg } = useQuery({
-    queryKey: ['daoStatsBackend'],
+    queryKey: queryKeys.daoStatsBackend(),
     queryFn: () => backend.getStats(),
-    refetchInterval: 15_000,
+    refetchInterval: QUERY_REFRESH_INTERVAL_MS,
     refetchIntervalInBackground: false,
   })
 
@@ -186,9 +188,9 @@ export function useDAOStats(): ExtendedStats {
 // remains for call-site compatibility with the previous shell.
 export function useDAOEvents() {
   const { data } = useQuery({
-    queryKey: ['daoEvents'],
+    queryKey: queryKeys.daoEvents(),
     queryFn: () => backend.getEvents(50),
-    refetchInterval: 15_000,
+    refetchInterval: QUERY_REFRESH_INTERVAL_MS,
     refetchIntervalInBackground: false,
   })
   const events = (data ?? []) as unknown as Record<string, unknown>[]

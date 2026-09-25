@@ -1,23 +1,14 @@
 'use client'
 
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
+import { QueryCache, QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { useState } from 'react'
-import { Toaster } from 'react-hot-toast'
+import toast, { Toaster } from 'react-hot-toast'
 import { ThemeProvider } from 'next-themes'
 import { WalletProvider } from '@/lib/wallet'
+import { QUERY_STALE_TIME_MS } from '@/constants'
 
 export function Providers({ children }: { children: React.ReactNode }) {
-  const [queryClient] = useState(
-    () =>
-      new QueryClient({
-        defaultOptions: {
-          queries: {
-            staleTime: 60 * 1000, // 1 minute
-            refetchOnWindowFocus: false,
-          },
-        },
-      })
-  )
+  const [queryClient] = useState(() => createQueryClient())
 
   return (
     <ThemeProvider attribute="class" defaultTheme="system" enableSystem>
@@ -51,4 +42,24 @@ export function Providers({ children }: { children: React.ReactNode }) {
       </QueryClientProvider>
     </ThemeProvider>
   )
+}
+
+export function createQueryClient() {
+  return new QueryClient({
+    queryCache: new QueryCache({
+      onError: (error, query) => {
+        console.error('Query failed', { queryKey: query.queryKey, error })
+        if (query.meta?.notifyOnError) {
+          toast.error('Unable to refresh this data. Please try again.')
+        }
+      },
+    }),
+    defaultOptions: {
+      queries: {
+        staleTime: QUERY_STALE_TIME_MS,
+        refetchOnWindowFocus: true,
+        retry: 0,
+      },
+    },
+  })
 }

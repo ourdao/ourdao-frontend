@@ -68,3 +68,7 @@ export const IPFS_GATEWAY = IPFS_GATEWAYS[0]
 
 /** Give up on one gateway after this long and move on to the next. */
 export const IPFS_GATEWAY_TIMEOUT_MS = 10_000
+
+/** Query freshness and polling are intentionally aligned with one policy. */
+export const QUERY_STALE_TIME_MS = 60_000
+export const QUERY_REFRESH_INTERVAL_MS = 60_000

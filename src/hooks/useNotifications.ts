@@ -13,8 +13,8 @@ import { useWallet } from '@/lib/wallet'
 import { backend, type BackendEvent, type BackendNotification } from '@/lib/backend'
 import { formatStellarAddress, isStellarAddress } from '@/lib/stellar'
 import type { ActivityItem, NotificationData } from '@/lib/pushNotifications'
-
-const POLL_MS = 15_000
+import { queryKeys } from '@/lib/query-keys'
+import { QUERY_REFRESH_INTERVAL_MS } from '@/constants'
 
 function toNotification(n: BackendNotification): NotificationData {
   return {
@@ -40,10 +40,10 @@ export function useAutoNotifications() {
   const [removedIds, setRemovedIds] = useState<Set<string>>(new Set())
 
   const { data } = useQuery({
-    queryKey: ['notifications', address],
+    queryKey: address ? queryKeys.notifications(address) : queryKeys.notificationsDisabled(),
     enabled: !!address,
     queryFn: () => backend.getNotifications(address!),
-    refetchInterval: POLL_MS,
+    refetchInterval: QUERY_REFRESH_INTERVAL_MS,
     refetchIntervalInBackground: false,
   })
 
@@ -64,7 +64,7 @@ export function useAutoNotifications() {
       const numericId = Number(id)
       if (Number.isFinite(numericId)) {
         backend.markNotificationRead(numericId).then(() => {
-          queryClient.invalidateQueries({ queryKey: ['notifications', address] })
+          if (address) queryClient.invalidateQueries({ queryKey: queryKeys.notifications(address) })
         })
       }
     },
@@ -75,7 +75,7 @@ export function useAutoNotifications() {
     setReadIds(new Set((data ?? []).map((n) => String(n.id))))
     if (address) {
       backend.markAllNotificationsRead(address).then(() => {
-        queryClient.invalidateQueries({ queryKey: ['notifications', address] })
+        queryClient.invalidateQueries({ queryKey: queryKeys.notifications(address) })
       })
     }
   }, [data, address, queryClient])
@@ -168,9 +168,9 @@ function toActivity(ev: BackendEvent): ActivityItem {
 /** DAO-wide activity feed from the indexed contract event stream. */
 export function useActivityFeed(limit: number = 50) {
   const { data } = useQuery({
-    queryKey: ['activity', limit],
+    queryKey: queryKeys.activity(limit),
     queryFn: () => backend.getEvents(limit),
-    refetchInterval: POLL_MS,
+    refetchInterval: QUERY_REFRESH_INTERVAL_MS,
     refetchIntervalInBackground: false,
   })
 

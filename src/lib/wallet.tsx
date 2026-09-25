@@ -19,6 +19,7 @@ import {
 } from '@stellar/freighter-api'
 import { Networks } from '@stellar/stellar-sdk'
 import { useQueryClient } from '@tanstack/react-query'
+import { allWalletScopedQueryKeys } from '@/lib/query-keys'
 import toast from 'react-hot-toast'
 import { NETWORK_PASSPHRASE } from './stellar'
 
@@ -225,9 +226,9 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
         if (newAddr && newAddr !== addressRef.current) {
           addressRef.current = newAddr
           setAddress(newAddr)
-          queryClient.invalidateQueries({ queryKey: ['userData'] })
-          queryClient.invalidateQueries({ queryKey: ['userLoans'] })
-          queryClient.invalidateQueries({ queryKey: ['stake'] })
+          for (const queryKey of allWalletScopedQueryKeys()) {
+            queryClient.invalidateQueries({ queryKey })
+          }
         }
       })
     }
@@ -256,9 +257,9 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
           if (currentAddr && currentAddr !== addressRef.current) {
             addressRef.current = currentAddr
             setAddress(currentAddr)
-            queryClient.invalidateQueries({ queryKey: ['userData'] })
-            queryClient.invalidateQueries({ queryKey: ['userLoans'] })
-            queryClient.invalidateQueries({ queryKey: ['stake'] })
+            for (const queryKey of allWalletScopedQueryKeys()) {
+              queryClient.invalidateQueries({ queryKey })
+            }
           }
           const net = await getNetwork()
           if (!net.error) {

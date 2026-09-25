@@ -120,6 +120,29 @@ describe('write-hook query invalidation', () => {
     expect(invalidateSpy).toHaveBeenCalledWith({ queryKey: ['daoStats'] })
   })
 
+  it('applies a vote optimistically and rolls it back when the write fails', async () => {
+    let rejectVote: (error: Error) => void = () => {}
+    mockVoteOnLoanProposal.mockReturnValue(
+      new Promise((_, reject) => {
+        rejectVote = reject
+      })
+    )
+    const client = makeClient()
+    client.setQueryData(['hasVoted', 'Loan', 7, 'GALICE'], false)
+
+    let latest: ReturnType<typeof useVoting> | undefined
+    renderWithClient(client, useVoting, (h) => { latest = h })
+    const vote = latest!.voteOnProposal(7, true)
+
+    await waitFor(() => {
+      expect(client.getQueryData(['hasVoted', 'Loan', 7, 'GALICE'])).toBe(true)
+    })
+
+    rejectVote(new Error('NotEligible'))
+    await expect(vote).rejects.toThrow('NotEligible')
+    expect(client.getQueryData(['hasVoted', 'Loan', 7, 'GALICE'])).toBe(false)
+  })
+
   it('staking invalidates the connected address\'s own stake and daoStats', async () => {
     mockStake.mockResolvedValue({ hash: 'tx3', returnValue: null })
     const client = makeClient()
