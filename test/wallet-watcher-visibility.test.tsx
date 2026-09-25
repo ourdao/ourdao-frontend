@@ -12,7 +12,8 @@ type WatchCallback = (params: {
   error?: unknown
 }) => void
 
-let watchCallback: WatchCallback | null = null
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+let _watchCallback: WatchCallback | null = null
 const mockWatcherStop = vi.fn()
 
 vi.mock('@stellar/freighter-api', () => ({
@@ -25,7 +26,7 @@ vi.mock('@stellar/freighter-api', () => ({
   WatchWalletChanges: vi.fn().mockImplementation(function () {
     return {
       watch: vi.fn((cb: WatchCallback) => {
-        watchCallback = cb
+        _watchCallback = cb
         return {}
       }),
       stop: mockWatcherStop,
@@ -53,7 +54,7 @@ describe('Issue #218 — Wallet Watcher Visibility & State Updates', () => {
   let originalHidden: boolean
 
   beforeEach(() => {
-    watchCallback = null
+    _watchCallback = null
     mockWatcherStop.mockClear()
     vi.mocked(freighter.WatchWalletChanges).mockClear()
     vi.mocked(freighter.isAllowed).mockResolvedValue({ isAllowed: true } as never)

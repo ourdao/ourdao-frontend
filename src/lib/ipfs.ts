@@ -60,10 +60,11 @@ export async function encryptBytes(data: Uint8Array, password: string): Promise<
     data as unknown as BufferSource
   )
 
-  const combined = new Uint8Array(salt.length + iv.length + encrypted.byteLength)
-  combined.set(salt, 0)
-  combined.set(iv, salt.length)
-  combined.set(new Uint8Array(encrypted), salt.length + iv.length)
+  const combined = new Uint8Array(1 + salt.length + iv.length + encrypted.byteLength)
+  combined[0] = ENCRYPTION_VERSION
+  combined.set(salt, 1)
+  combined.set(iv, 1 + salt.length)
+  combined.set(new Uint8Array(encrypted), 1 + salt.length + iv.length)
 
   return bytesToBase64(combined)
 }
@@ -72,9 +73,22 @@ export async function decryptBytes(encryptedData: string, password: string): Pro
   const encoder = new TextEncoder()
   const combined = base64ToBytes(encryptedData)
 
-  const salt = combined.slice(0, 16)
-  const iv = combined.slice(16, 28)
-  const encrypted = combined.slice(28)
+  let salt: Uint8Array
+  let iv: Uint8Array
+  let encrypted: Uint8Array
+  let iterations: number
+
+  if (combined[0] === ENCRYPTION_VERSION && combined.length >= 1 + 16 + 12 + 16) {
+    salt = combined.slice(1, 17)
+    iv = combined.slice(17, 29)
+    encrypted = combined.slice(29)
+    iterations = PBKDF2_ITERATIONS
+  } else {
+    salt = combined.slice(0, 16)
+    iv = combined.slice(16, 28)
+    encrypted = combined.slice(28)
+    iterations = 100000
+  }
 
   const keyMaterial = await crypto.subtle.importKey(
     'raw',
@@ -87,7 +101,7 @@ export async function decryptBytes(encryptedData: string, password: string): Pro
   const key = await crypto.subtle.deriveKey(
     {
       name: 'PBKDF2',
-      salt: salt,
+      salt: salt as unknown as BufferSource,
       iterations: iterations,
       hash: 'SHA-256'
     },
@@ -98,9 +112,9 @@ export async function decryptBytes(encryptedData: string, password: string): Pro
   )
 
   const decrypted = await crypto.subtle.decrypt(
-    { name: 'AES-GCM', iv: iv },
+    { name: 'AES-GCM', iv: iv as unknown as BufferSource },
     key,
-    encrypted
+    encrypted as unknown as BufferSource
   )
 
   return new Uint8Array(decrypted)
@@ -143,6 +157,7 @@ export async function uploadToIPFS(
   // DocumentViewer.tsx's preview blob.
   const res = await fetch('/api/documents', {
     method: 'POST',
+    headers: { 'Content-Type': 'application/octet-stream' },
     body: new Blob([new Uint8Array(processedData)]),
   })
 

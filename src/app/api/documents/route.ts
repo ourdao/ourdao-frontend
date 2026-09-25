@@ -1,5 +1,7 @@
 import { randomUUID } from 'node:crypto'
 import { NextRequest, NextResponse } from 'next/server'
+import { verifyIPFSHash } from '@/lib/ipfs-cid'
+import { checkRateLimit } from '@/lib/rate-limiter'
 
 /**
  * Hard cap on an upload body. The client limits plaintext to 10 MB
@@ -8,6 +10,12 @@ import { NextRequest, NextResponse } from 'next/server'
  * caller make the server allocate arbitrary amounts of memory.
  */
 export const MAX_UPLOAD_BYTES = 16 * 1024 * 1024
+
+/**
+ * Minimum plausible byte size for an encrypted payload envelope
+ * (16 bytes salt + 12 bytes IV + AES-GCM tag/ciphertext).
+ */
+export const MIN_UPLOAD_BYTES = 32
 
 const tooLarge = () =>
   NextResponse.json(
@@ -62,23 +70,60 @@ export async function POST(req: NextRequest) {
     )
   }
 
-  // Reject on the declared length before reading a single byte.
+  // 1. Rate limiting check (per IP and per member address)
+  const rateLimit = checkRateLimit(req)
+  if (!rateLimit.allowed) {
+    return NextResponse.json(
+      { error: 'Too many upload requests. Please try again later.' },
+      {
+        status: 429,
+        headers: {
+          'Retry-After': String(rateLimit.retryAfterSeconds || 60),
+        },
+      }
+    )
+  }
+
+  // 2. Require explicit application/octet-stream Content-Type
+  const contentType = req.headers.get('content-type')
+  if (!contentType || !contentType.toLowerCase().includes('application/octet-stream')) {
+    return NextResponse.json(
+      { error: 'Content-Type must be application/octet-stream' },
+      { status: 400 }
+    )
+  }
+
+  // 3. Reject on declared length over cap
   const declared = Number(req.headers.get('content-length'))
   if (Number.isFinite(declared) && declared > MAX_UPLOAD_BYTES) return tooLarge()
 
+  // 4. Read bounded body
   const body = await readBounded(req)
   if (!body) return tooLarge()
-  if (body.byteLength === 0) {
-    return NextResponse.json({ error: 'Empty upload' }, { status: 400 })
+
+  // 5. Enforce minimum plausible size check
+  if (body.byteLength < MIN_UPLOAD_BYTES) {
+    return NextResponse.json(
+      { error: `Upload payload must be at least ${MIN_UPLOAD_BYTES} bytes` },
+      { status: 400 }
+    )
   }
 
+  // 6. Construct form data with Pinata pin metadata (no member PII or IP included)
   const form = new FormData()
   form.append('file', new Blob([new Uint8Array(body)]), 'document')
 
+  const metadata = {
+    name: `doc-${Date.now()}`,
+    keyvalues: {
+      uploadedAt: new Date().toISOString(),
+      size: String(body.byteLength),
+    },
+  }
+  form.append('pinataMetadata', JSON.stringify(metadata))
+
   let res: Response
   try {
-    // No timeout or abort signal: a hung Pinata API holds this handler open
-    // instead of returning an error response.
     res = await fetch('https://api.pinata.cloud/pinning/pinFileToIPFS', {
       method: 'POST',
       headers: { Authorization: `Bearer ${jwt}` },
@@ -89,9 +134,6 @@ export async function POST(req: NextRequest) {
   }
 
   if (!res.ok) {
-    // The provider's body can carry account ids, plan/quota state and internal
-    // request ids. Keep it in server logs, keyed by a request id the client can
-    // quote, and return only a generic message.
     const requestId = randomUUID()
     const detail = await res.text().catch(() => '')
     console.error(`[documents] pinning provider rejected upload (${res.status}) requestId=${requestId}`, detail)
@@ -101,6 +143,30 @@ export async function POST(req: NextRequest) {
     )
   }
 
-  const data = (await res.json()) as { IpfsHash: string }
-  return NextResponse.json({ hash: data.IpfsHash })
+  // 7. Safe response JSON parsing & shape validation
+  let rawData: unknown
+  try {
+    rawData = await res.json()
+  } catch {
+    return NextResponse.json({ error: 'Invalid response from pinning provider' }, { status: 502 })
+  }
+
+  if (!rawData || typeof rawData !== 'object') {
+    return NextResponse.json({ error: 'Pinning provider response missing IpfsHash' }, { status: 502 })
+  }
+
+  const { IpfsHash } = rawData as { IpfsHash?: unknown }
+  if (typeof IpfsHash !== 'string' || !IpfsHash.trim()) {
+    return NextResponse.json({ error: 'Pinning provider response missing IpfsHash' }, { status: 502 })
+  }
+
+  // 8. Verify returned CID format & content match against uploaded bytes
+  if (!verifyIPFSHash(IpfsHash, body)) {
+    return NextResponse.json(
+      { error: 'Pinning provider returned invalid or mismatched IPFS hash' },
+      { status: 502 }
+    )
+  }
+
+  return NextResponse.json({ hash: IpfsHash })
 }
