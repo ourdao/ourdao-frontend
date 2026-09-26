@@ -96,7 +96,7 @@ export function readSigned(res: unknown): { signedTxXdr: string; error?: string;
 }
 
 /** Friendly label for a network passphrase, for the mismatch banner. */
-function passphraseLabel(passphrase: string): string {
+export function passphraseLabel(passphrase: string): string {
   switch (passphrase) {
     case Networks.PUBLIC:
       return 'Mainnet'
@@ -107,6 +107,24 @@ function passphraseLabel(passphrase: string): string {
     default:
       return passphrase
   }
+}
+
+/**
+ * Pure predicate for the network-mismatch guard (issue #241).
+ *
+ * Decision (see docs/decisions/ADR-008-network-mismatch.md): a mismatch
+ * surfaces a banner AND blocks writes. Reads stay available so members can
+ * still inspect state while on the wrong network; `signXDR` and
+ * `useWriteAction.run` both reject until the wallet network matches
+ * `NETWORK_PASSPHRASE` again. Recovery is automatic via the watcher — no
+ * reload required.
+ */
+export function isNetworkMismatch(
+  address: string | null,
+  walletNetworkPassphrase: string | null,
+  expectedPassphrase: string = NETWORK_PASSPHRASE
+): boolean {
+  return !!address && !!walletNetworkPassphrase && walletNetworkPassphrase !== expectedPassphrase
 }
 
 // Poll interval for Freighter's own watcher (address/network changes aren't
@@ -179,8 +197,7 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
     return null
   }, [])
 
-  const networkMismatch =
-    !!address && !!walletNetworkPassphrase && walletNetworkPassphrase !== NETWORK_PASSPHRASE
+  const networkMismatch = isNetworkMismatch(address, walletNetworkPassphrase, NETWORK_PASSPHRASE)
 
   const isConnected = !!address
 
@@ -433,6 +450,7 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
       {networkMismatch && (
         <div
           role="alert"
+          data-testid="network-mismatch-banner"
           className="fixed top-0 inset-x-0 z-[100] bg-red-600 text-white text-sm font-medium px-4 py-2 text-center shadow-md"
         >
           Wallet network mismatch: Freighter is set to{' '}

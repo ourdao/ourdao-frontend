@@ -20,7 +20,7 @@ type OptimisticUpdate = {
  * action affects once the write is confirmed.
  */
 export function useWriteAction() {
-  const { address, signXDR, isConnected } = useWallet()
+  const { address, signXDR, isConnected, networkMismatch } = useWallet()
   const queryClient = useQueryClient()
   const [isPending, setPending] = useState(false)
   const [isSuccess, setSuccess] = useState(false)
@@ -55,6 +55,13 @@ export function useWriteAction() {
       if (!isConnected || !address) {
         toast.error('Connect your wallet first')
         throw new Error('Wallet not connected')
+      }
+      // Issue #241: block writes while the wallet is on the wrong network,
+      // before any optimistic update or signer call, so a mismatched member
+      // never reaches the Freighter approval prompt.
+      if (networkMismatch) {
+        toast.error('Wallet network mismatch: switch Freighter to the expected network before submitting.')
+        throw new Error('Wallet network mismatch: transactions are blocked until the wallet network matches.')
       }
       setPending(true)
       setSuccess(false)
@@ -137,10 +144,10 @@ export function useWriteAction() {
         toastIdRef.current = null
       }
     },
-    [address, isConnected, signXDR, queryClient]
+    [address, isConnected, networkMismatch, signXDR, queryClient]
   )
 
-  return { run, isPending, isSuccess, error, isRetryable, address, cancelSignature }
+  return { run, isPending, isSuccess, error, isRetryable, address, cancelSignature, networkMismatch }
 }
 
 export function useMemberRegistration() {

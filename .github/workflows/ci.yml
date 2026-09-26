@@ -63,6 +63,50 @@ jobs:
       - run: npm ci
       - run: npm test
 
+  # Issue #240: coverage is measured per file with the V8 provider and a
+  # ratchet threshold (see vitest.config.mts). The provider is pinned to the
+  # vitest version and installed with --no-save so `npm ci` stays
+  # lockfile-clean. The summary is published to the job output so the
+  # per-file report is the main deliverable without opening the artifact.
+  coverage:
+    name: Coverage
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 20
+          cache: npm
+      - run: npm ci
+      - name: Install V8 coverage provider (pinned to vitest version)
+        run: npm install --no-save @vitest/coverage-v8@4.1.11
+      - name: Run coverage (enforces thresholds in vitest.config.mts)
+        run: npm run coverage
+      - name: Publish coverage summary to job output
+        if: always()
+        run: |
+          echo "## Coverage summary" >> "$GITHUB_STEP_SUMMARY"
+          if [ -f coverage/coverage-summary.json ]; then
+            node -e "const s=require('./coverage/coverage-summary.json'); const t=s.total; console.log('Lines: '+t.lines.pct+'% ('+t.lines.covered+'/'+t.lines.total+') | Functions: '+t.functions.pct+'% | Branches: '+t.branches.pct+'% | Statements: '+t.statements.pct+'%')" | tee -a "$GITHUB_STEP_SUMMARY"
+            echo "" >> "$GITHUB_STEP_SUMMARY"
+            echo "<details><summary>Per-file coverage (coverage/coverage-summary.json)</summary>" >> "$GITHUB_STEP_SUMMARY"
+            echo "" >> "$GITHUB_STEP_SUMMARY"
+            echo '```json' >> "$GITHUB_STEP_SUMMARY"
+            cat coverage/coverage-summary.json >> "$GITHUB_STEP_SUMMARY"
+            echo '```' >> "$GITHUB_STEP_SUMMARY"
+            echo "</details>" >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "coverage/coverage-summary.json not found" >> "$GITHUB_STEP_SUMMARY"
+          fi
+      - name: Upload coverage artifact
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: coverage
+          path: coverage/
+          retention-days: 7
+
   build:
     # Node 20 is the required check and keeps the plain `build` name the
     # ruleset and the `status` job expect; 22 and 24 are informational.
@@ -230,7 +274,7 @@ jobs:
   status:
     name: Record status
     if: always()
-    needs: [lint, typecheck, test, build]
+    needs: [lint, typecheck, test, coverage, build]
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
@@ -244,6 +288,7 @@ jobs:
               "lint": "${{ needs.lint.result }}",
               "typecheck": "${{ needs.typecheck.result }}",
               "test": "${{ needs.test.result }}",
+              "coverage": "${{ needs.coverage.result }}",
               "build": "${{ needs.build.result }}"
             }
           }
