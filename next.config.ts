@@ -1,4 +1,5 @@
 import type { NextConfig } from "next";
+import { version } from "./package.json";
 
 /**
  * Build an env-driven Content-Security-Policy.
@@ -140,6 +141,21 @@ export { buildImageRemotePatterns, buildCsp };
 const nextConfig: NextConfig = {
   poweredByHeader: false,
   turbopack: {},
+  // Surfaced in the UI by src/lib/build-info.ts so a bug report can name the
+  // build and match it to a CHANGELOG.md entry (#250). The SHA comes from the
+  // deploy platform (Vercel) or CI (GitHub Actions); absent locally.
+  env: {
+    NEXT_PUBLIC_APP_VERSION: version,
+    NEXT_PUBLIC_GIT_SHA: process.env.VERCEL_GIT_COMMIT_SHA || process.env.GITHUB_SHA || "",
+  },
+  // `page.dev.tsx` routes (the /dev/components catalogue, #253) exist only
+  // under `next dev`. `next build` sets NODE_ENV=production, so there the file
+  // is an ordinary non-route file nothing imports, and it never reaches the
+  // production bundle.
+  pageExtensions:
+    process.env.NODE_ENV === "production"
+      ? ["tsx", "ts", "jsx", "js"]
+      : ["dev.tsx", "tsx", "ts", "jsx", "js"],
   images: {
     formats: ["image/avif", "image/webp"],
     remotePatterns: buildImageRemotePatterns(),

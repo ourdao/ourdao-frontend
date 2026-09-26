@@ -28,6 +28,7 @@ import { OrbitMark } from '@/components/OrbitMark'
 import { ThemeToggle } from '@/components/ThemeToggle'
 import { Sheet, SheetContent, SheetTitle, SheetTrigger } from '@/components/ui/sheet'
 import { useUserData, useDAOStats } from '@/hooks/useDAO'
+import { buildLabel } from '@/lib/build-info'
 import { isContractConfigured } from '@/lib/stellar'
 import { cn } from '@/lib/utils'
 
@@ -102,6 +103,11 @@ function NavLinks({ onNavigate }: { onNavigate?: () => void }) {
   )
 }
 
+// Names the running build so a bug report can be matched to CHANGELOG.md (#250).
+function BuildLabel() {
+  return <p className="px-6 pt-4 text-xs text-muted-foreground">{buildLabel()}</p>
+}
+
 interface AppShellProps {
   children: ReactNode
 }
@@ -119,6 +125,14 @@ export function AppShell({ children }: AppShellProps) {
     // the drawer closes (#68).
     <Sheet open={mobileOpen} onOpenChange={setMobileOpen}>
     <div className="min-h-screen bg-background">
+      {/* Skip link — first focusable element so keyboard and screen-reader
+          users can bypass the header/nav. Visible on focus only. */}
+      <a
+        href="#main-content"
+        className="sr-only focus:not-sr-only focus:absolute focus:left-4 focus:top-4 focus:z-[200] focus:rounded-lg focus:bg-primary-600 focus:px-4 focus:py-2 focus:text-white"
+      >
+        Skip to main content
+      </a>
       {/* Top bar */}
       <header className="sticky top-0 z-40 border-b border-border bg-card/80 backdrop-blur">
         <div className="flex h-16 items-center gap-3 px-4 sm:px-6">
@@ -167,6 +181,7 @@ export function AppShell({ children }: AppShellProps) {
         {/* Desktop sidebar */}
         <aside className="sticky top-16 hidden h-[calc(100vh-4rem)] w-60 shrink-0 flex-col border-r border-border bg-card py-4 lg:flex">
           <NavLinks />
+          <BuildLabel />
         </aside>
 
         {/* Mobile drawer — built on the vendored Radix-based Sheet primitive
@@ -184,11 +199,12 @@ export function AppShell({ children }: AppShellProps) {
               <BrandMark />
             </div>
             <NavLinks onNavigate={() => setMobileOpen(false)} />
+            <BuildLabel />
           </div>
         </SheetContent>
 
         {/* Main content */}
-        <main className="min-w-0 flex-1 px-4 py-6 sm:px-6 lg:px-8">
+        <main id="main-content" className="min-w-0 flex-1 px-4 py-6 sm:px-6 lg:px-8">
           {children}
         </main>
       </div>

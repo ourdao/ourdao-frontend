@@ -9,6 +9,7 @@ Please read this in full before opening a pull request.
 - [Before you write code](#before-you-write-code)
 - [Local setup](#local-setup)
 - [Running the checks CI runs](#running-the-checks-ci-runs)
+- [Changelog](#changelog)
 - [What a good pull request looks like](#what-a-good-pull-request-looks-like)
 - [Frontend-specific rules](#frontend-specific-rules)
 - [State model and conventions](#state-model-and-conventions)
@@ -28,7 +29,7 @@ If you think something should change but there's no issue for it, open one and d
 
 ## Local setup
 
-You need Node.js 20+ and the [Freighter](https://www.freighter.app/) browser extension to test anything wallet-connected.
+You need Node.js 20.9+ (22 and 24 are also tested in CI) and the [Freighter](https://www.freighter.app/) browser extension to test anything wallet-connected.
 
 **Node version:** This repo pins Node to version 20 via `.nvmrc`. If you use [nvm](https://github.com/nvm-sh/nvm), [fnm](https://fnm.io/), or [asdf](https://asdf-vm.com/), it will automatically select the right version when you enter the directory.
 
@@ -84,6 +85,12 @@ npm run build
 ```
 
 `tsc --noEmit` is fully clean and enforced — please keep it that way rather than reaching for `any` or `@ts-expect-error`.
+
+## Changelog
+
+If your change is something a member would notice (a new or removed feature, a changed number, label, or flow, a fixed bug they could hit), add a line under `## [Unreleased]` in [CHANGELOG.md](CHANGELOG.md) in the same PR. Refactors, tests, CI, and docs don't need one.
+
+If your change targets a different `ourdao-backend` or `ourdao-contracts` build, also update the `Backend:` / `Contracts:` lines under Unreleased. The contracts line must match `_last_verified` in `contract/interface.json`, and a test enforces that. These lines are what let a bug report, which names the version shown in the app sidebar, be traced to a combination of versions.
 
 ## What a good pull request looks like
 

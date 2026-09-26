@@ -15,5 +15,41 @@ export default defineConfig({
     // raised so a slow CI runner/disk doesn't turn legitimate work into a
     // false timeout.
     testTimeout: 15000,
+    // Issue #240: coverage is measured per file with the V8 provider.
+    // The provider itself (@vitest/coverage-v8@4.1.11, pinned to the vitest
+    // version) is installed in CI via `npm install --no-save` (see
+    // .github/workflows/ci.yml) so `npm ci` stays lockfile-clean without a
+    // local install step. Thresholds are intentionally at initial-adoption
+    // levels (ratchet, not gate) — the first CI summary publishes the real
+    // per-file numbers, and follow-ups raise these and open gaps as issues.
+    coverage: {
+      provider: 'v8',
+      reporter: ['text', 'json-summary', 'html'],
+      reportsDirectory: './coverage',
+      exclude: [
+        '**/*.test.{ts,tsx}',
+        'test/**',
+        'src/__tests__/**',
+        '**/*.d.ts',
+        'next.config.ts',
+        'next-env.d.ts',
+        'postcss.config.*',
+        'tailwind.config.*',
+        'vitest.config.mts',
+        'vitest.setup.*',
+        'scripts/**',
+        'public/**',
+        '.next/**',
+        'out/**',
+        'build/**',
+        'coverage/**',
+      ],
+      thresholds: {
+        lines: 40,
+        functions: 40,
+        branches: 40,
+        statements: 40,
+      },
+    },
   },
 })

@@ -52,7 +52,7 @@ Contract changes are fundamentally different from backend changes:
 
 ## Version Tracking
 
-Each frontend release records which backend and contract versions it targets:
+Each frontend release records which backend and contract versions it targets: see the `Backend:` / `Contracts:` lines under each entry in [CHANGELOG.md](../CHANGELOG.md), which supersede the table below.
 
 | Frontend Version | Backend Version | Contract ID | Notes |
 |------------------|-----------------|-------------|-------|
