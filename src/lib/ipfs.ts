@@ -26,6 +26,24 @@ function base64ToBytes(base64: string): Uint8Array {
   return bytes
 }
 
+// Convert arbitrary string to bytes using 8-bit character codes (safe for any data)
+function stringToBytes(str: string): Uint8Array {
+  const bytes = new Uint8Array(str.length)
+  for (let i = 0; i < str.length; i++) {
+    bytes[i] = str.charCodeAt(i)
+  }
+  return bytes
+}
+
+// Convert bytes back to string using 8-bit character codes (reverse of stringToBytes)
+function bytesToString(bytes: Uint8Array): string {
+  let str = ''
+  for (let i = 0; i < bytes.length; i += 8192) {
+    str += String.fromCharCode(...bytes.subarray(i, i + 8192))
+  }
+  return str
+}
+
 export async function encryptBytes(data: Uint8Array, password: string): Promise<string> {
   const encoder = new TextEncoder()
 
@@ -142,8 +160,8 @@ export async function uploadToIPFS(
   let processedData: Uint8Array
 
   if (encrypt && password) {
-    const encryptedText = await encryptBytes(fileContent, password)
-    processedData = new TextEncoder().encode(encryptedText)
+    const encryptedBase64 = await encryptBytes(fileContent, password)
+    processedData = stringToBytes(encryptedBase64)
   } else {
     processedData = fileContent
   }
@@ -205,8 +223,8 @@ export async function downloadFromIPFS(
   const fileData = new Uint8Array(await res.arrayBuffer())
 
   if (encrypted && password) {
-    const encryptedText = new TextDecoder().decode(fileData)
-    const content = await decryptBytes(encryptedText, password)
+    const encryptedBase64 = bytesToString(fileData)
+    const content = await decryptBytes(encryptedBase64, password)
     return {
       content,
       decrypted: true,
