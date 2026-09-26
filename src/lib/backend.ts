@@ -77,12 +77,99 @@ export interface BackendEvent {
   created_at: string
 }
 
+type Validator<T> = (value: unknown) => value is T
+
+const isRecord = (value: unknown): value is Record<string, unknown> =>
+  Boolean(value) && typeof value === 'object' && !Array.isArray(value)
+
+const isString = (value: unknown): value is string => typeof value === 'string'
+const isNumber = (value: unknown): value is number => typeof value === 'number'
+const isBoolean = (value: unknown): value is boolean => typeof value === 'boolean'
+const isNullableNumber = (value: unknown): value is number | null =>
+  value === null || isNumber(value)
+const isNullableString = (value: unknown): value is string | null =>
+  value === null || isString(value)
+
+export const isBackendStats = (value: unknown): value is BackendStats => {
+  if (!isRecord(value)) return false
+  return (
+    isNumber(value.totalMembers) &&
+    isNumber(value.activeMembers) &&
+    isNumber(value.totalLoanProposals) &&
+    isNumber(value.totalLoans) &&
+    isNumber(value.activeLoans) &&
+    isNumber(value.defaultedLoans) &&
+    isNumber(value.totalTreasuryProposals) &&
+    isString(value.totalStaked) &&
+    isNullableNumber(value.lastIndexedLedger) &&
+    isNullableNumber(value.secondsSinceUpdate) &&
+    isBoolean(value.indexerStale) &&
+    isString(value.totalDefaultedValue) &&
+    isString(value.interestCollected) &&
+    isString(value.principalLent) &&
+    isString(value.principalRepaid) &&
+    isString(value.valueDefaulted)
+  )
+}
+
+export const isBackendLoan = (value: unknown): value is BackendLoan => {
+  if (!isRecord(value)) return false
+  return (
+    isNumber(value.id) &&
+    isString(value.borrower) &&
+    isString(value.amount) &&
+    isString(value.outstanding) &&
+    isString(value.total_repayment) &&
+    isNullableNumber(value.due_time) &&
+    (value.status === 'active' || value.status === 'repaid' || value.status === 'defaulted') &&
+    isNullableNumber(value.approved_ledger) &&
+    isNullableNumber(value.repaid_ledger) &&
+    isNullableNumber(value.defaulted_ledger) &&
+    isString(value.updated_at) &&
+    (value.interest_charge === undefined || isNullableString(value.interest_charge)) &&
+    (value.repaid_amount === undefined || isNullableString(value.repaid_amount))
+  )
+}
+
+export const isBackendNotification = (value: unknown): value is BackendNotification => {
+  if (!isRecord(value)) return false
+  return (
+    isNumber(value.id) &&
+    isString(value.address) &&
+    ['success', 'error', 'warning', 'info'].includes(String(value.type)) &&
+    isString(value.title) &&
+    isString(value.message) &&
+    isNullableNumber(value.ledger) &&
+    isNullableString(value.tx_hash) &&
+    isBoolean(value.read) &&
+    isString(value.created_at)
+  )
+}
+
+export const isBackendEvent = (value: unknown): value is BackendEvent => {
+  if (!isRecord(value)) return false
+  return (
+    isString(value.id) &&
+    isNumber(value.ledger) &&
+    isString(value.closed_at) &&
+    isString(value.contract_id) &&
+    isString(value.symbol) &&
+    isNullableString(value.tx_hash) &&
+    isString(value.created_at)
+  )
+}
+
+const arrayOf =
+  <T>(itemValidator: Validator<T>): Validator<T[]> =>
+  (value: unknown): value is T[] =>
+    Array.isArray(value) && value.every(itemValidator)
+
 // --- Fetch helper -----------------------------------------------------------
 
 // None of these fetches set a timeout or abort signal, so a hung indexer leaves
 // a request pending indefinitely instead of degrading to the on-chain-only state.
 
-async function get<T>(path: string, fallback: T): Promise<T> {
+async function get<T>(path: string, fallback: T, validator?: Validator<T>): Promise<T> {
   if (!isBackendConfigured()) return fallback
   const base = process.env.NEXT_PUBLIC_BACKEND_URL || ''
   try {
@@ -92,7 +179,8 @@ async function get<T>(path: string, fallback: T): Promise<T> {
       cache: 'no-store',
     })
     if (!res.ok) return fallback
-    return (await res.json()) as T
+    const body = await res.json()
+    return !validator || validator(body) ? body : fallback
   } catch {
     // Backend down / CORS / network — degrade gracefully.
     return fallback
@@ -115,20 +203,26 @@ async function patch(path: string): Promise<boolean> {
 
 export const backend = {
   isConfigured: isBackendConfigured,
-  getStats: () => get<BackendStats | null>('/api/stats', null),
+  getStats: () => get<BackendStats | null>('/api/stats', null, (value): value is BackendStats | null =>
+    value === null || isBackendStats(value)
+  ),
 
   getLoans: (borrower?: string) =>
     get<BackendLoan[]>(
       borrower ? `/api/loans?borrower=${encodeURIComponent(borrower)}` : '/api/loans',
-      []
+      [],
+      arrayOf(isBackendLoan)
     ),
 
-  getLoan: (id: number) => get<BackendLoan | null>(`/api/loans/${id}`, null),
+  getLoan: (id: number) => get<BackendLoan | null>(`/api/loans/${id}`, null, (value): value is BackendLoan | null =>
+    value === null || isBackendLoan(value)
+  ),
 
   getNotifications: (address: string, limit = 50) =>
     get<BackendNotification[]>(
       `/api/notifications?address=${encodeURIComponent(address)}&limit=${limit}`,
-      []
+      [],
+      arrayOf(isBackendNotification)
     ),
 
   getEvents: (limit = 50, symbol?: string) =>
@@ -136,10 +230,12 @@ export const backend = {
       symbol
         ? `/api/events?symbol=${encodeURIComponent(symbol)}&limit=${limit}`
         : `/api/events?limit=${limit}`,
-      []
+      [],
+      arrayOf(isBackendEvent)
     ),
 
-  getAdminLog: (limit = 50) => get<BackendEvent[]>(`/api/admin/log?limit=${limit}`, []),
+  getAdminLog: (limit = 50) =>
+    get<BackendEvent[]>(`/api/admin/log?limit=${limit}`, [], arrayOf(isBackendEvent)),
 
   markNotificationRead: (id: number) => patch(`/api/notifications/${id}/read`),
 
