@@ -181,6 +181,29 @@ jobs:
           path: bundle-size-baseline.json
           key: bundle-size-baseline-${{ github.sha }}
 
+  # Runs on every PR (same cadence as bundle-size, not scheduled) because
+  # this is a small app where a regression is easy to introduce in any given
+  # PR and cheap to catch immediately — waiting for a nightly/scheduled run
+  # would let a Core Web Vitals regression sit on main for up to a day
+  # before anyone noticed. See lighthouserc.js for the budgets and an
+  # explicit note that they're placeholders pending the first real run.
+  lighthouse-ci:
+    name: Lighthouse CI
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 20
+          cache: npm
+      - run: npm ci
+      - run: npm run build
+      - name: Run Lighthouse CI against the production build
+        run: npm run lhci
+        env:
+          LHCI_BUILD_CONTEXT__CURRENT_HASH: ${{ github.sha }}
+
   # Records each job's outcome as an artifact so the privileged ci-status-comment.yml
   # workflow (triggered via workflow_run, never a fork's copy of it) can post a PR
   # comment. This job itself never runs with elevated permissions or fork code.
