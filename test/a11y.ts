@@ -1,4 +1,5 @@
 import axe from 'axe-core'
+import { expect } from 'vitest'
 
 /**
  * Shared axe helper for issue #238.
@@ -61,4 +62,42 @@ export function assertInteractiveNames(container: HTMLElement): void {
       `Interactive elements without an accessible name (aria-label or visible text; title alone is insufficient):\n- ${unnamed.join('\n- ')}`
     )
   }
+}
+
+function channelToLinear(channel: number): number {
+  const srgb = channel / 255
+  return srgb <= 0.03928 ? srgb / 12.92 : ((srgb + 0.055) / 1.055) ** 2.4
+}
+
+export function contrastRatio(foreground: string, background: string): number {
+  const parse = (hex: string) => {
+    const normalized = hex.replace('#', '')
+    if (!/^[0-9a-fA-F]{6}$/.test(normalized)) {
+      throw new Error(`Expected a 6-digit hex colour, received ${hex}`)
+    }
+    const value = Number.parseInt(normalized, 16)
+    return {
+      r: (value >> 16) & 255,
+      g: (value >> 8) & 255,
+      b: value & 255,
+    }
+  }
+
+  const fg = parse(foreground)
+  const bg = parse(background)
+  const luminance = ({ r, g, b }: typeof fg) =>
+    0.2126 * channelToLinear(r) +
+    0.7152 * channelToLinear(g) +
+    0.0722 * channelToLinear(b)
+  const lighter = Math.max(luminance(fg), luminance(bg))
+  const darker = Math.min(luminance(fg), luminance(bg))
+  return (lighter + 0.05) / (darker + 0.05)
+}
+
+export function expectWcagAAContrast(
+  foreground: string,
+  background: string,
+  minimum = 4.5
+): void {
+  expect(contrastRatio(foreground, background)).toBeGreaterThanOrEqual(minimum)
 }

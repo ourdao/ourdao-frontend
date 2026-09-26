@@ -85,6 +85,19 @@ export async function POST(req: NextRequest) {
     )
   }
 
+  const contentType = req.headers.get('content-type')
+  if (contentType !== 'application/octet-stream') {
+    return NextResponse.json(
+      { error: 'Content-Type must be application/octet-stream' },
+      { status: 400 }
+    )
+  }
+
+  const declaredLength = Number(req.headers.get('content-length'))
+  if (Number.isFinite(declaredLength) && declaredLength > MAX_UPLOAD_BYTES) {
+    return tooLarge()
+  }
+
   const authHeader = req.headers.get('authorization')
   if (!authHeader?.startsWith('Bearer ')) {
     return NextResponse.json(
@@ -128,20 +141,28 @@ export async function POST(req: NextRequest) {
     )
   }
 
-  const body = await req.arrayBuffer()
-  if (body.byteLength === 0) {
+  const bodyBytes = await readBounded(req)
+  if (bodyBytes === null) return tooLarge()
+
+  if (bodyBytes.byteLength === 0) {
     return NextResponse.json({ error: 'Empty upload' }, { status: 400 })
+  }
+  if (bodyBytes.byteLength < MIN_UPLOAD_BYTES) {
+    return NextResponse.json(
+      { error: `Upload must be at least ${MIN_UPLOAD_BYTES} bytes` },
+      { status: 400 }
+    )
   }
 
   // 6. Construct form data with Pinata pin metadata (no member PII or IP included)
   const form = new FormData()
-  form.append('file', new Blob([new Uint8Array(body)]), 'document')
+  form.append('file', new Blob([bodyBytes]), 'document')
 
   const metadata = {
     name: `doc-${Date.now()}`,
     keyvalues: {
       uploadedAt: new Date().toISOString(),
-      size: String(body.byteLength),
+      size: String(bodyBytes.byteLength),
     },
   }
   form.append('pinataMetadata', JSON.stringify(metadata))
@@ -185,13 +206,12 @@ export async function POST(req: NextRequest) {
   }
 
   // 8. Verify returned CID format & content match against uploaded bytes
-  if (!verifyIPFSHash(IpfsHash, body)) {
+  if (!verifyIPFSHash(IpfsHash, bodyBytes)) {
     return NextResponse.json(
       { error: 'Pinning provider returned invalid or mismatched IPFS hash' },
       { status: 502 }
     )
   }
 
-  const data = (await res.json()) as { IpfsHash: string }
-  return NextResponse.json({ hash: data.IpfsHash })
+  return NextResponse.json({ hash: IpfsHash })
 }
