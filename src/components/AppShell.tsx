@@ -28,6 +28,7 @@ import { OrbitMark } from '@/components/OrbitMark'
 import { ThemeToggle } from '@/components/ThemeToggle'
 import { Sheet, SheetContent, SheetTitle, SheetTrigger } from '@/components/ui/sheet'
 import { useUserData, useDAOStats } from '@/hooks/useDAO'
+import { buildLabel } from '@/lib/build-info'
 import { isContractConfigured } from '@/lib/stellar'
 import { cn } from '@/lib/utils'
 
@@ -102,6 +103,11 @@ function NavLinks({ onNavigate }: { onNavigate?: () => void }) {
   )
 }
 
+// Names the running build so a bug report can be matched to CHANGELOG.md (#250).
+function BuildLabel() {
+  return <p className="px-6 pt-4 text-xs text-muted-foreground">{buildLabel()}</p>
+}
+
 interface AppShellProps {
   children: ReactNode
 }
@@ -167,6 +173,7 @@ export function AppShell({ children }: AppShellProps) {
         {/* Desktop sidebar */}
         <aside className="sticky top-16 hidden h-[calc(100vh-4rem)] w-60 shrink-0 flex-col border-r border-border bg-card py-4 lg:flex">
           <NavLinks />
+          <BuildLabel />
         </aside>
 
         {/* Mobile drawer — built on the vendored Radix-based Sheet primitive
@@ -184,6 +191,7 @@ export function AppShell({ children }: AppShellProps) {
               <BrandMark />
             </div>
             <NavLinks onNavigate={() => setMobileOpen(false)} />
+            <BuildLabel />
           </div>
         </SheetContent>
 
