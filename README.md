@@ -224,12 +224,16 @@ Running on Next.js 16 (Turbopack by default) + React 19.2.
 
 ## Security notes
 
+**For security vulnerability reporting and our responsible disclosure policy, see [SECURITY.md](./SECURITY.md).**
+
+This section covers security design decisions and controls currently in place:
+
 - **Wallet Requirements & Minimum Version.** The app requires the Freighter browser extension (minimum supported version: `2.0.0`). Extension versions are automatically detected on connection and diagnostics surface a warning if an outdated version is installed.
 - **No custody.** The frontend never holds a private key — every signature happens inside the Freighter extension, in the user's own browser context. `src/lib/wallet.tsx` only ever receives a signed transaction XDR back, never a key.
 - **Read-only degradation, not silent failure.** Without a configured contract id or a reachable backend, the UI runs in an explicit "not configured" / empty state rather than throwing — see [Configuration](#configuration).
 - **Error boundaries.** `error.tsx` (route-segment) and `global-error.tsx` (root-layout-level) catch uncaught render errors and offer a retry instead of the previous behavior, where any single uncaught error anywhere in the tree would take down the entire client-side app with no recovery short of a hard reload.
-- **HTTP security headers & CSP.** `next.config.ts` sets `poweredByHeader: false` (no `X-Powered-By`) and a `headers()` function that applies on every response:
-  - `Content-Security-Policy` — enforced (not report-only). `default-src 'self'`, `script-src 'self' 'unsafe-inline'` (Next.js hydration needs it — a per-request nonce via middleware would be stricter but isn't achievable with a static `headers()` alone; tradeoff is documented in `next.config.ts`), `style-src 'self' 'unsafe-inline'`, `img-src 'self' data: blob: https:`, `font-src 'self' data:`, `connect-src 'self'` plus the RPC / backend / IPFS gateway origins derived from the same `NEXT_PUBLIC_SOROBAN_RPC_URL`, `NEXT_PUBLIC_BACKEND_URL`, `NEXT_PUBLIC_IPFS_GATEWAY` the app reads at runtime (so non-default deployments don't break), plus `ws:`/`wss:` for HMR, `frame-ancestors 'none'`, `object-src 'none'`, etc. Freighter needs no extra scheme — it injects `window.freighterApi` via the page's JS context and `postMessage`, verified with a real wallet connect/sign/submit flow and no CSP violations in the console across every route.
+- **HTTP security headers & CSP.** Per-request nonces and strict security headers are enforced via `src/middleware.ts`:
+  - `Content-Security-Policy` — enforced (not report-only). `default-src 'self'`, `script-src 'nonce-*' 'strict-dynamic'` (per-request nonce for XSS protection, generated in middleware), `style-src 'self' 'unsafe-inline'` (Next.js App Router still requires inline styles), `img-src 'self' data: blob: https:`, `font-src 'self' data:`, `connect-src 'self'` plus the RPC / backend / IPFS gateway origins derived from the same `NEXT_PUBLIC_SOROBAN_RPC_URL`, `NEXT_PUBLIC_BACKEND_URL`, `NEXT_PUBLIC_IPFS_GATEWAY` the app reads at runtime (so non-default deployments don't break), plus `ws:`/`wss:` for HMR, `frame-ancestors 'none'`, `object-src 'none'`, etc. Freighter needs no extra scheme — it injects `window.freighterApi` via the page's JS context and `postMessage`, verified with a real wallet connect/sign/submit flow and no CSP violations in the console across every route.
   - `Strict-Transport-Security: max-age=63072000; includeSubDomains; preload`
   - `X-Content-Type-Options: nosniff`
   - `Referrer-Policy: strict-origin-when-cross-origin` — prevents the member address in `/loans/[id]` leaking in the `Referer` to external links
@@ -250,7 +254,7 @@ Running on Next.js 16 (Turbopack by default) + React 19.2.
 
 Contributions are welcome — see [CONTRIBUTING.md](./CONTRIBUTING.md) for local setup, the checks CI enforces, and the frontend-specific rules (no fabricated content, TanStack Query for all data fetching, `cn()` for class composition, both themes verified). Please claim an issue before opening a pull request.
 
-Found a security vulnerability? Don't open a public issue — use GitHub's private vulnerability reporting on this repo.
+Found a security vulnerability? See [SECURITY.md](./SECURITY.md) for responsible disclosure procedures — don't open a public issue.
 
 ## License
 
