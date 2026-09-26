@@ -31,6 +31,10 @@ This repository is one of three that make up OurDAO:
 - [Where the Stellar integration lives](#where-the-stellar-integration-lives)
 - [Contract interface artifact](#contract-interface-artifact)
 - [Theming](#theming)
+- [Design Tokens](#design-tokens)
+- [Browser Support](#browser-support)
+- [Deployment](#deployment)
+- [Licence Policy](#licence-policy)
 - [Scripts](#scripts)
 - [Testing](#testing)
 - [What's real vs. not](#whats-real-vs-not)
@@ -130,6 +134,33 @@ Light/dark is handled by [`next-themes`](https://github.com/pacocoursey/next-the
 Two things worth knowing if you're touching styling:
 - Those `ui/` primitives referenced this token set from the start, but the tokens themselves were never actually defined until this was fixed — `bg-card`, `text-muted-foreground`, and friends were silently unstyled before.
 - `cn()` (`src/lib/utils.ts`) runs through [`tailwind-merge`](https://github.com/dcastil/tailwind-merge), not just `clsx` — this matters because a component's default variant classes (e.g. `Button`'s default `bg-primary`) and a caller's override classes (e.g. `bg-white`) will otherwise both compile to real CSS rules, and which one wins visually depends on Tailwind's generated stylesheet order rather than which class is written later. `tailwind-merge` resolves that by intent instead.
+
+See [docs/DESIGN_TOKENS.md](docs/DESIGN_TOKENS.md) for the full token reference.
+
+## Design Tokens
+
+All colour decisions use semantic tokens defined in `src/app/globals.css`. Raw Tailwind colour utilities are not used. See [docs/DESIGN_TOKENS.md](docs/DESIGN_TOKENS.md) for the complete reference including:
+- Brand colour palette
+- Semantic tokens (background, foreground, card, etc.)
+- Status colours (destructive, success)
+- Intended token pairings for contrast checking
+- Dark mode overrides
+
+## Browser Support
+
+The app supports Chrome 100+, Firefox 100+, Safari 16+, and Edge 100+. The Freighter browser extension is required (minimum version 2.0.0). Document encryption requires `crypto.subtle` (secure context: HTTPS or localhost). See [docs/BROWSER_SUPPORT.md](docs/BROWSER_SUPPORT.md) for details.
+
+## Deployment
+
+OurDAO Frontend requires a Node.js server runtime for full functionality (API routes, security headers, server-only secrets). See [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md) for:
+- Runtime requirements and environment variables
+- Security headers configuration
+- Docker and Vercel deployment recipes
+- Build-time vs runtime variable differences
+
+## Licence Policy
+
+All dependencies must be compatible with MIT distribution. See [docs/LICENSE_POLICY.md](docs/LICENSE_POLICY.md) for the allowed, restricted, and prohibited licence lists.
 
 ## Scripts
 
