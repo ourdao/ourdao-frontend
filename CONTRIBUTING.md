@@ -89,6 +89,7 @@ npm run build
 - **It doesn't reformat code you didn't change.**
 - **Its description explains why, not just what.**
 - **CI is green** before you request review.
+- **It gets reviewed by the relevant code owner.** `.github/CODEOWNERS` maps paths to reviewers and GitHub will request that review automatically when you open the PR. As of this writing every path resolves to the same placeholder owner (see the note at the top of that file) — that will change as the maintainer team grows, but the path structure and the expectation that sensitive paths (API routes, the wallet/signing boundary, contract call signatures, security headers) get an explicit reviewer stays the same regardless of who's listed.
 
 ## Frontend-specific rules
 

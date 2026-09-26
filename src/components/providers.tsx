@@ -6,6 +6,7 @@ import toast, { Toaster } from 'react-hot-toast'
 import { ThemeProvider } from 'next-themes'
 import { WalletProvider } from '@/lib/wallet'
 import { QUERY_STALE_TIME_MS } from '@/constants'
+import { reportError } from '@/lib/error-reporting'
 
 export function Providers({ children }: { children: React.ReactNode }) {
   const [queryClient] = useState(() => createQueryClient())
@@ -49,6 +50,14 @@ export function createQueryClient() {
     queryCache: new QueryCache({
       onError: (error, query) => {
         console.error('Query failed', { queryKey: query.queryKey, error })
+        // Subject to the member's error-reporting opt-in (#247) — see
+        // src/lib/error-reporting.ts. `backend.ts`'s fetch helpers currently
+        // swallow failed-response headers rather than surfacing them on the
+        // thrown/returned error (see `get`/`patch` in src/lib/backend.ts),
+        // so there's no `x-correlation-id` reliably available here yet —
+        // this passes along whatever the error object does carry, and
+        // reportError() will pick up a correlation id if one is present.
+        reportError(error, { queryKey: query.queryKey })
         if (query.meta?.notifyOnError) {
           toast.error('Unable to refresh this data. Please try again.')
         }

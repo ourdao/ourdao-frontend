@@ -30,6 +30,15 @@ export function cn(...inputs: ClassValue[]) {
 // On any formatting failure the function returns `'—'` (an em-dash) so the
 // result is visually distinguishable from a genuine zero balance, and logs
 // the failure for diagnosis.
+//
+// **Why this doesn't use Intl.NumberFormat (#248):** Intl.NumberFormat
+// operates on JS `number`, which loses precision above 2^53 — a real risk
+// for large stroop-denominated treasury/loan amounts. Swapping the BigInt
+// division above for Intl.NumberFormat would reintroduce exactly the float
+// rounding this function exists to avoid. `whole`/`frac` below stay
+// string-built via BigInt arithmetic; grouping separators are deliberately
+// left off for now rather than risking a subtle precision regression for a
+// cosmetic thousands-separator. See docs/i18n-decision.md.
 export function formatToken(
   value: bigint | string,
   { decimals = 7, displayDecimals = 4 }: { decimals?: number; displayDecimals?: number } = {}
@@ -78,7 +87,18 @@ export function computeMaxLoan(treasury: bigint, ratioBasisPoints: number): bigi
   return (treasury * BigInt(ratioBasisPoints)) / BigInt(10000)
 }
 
-// Format dates to readable format
+// Format dates to readable format.
+//
+// Follows the browser's own locale (navigator.language) rather than
+// hardcoding 'en-US' — a member outside the US previously saw US-style
+// month/day ordering regardless of their own locale settings (#248). When
+// `navigator` isn't available (SSR / server components), we pass `undefined`
+// to toLocaleDateString, which falls back to the runtime's default locale
+// instead of forcing US formatting.
+//
+// This is a locale fix, not an i18n adoption — the surrounding UI strings
+// are still English-only, a deliberate scoping decision documented in
+// docs/i18n-decision.md.
 export function formatDate(timestamp: number | string | Date): string {
   try {
     let date: Date
@@ -90,8 +110,10 @@ export function formatDate(timestamp: number | string | Date): string {
     } else {
       date = timestamp
     }
-    
-    return date.toLocaleDateString('en-US', {
+
+    const locale = typeof navigator !== 'undefined' ? navigator.language : undefined
+
+    return date.toLocaleDateString(locale, {
       year: 'numeric',
       month: 'short',
       day: 'numeric',
