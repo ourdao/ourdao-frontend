@@ -53,6 +53,8 @@ npm run dev
 
 Open [http://localhost:3000](http://localhost:3000). Install the **Freighter** browser extension to connect a wallet.
 
+**Node.js:** 20.9+ (Next 16's floor), 22, and 24 are supported. CI runs `test` and `build` on all three; Node 20 (`.nvmrc`) is the required check and 22/24 are informational until Node 20 is dropped.
+
 ## Configuration
 
 All config is env-driven with public-testnet defaults (see `.env.example`):
@@ -136,6 +138,8 @@ Two things worth knowing if you're touching styling:
 - `cn()` (`src/lib/utils.ts`) runs through [`tailwind-merge`](https://github.com/dcastil/tailwind-merge), not just `clsx` — this matters because a component's default variant classes (e.g. `Button`'s default `bg-primary`) and a caller's override classes (e.g. `bg-white`) will otherwise both compile to real CSS rules, and which one wins visually depends on Tailwind's generated stylesheet order rather than which class is written later. `tailwind-merge` resolves that by intent instead.
 
 See [docs/DESIGN_TOKENS.md](docs/DESIGN_TOKENS.md) for the full token reference.
+
+**Component catalogue:** `npm run dev` and open [`/dev/components`](http://localhost:3000/dev/components) to see every `src/components/ui/*` primitive, with each variant, size, and state, side by side in light and dark. Check it before building something new (it may already exist) and use it as the single place to run contrast and accessible-name audits. It's a `page.dev.tsx` route, which `next.config.ts` only serves under `next dev`, so it never ships in a production build. Add new primitives or variants to it when you add them to `ui/`.
 
 ## Design Tokens
 
