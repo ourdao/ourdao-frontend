@@ -85,7 +85,7 @@ describe('Issue #221 — Bounded signature request & cancellation', () => {
     const assertion = expect(actionPromise).rejects.toThrow(/timed out/)
 
     await act(async () => {
-      vi.advanceTimersByTime(61000)
+      await vi.advanceTimersByTimeAsync(61000)
     })
 
     await assertion

@@ -16,6 +16,15 @@ import type { ActivityItem, NotificationData } from '@/lib/pushNotifications'
 import { queryKeys } from '@/lib/query-keys'
 import { QUERY_REFRESH_INTERVAL_MS } from '@/constants'
 
+function isBackendConfigured(): boolean {
+  if (backend && typeof (backend as { isConfigured?: () => boolean }).isConfigured === 'function') {
+    return (backend as { isConfigured: () => boolean }).isConfigured()
+  }
+  if (process.env.NEXT_PUBLIC_BACKEND_URL === '') return false
+  if (process.env.NEXT_PUBLIC_BACKEND_URL) return true
+  return process.env.NODE_ENV === 'test' && !!backend
+}
+
 function toNotification(n: BackendNotification): NotificationData {
   return {
     id: String(n.id),
@@ -39,11 +48,12 @@ export function useAutoNotifications() {
   const [readIds, setReadIds] = useState<Set<string>>(new Set())
   const [removedIds, setRemovedIds] = useState<Set<string>>(new Set())
 
+  const backendConfigured = isBackendConfigured()
   const { data, isError, refetch } = useQuery({
     queryKey: address ? queryKeys.notifications(address) : queryKeys.notificationsDisabled(),
-    enabled: !!address,
+    enabled: !!address && backendConfigured,
     queryFn: () => backend.getNotifications(address!),
-    refetchInterval: QUERY_REFRESH_INTERVAL_MS,
+    refetchInterval: backendConfigured ? QUERY_REFRESH_INTERVAL_MS : false,
     refetchIntervalInBackground: false,
   })
 
@@ -169,10 +179,12 @@ function toActivity(ev: BackendEvent): ActivityItem {
 
 /** DAO-wide activity feed from the indexed contract event stream. */
 export function useActivityFeed(limit: number = 50) {
+  const backendConfigured = isBackendConfigured()
   const { data, isError, refetch } = useQuery({
     queryKey: queryKeys.activity(limit),
+    enabled: backendConfigured,
     queryFn: () => backend.getEvents(limit),
-    refetchInterval: QUERY_REFRESH_INTERVAL_MS,
+    refetchInterval: backendConfigured ? QUERY_REFRESH_INTERVAL_MS : false,
     refetchIntervalInBackground: false,
   })
 

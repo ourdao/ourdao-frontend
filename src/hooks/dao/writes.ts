@@ -171,9 +171,14 @@ export function useMemberRegistration() {
 }
 
 export function useLoanRequest() {
-  const { run, isPending, isSuccess, error, cancelSignature } = useWriteAction()
+  const { run, isPending, isSuccess, error, address, cancelSignature } = useWriteAction()
   const requestLoan = (amount: bigint) =>
-    run('Requesting loan', (w) => w.requestLoan(amount), [queryKeys.backendStats()]).then(
+    run('Requesting loan', (w) => w.requestLoan(amount), [
+      queryKeys.backendStats(),
+      queryKeys.userLoans(address!),
+      queryKeys.userData(address!),
+      queryKeys.loanProposalsAll(),
+    ]).then(
       (res) => Number(res.returnValue)
     )
   return { requestLoan, isPending, error, isSuccess, cancelSignature }

@@ -33,6 +33,7 @@ import { asBigInt } from '@/lib/dao-mappers'
 import { formatToken, parseToken } from '@/lib/utils'
 import { formatStellarAddress } from '@/lib/stellar'
 import { PROPOSAL_STATUS_LABELS, PROPOSAL_STATUS_AWAITING_FUNDS } from '@/constants'
+import { VirtualizedList } from '@/components/ui/virtualized-list'
 
 function TreasuryProposalRow({
   proposal: p,
@@ -347,17 +348,22 @@ export default function TreasuryPage() {
                 <p className="text-muted-foreground">No treasury withdrawals yet.</p>
               </div>
             ) : (
-              <ul className="divide-y divide-border">
-                {proposals.map((p) => (
+              <VirtualizedList
+                items={proposals}
+                threshold={50}
+                itemHeight={120}
+                className="divide-y divide-border"
+                listAriaLabel="Treasury withdrawals"
+                keyExtractor={(p) => p.id}
+                renderItem={(p) => (
                   <TreasuryProposalRow
-                    key={p.id}
                     proposal={p}
                     canVote={canVote}
                     voting={voting}
                     onVote={voteOnTreasury}
                   />
-                ))}
-              </ul>
+                )}
+              />
             )}
             {!isLoading && hasMore && (
               <div className="mt-4 flex justify-center">

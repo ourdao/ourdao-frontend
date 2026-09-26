@@ -31,6 +31,7 @@ import { formatStellarAddress } from '@/lib/stellar'
 import { PROPOSAL_STATUS_LABELS } from '@/constants'
 import { PageHeader } from '@/components/PageHeader'
 import type { UserData } from '@/types/dao'
+import { VirtualizedList } from '@/components/ui/virtualized-list'
 
 function getStatusIcon(status: number) {
   switch (status) {
@@ -469,16 +470,23 @@ export default function LoansPage() {
               </CardContent>
             </Card>
           ) : (
-            filteredProposals.map((proposal) => (
-              <LoanProposalCard
-                key={proposal.id}
-                proposal={proposal}
-                now={now}
-                userData={userData}
-                isPending={isPending}
-                onVote={handleVote}
-              />
-            ))
+            <VirtualizedList
+              items={filteredProposals}
+              keyExtractor={(proposal) => proposal.id}
+              threshold={50}
+              itemHeight={220}
+              className="space-y-6"
+              listAriaLabel="Loan proposals list"
+              renderItem={(proposal) => (
+                <LoanProposalCard
+                  proposal={proposal}
+                  now={now}
+                  userData={userData}
+                  isPending={isPending}
+                  onVote={handleVote}
+                />
+              )}
+            />
           )}
           {!isLoading && hasMore && (
             <div className="flex justify-center">

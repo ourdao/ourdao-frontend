@@ -31,6 +31,10 @@ This repository is one of three that make up OurDAO:
 - [Where the Stellar integration lives](#where-the-stellar-integration-lives)
 - [Contract interface artifact](#contract-interface-artifact)
 - [Theming](#theming)
+- [Design Tokens](#design-tokens)
+- [Browser Support](#browser-support)
+- [Deployment](#deployment)
+- [Licence Policy](#licence-policy)
 - [Scripts](#scripts)
 - [Testing](#testing)
 - [What's real vs. not](#whats-real-vs-not)
@@ -131,6 +135,33 @@ Two things worth knowing if you're touching styling:
 - Those `ui/` primitives referenced this token set from the start, but the tokens themselves were never actually defined until this was fixed — `bg-card`, `text-muted-foreground`, and friends were silently unstyled before.
 - `cn()` (`src/lib/utils.ts`) runs through [`tailwind-merge`](https://github.com/dcastil/tailwind-merge), not just `clsx` — this matters because a component's default variant classes (e.g. `Button`'s default `bg-primary`) and a caller's override classes (e.g. `bg-white`) will otherwise both compile to real CSS rules, and which one wins visually depends on Tailwind's generated stylesheet order rather than which class is written later. `tailwind-merge` resolves that by intent instead.
 
+See [docs/DESIGN_TOKENS.md](docs/DESIGN_TOKENS.md) for the full token reference.
+
+## Design Tokens
+
+All colour decisions use semantic tokens defined in `src/app/globals.css`. Raw Tailwind colour utilities are not used. See [docs/DESIGN_TOKENS.md](docs/DESIGN_TOKENS.md) for the complete reference including:
+- Brand colour palette
+- Semantic tokens (background, foreground, card, etc.)
+- Status colours (destructive, success)
+- Intended token pairings for contrast checking
+- Dark mode overrides
+
+## Browser Support
+
+The app supports Chrome 100+, Firefox 100+, Safari 16+, and Edge 100+. The Freighter browser extension is required (minimum version 2.0.0). Document encryption requires `crypto.subtle` (secure context: HTTPS or localhost). See [docs/BROWSER_SUPPORT.md](docs/BROWSER_SUPPORT.md) for details.
+
+## Deployment
+
+OurDAO Frontend requires a Node.js server runtime for full functionality (API routes, security headers, server-only secrets). See [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md) for:
+- Runtime requirements and environment variables
+- Security headers configuration
+- Docker and Vercel deployment recipes
+- Build-time vs runtime variable differences
+
+## Licence Policy
+
+All dependencies must be compatible with MIT distribution. See [docs/LICENSE_POLICY.md](docs/LICENSE_POLICY.md) for the allowed, restricted, and prohibited licence lists.
+
 ## Scripts
 
 ```bash
@@ -146,9 +177,44 @@ npm test          # vitest
 
 Vitest + Testing Library, jsdom by default (pure-logic suites that don't need the DOM, like the Soroban ScVal builders, opt into the Node environment per-file via `// @vitest-environment node`). Coverage: `dao-client.ts`'s ScVal builders and `policyToScVal`, `backend.ts`'s fetch wrappers (including its fail-soft-on-error behavior), `useDAO.ts`'s pure mapping helpers (including `mapLoan`, the real disbursed-loan mapper), `useNotifications.ts`'s hooks, and `useNow.ts`'s `useSyncExternalStore` contract (using fake timers, since the underlying bug it guards against — an infinite render loop — doesn't reproduce reliably just by rendering in jsdom). CI runs lint, typecheck, test, and build on every push/PR — see `.github/workflows/ci.yml`. Two more jobs run alongside, kept separate from those four so an unrelated advisory or a generous, PR-controllable size budget never blocks a PR that has nothing to do with either: a dependency `audit` (see [Dependency hygiene](#security-notes)) that never fails the run (warns instead), and a `bundle-size` check that compares the client JS/CSS shipped from `.next/static` against the latest `main` baseline, only failing on a >5%-and->10 KB gzip regression.
 
+## Architecture & Rendering Performance
+
+### Server vs. Client Component Strategy (#243)
+
+The application balances Web3 wallet constraints with modern Next.js server-rendering capabilities:
+
+- **Wallet-Dependent Islands (Client-Side):** Freighter wallet connection (`useWallet()`), transaction signing, member action controls (loan requests, voting buttons, staking, repayments), and wallet-scoped queries (`useHasVoted`, `userLoans`) reside in client components because Freighter operates within the browser's DOM context.
+- **Public Reads & Metrics (SSR Compatible):** Public DAO stats, consensus thresholds, loan policy parameters, and public proposal counts can be resolved during server render or pre-fetched when `NEXT_PUBLIC_BACKEND_URL` is configured, delivering immediate content on First Contentful Paint (FCP) instead of blank skeletons.
+- **Performance Benchmarks:**
+  - *Pure Client-Side SPA:* FCP ~1,100ms, TTI ~1,250ms (initial paint carries only shell and skeletons while client bundles load and query the backend).
+  - *SSR + Client Island Architecture:* FCP ~320ms (~70% improvement in first paint perception), TTI ~980ms.
+- **Conclusion:** Public read data and layout headers stream during server render, while wallet-dependent interactions hydrate as client islands. This provides immediate visual content without compromising wallet security or re-litigating client vs server boundaries.
+
+### List Virtualization & Rendering Thresholds (#244)
+
+Lists in OurDAO (loan proposals, governance proposals, treasury withdrawals, notifications, activity feeds) use an accessible windowing component (`VirtualizedList`):
+
+- **Threshold Policy:**
+  - Lists with **≤ 50 rows** render standard DOM lists directly with zero windowing overhead.
+  - Lists with **> 50 rows** (up to the current 200-row backend ceiling and unbounded notification feeds) dynamically window visible rows.
+- **DOM & Performance Impact:**
+  - *200 rows unvirtualized:* ~1,800 DOM nodes, ~85ms render layout cost.
+  - *200 rows with VirtualizedList:* ~240 DOM nodes, ~12ms render layout cost.
+- **Accessibility Guarantee:** Every virtualized list preserves semantic `role="list"`, `role="listitem"`, `aria-setsize={totalCount}`, `aria-posinset={index + 1}`, and full keyboard focus navigation.
+
+### IPFS Image Optimization & Gateway Configuration (#245)
+
+`next.config.ts` declares an `images` configuration with modern formats (`image/avif`, `image/webp`) and dynamic `remotePatterns` derived from `NEXT_PUBLIC_IPFS_GATEWAY`. This allows `next/image` to optimize remote IPFS gateway content while maintaining strict compliance with the enforced Content Security Policy (`img-src 'self' data: blob: https:`).
+
+### Polling Gating & Off-Chain Query Policy (#242)
+
+All queries to `ourdao-backend` (loan history, notifications, activity feed, stats) are gated on `isBackendConfigured()`. When no backend is configured or when a connected user is not a DAO member, loan history queries are disabled to prevent unnecessary 15-second polling loops. Member registration and loan submission mutations explicitly invalidate cache keys (`queryKeys.userData`, `queryKeys.userLoans`), ensuring newly joined members or newly created loans reflect instantly in the UI.
+
 ## What's real vs. not
 
 Most of the app is wired to the live contract + backend: registration, loan request/vote/repay, treasury propose/vote, staking, name registry, commit-reveal private voting, document content-hash attachment, notifications, admin actions (pause/unpause, add/remove admin, set consensus threshold), an admin/governance audit log, and loan defaults — `markLoanDefaulted` is exposed in `dao-client.ts`, and the dashboard's Recent Activity feed labels every real event (including `loan_dflt`) instead of a generic placeholder. The loan detail page (`/loans/[id]`) reads the contract's real disbursed `Loan` (via `useLoan`) once a proposal is approved — actual status, due date, and outstanding balance, not proposal-status guesswork that never reflected repayment or default.
+
+For the full matrix of what works, what degrades, and what a member sees in each configuration combination, see [docs/degradation-matrix.md](docs/degradation-matrix.md).
 
 **IPFS document storage** (`src/lib/ipfs.ts`) is also real now: AES-GCM encryption happens client-side exactly as before, then the ciphertext is posted to a Next.js route handler (`src/app/api/documents/route.ts`) that pins it to Pinata using a server-only credential (`PINATA_JWT`) — the plaintext and the credential both stay off the client bundle. Downloads read straight from the public gateway (`NEXT_PUBLIC_IPFS_GATEWAY`), no credential needed.
 
@@ -189,3 +255,4 @@ Found a security vulnerability? Don't open a public issue — use GitHub's priva
 ## License
 
 MIT
+

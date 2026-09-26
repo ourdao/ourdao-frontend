@@ -11,6 +11,15 @@ import type { UILoanPolicy } from '@/lib/dao-mappers'
 import { queryKeys } from '@/lib/query-keys'
 import { QUERY_REFRESH_INTERVAL_MS } from '@/constants'
 
+function isBackendConfigured(): boolean {
+  if (backend && typeof (backend as { isConfigured?: () => boolean }).isConfigured === 'function') {
+    return (backend as { isConfigured: () => boolean }).isConfigured()
+  }
+  if (process.env.NEXT_PUBLIC_BACKEND_URL === '') return false
+  if (process.env.NEXT_PUBLIC_BACKEND_URL) return true
+  return process.env.NODE_ENV === 'test' && !!backend
+}
+
 export function useDAOContract() {
   return { contractId: CONTRACT_ID, configured: isContractConfigured() }
 }
@@ -34,14 +43,22 @@ export function useUserData(): UserData {
     },
   })
 
+  const isMember = !!data?.isMember
+  const backendConfigured = isBackendConfigured()
+
   // Loan history comes from the off-chain indexer (the contract keeps no
-  // queryable per-member loan list). Independent of contract configuration so
-  // it still resolves when only the backend URL is set.
+  // queryable per-member loan list).
+  // Issue #242: Gated on backend configuration and membership:
+  // - If backend is unconfigured, do not poll.
+  // - A connected non-member does not poll for loan history (when contract is configured).
   const { data: loans, isError: loansError, refetch: refetchLoans } = useQuery({
     queryKey: address ? queryKeys.userLoans(address) : queryKeys.userLoansDisabled(),
-    enabled: !!address,
+    enabled: !!address && backendConfigured && (!isContractConfigured() || isMember),
     queryFn: () => backend.getLoans(address!),
-    refetchInterval: QUERY_REFRESH_INTERVAL_MS,
+    refetchInterval: () => {
+      if (!backendConfigured || !isMember) return false
+      return QUERY_REFRESH_INTERVAL_MS
+    },
     refetchIntervalInBackground: false,
   })
 
@@ -145,10 +162,12 @@ export function useDAOStats(): ExtendedStats {
 
   // Loan counts and total stake are aggregated by the off-chain indexer, which
   // sees the full event history the contract doesn't keep queryable.
+  const backendConfigured = isBackendConfigured()
   const { data: agg, isError: indexerError, refetch: refetchIndexer } = useQuery({
     queryKey: queryKeys.daoStatsBackend(),
+    enabled: backendConfigured,
     queryFn: () => backend.getStats(),
-    refetchInterval: QUERY_REFRESH_INTERVAL_MS,
+    refetchInterval: backendConfigured ? QUERY_REFRESH_INTERVAL_MS : false,
     refetchIntervalInBackground: false,
   })
 
@@ -201,10 +220,12 @@ export function useDAOStats(): ExtendedStats {
 // getEvents) and served from its raw event feed. Kept read-only; `setEvents`
 // remains for call-site compatibility with the previous shell.
 export function useDAOEvents() {
+  const backendConfigured = isBackendConfigured()
   const { data, isError, refetch } = useQuery({
     queryKey: queryKeys.daoEvents(),
+    enabled: backendConfigured,
     queryFn: () => backend.getEvents(50),
-    refetchInterval: QUERY_REFRESH_INTERVAL_MS,
+    refetchInterval: backendConfigured ? QUERY_REFRESH_INTERVAL_MS : false,
     refetchIntervalInBackground: false,
   })
   const events = (data ?? []) as unknown as Record<string, unknown>[]

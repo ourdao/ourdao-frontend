@@ -5,6 +5,7 @@ import Link from 'next/link'
 import { useQueryErrorResetBoundary } from '@tanstack/react-query'
 import { Button } from '@/components/ui/button'
 import { MAIN_CONTENT_ID } from '@/lib/a11y'
+import { reportError } from '@/lib/error-reporting'
 
 /**
  * Route-segment error boundary. Without this, an uncaught render error
@@ -24,6 +25,10 @@ export default function Error({
 
   useEffect(() => {
     console.error('Route error boundary caught:', error)
+    // Subject to the member's error-reporting opt-in (#247) — see
+    // src/lib/error-reporting.ts. `digest` is Next.js's own reference id
+    // for this error occurrence, safe to include as-is.
+    reportError(error, { boundary: 'route', digest: error.digest })
   }, [error])
 
   return (
