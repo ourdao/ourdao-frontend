@@ -516,7 +516,7 @@ export default function Home() {
                 <ul className="space-y-3">
                   <li><span className="text-gray-400 text-sm">Documentation</span></li>
                   <li><a href="https://github.com/ourdao" target="_blank" rel="noopener noreferrer" className="text-gray-400 hover:text-white text-sm transition-colors">GitHub</a></li>
-                  <li><a href={getContractUrl()} target="_blank" rel="noopener noreferrer" className="text-gray-400 hover:text-white text-sm transition-colors">View Contract</a></li>
+                  <li><a href={getContractUrl() ?? undefined} target="_blank" rel="noopener noreferrer" className="text-gray-400 hover:text-white text-sm transition-colors">View Contract</a></li>
                   <li><span className="text-gray-400 text-sm">Support</span></li>
                 </ul>
               </div>

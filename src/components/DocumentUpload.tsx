@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useCallback, useRef } from 'react'
+import { useWallet } from '@/lib/wallet'
 import { 
   CloudArrowUpIcon, 
   DocumentIcon, 
@@ -10,7 +11,7 @@ import {
   XMarkIcon,
   CheckCircleIcon
 } from '@heroicons/react/24/outline'
-import { uploadToIPFS, uploadMultipleDocuments, DocumentMetadata } from '@/lib/ipfs'
+import { uploadMultipleDocuments, DocumentMetadata } from '@/lib/ipfs'
 
 interface DocumentUploadProps {
   onUpload?: (documents: DocumentMetadata[]) => void
@@ -35,6 +36,7 @@ export default function DocumentUpload({
   requireEncryption = false,
   showPermissions = true
 }: DocumentUploadProps) {
+  const { address, signMessage } = useWallet()
   const [files, setFiles] = useState<File[]>([])
   const [uploading, setUploading] = useState(false)
   const [uploadProgress, setUploadProgress] = useState(0)
@@ -104,11 +106,13 @@ export default function DocumentUpload({
     setUploadProgress(0)
 
     try {
+      const wallet = address ? { address, signMessage } : undefined
       const uploadedDocuments = await uploadMultipleDocuments(
         files,
         encrypt,
         password || undefined,
-        setUploadProgress
+        setUploadProgress,
+        wallet
       )
 
       // Apply permissions to metadata

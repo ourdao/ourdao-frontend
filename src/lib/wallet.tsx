@@ -14,6 +14,7 @@ import {
   getAddress,
   getNetwork,
   signTransaction,
+  signMessage as freighterSignMessage,
   WatchWalletChanges,
 } from '@stellar/freighter-api'
 import { Networks } from '@stellar/stellar-sdk'
@@ -29,6 +30,8 @@ interface WalletContextValue {
   disconnect: () => void
   /** Signs a base64 transaction XDR with Freighter and returns the signed XDR. */
   signXDR: (xdr: string) => Promise<string>
+  /** Signs an arbitrary message with Freighter and returns the base64 signature. */
+  signMessage: (message: string) => Promise<string>
   /** True when the connected Freighter wallet's active network differs from this app's configured NETWORK_PASSPHRASE. */
   networkMismatch: boolean
   /** Freighter's own network label (e.g. "PUBLIC", "TESTNET"), null until known. */
@@ -209,6 +212,35 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
     [address, networkMismatch, walletNetworkPassphrase]
   )
 
+  const signMessage = useCallback(
+    async (message: string): Promise<string> => {
+      if (!address) throw new Error('Wallet not connected')
+      if (networkMismatch) {
+        throw new Error(
+          `Wallet network mismatch: Freighter is on ${passphraseLabel(
+            walletNetworkPassphrase || ''
+          )}, this app is configured for ${passphraseLabel(NETWORK_PASSPHRASE)}. Switch Freighter's network to continue.`
+        )
+      }
+      const result = await freighterSignMessage(message, {
+        networkPassphrase: NETWORK_PASSPHRASE,
+        address,
+      })
+      // freighterSignMessage returns the signature string directly in newer versions
+      // or an object with signature/error in older versions
+      if (typeof result === 'string') {
+        if (!result) throw new Error('Message signing was rejected')
+        return result
+      }
+      const { signature, error } = result as { signature?: string; error?: string }
+      if (error || !signature) {
+        throw new Error(error || 'Message signing was rejected')
+      }
+      return signature
+    },
+    [address, networkMismatch, walletNetworkPassphrase]
+  )
+
   return (
     <WalletContext.Provider
       value={{
@@ -218,6 +250,7 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
         connect,
         disconnect,
         signXDR,
+        signMessage,
         networkMismatch,
         walletNetwork,
       }}

@@ -99,7 +99,8 @@ export async function decryptData(encryptedData: string, password: string): Prom
 export async function uploadToIPFS(
   file: File,
   encrypt: boolean = false,
-  password?: string
+  password?: string,
+  wallet?: { address: string; signMessage: (message: string) => Promise<string> }
 ): Promise<{ hash: string; size: number; encrypted: boolean }> {
   const fileContent = await file.arrayBuffer()
   let processedData: Uint8Array
@@ -112,12 +113,36 @@ export async function uploadToIPFS(
     processedData = new Uint8Array(fileContent)
   }
 
+  if (!wallet?.address || !wallet?.signMessage) {
+    throw new Error('Wallet not connected')
+  }
+
+  // Get challenge from backend
+  const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:4000'
+  const challengeRes = await fetch(`${backendUrl}/api/auth/challenge?address=${encodeURIComponent(wallet.address)}`, {
+    headers: { accept: 'application/json' },
+    cache: 'no-store',
+  })
+
+  if (!challengeRes.ok) {
+    throw new Error('Could not get authentication challenge')
+  }
+
+  const { challenge } = (await challengeRes.json()) as { challenge: string }
+
+  // Sign challenge with wallet
+  const signature = await wallet.signMessage(challenge)
+
   // TS's Uint8Array is generic over its buffer type as of TS 5.7+; BlobPart
   // requires an ArrayBuffer-backed one specifically, so copy into a fresh
   // Uint8Array to satisfy that (no behavior change) — same fix as
   // DocumentViewer.tsx's preview blob.
   const res = await fetch('/api/documents', {
     method: 'POST',
+    headers: {
+      Authorization: `Bearer ${signature}`,
+      'x-stellar-address': wallet.address,
+    },
     body: new Blob([new Uint8Array(processedData)]),
   })
 
@@ -291,13 +316,14 @@ export async function uploadMultipleDocuments(
   files: File[],
   encrypt: boolean = false,
   password?: string,
-  onProgress?: (progress: number) => void
+  onProgress?: (progress: number) => void,
+  wallet?: { address: string; signMessage: (message: string) => Promise<string> }
 ): Promise<DocumentMetadata[]> {
   const results: DocumentMetadata[] = []
   
   for (let i = 0; i < files.length; i++) {
     const file = files[i]
-    const uploadResult = await uploadToIPFS(file, encrypt, password)
+    const uploadResult = await uploadToIPFS(file, encrypt, password, wallet)
     const metadata = createDocumentMetadata(file, uploadResult.hash, encrypt)
     results.push(metadata)
     
