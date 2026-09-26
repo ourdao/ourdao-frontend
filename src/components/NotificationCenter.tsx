@@ -115,6 +115,7 @@ const NotificationCenter: React.FC<NotificationCenterProps> = ({ className = '' 
           <button
             className="relative p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
             title="Notifications"
+            aria-label="Open notifications"
           >
             <Bell className="w-6 h-6" />
             {unreadCount > 0 && (
@@ -140,6 +141,7 @@ const NotificationCenter: React.FC<NotificationCenterProps> = ({ className = '' 
         onClick={() => setIsOpen(!isOpen)}
         className="relative p-2 rounded-lg hover:bg-accent transition-colors"
         title="Notifications"
+        aria-label="Toggle notifications"
       >
         <Bell className="w-6 h-6" />
         {unreadCount > 0 && (
@@ -340,6 +342,7 @@ const NotificationCenter: React.FC<NotificationCenterProps> = ({ className = '' 
                               }}
                               className="ml-2 p-1 hover:bg-accent rounded"
                               title="Remove"
+                              aria-label="Remove notification"
                             >
                               <X className="w-3 h-3" />
                             </button>

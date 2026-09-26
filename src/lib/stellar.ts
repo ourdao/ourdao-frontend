@@ -27,9 +27,27 @@ export const server = new rpc.Server(SOROBAN_RPC_URL, {
 })
 
 const isTestnet = NETWORK_PASSPHRASE === Networks.TESTNET
+const isFuturenet = NETWORK_PASSPHRASE === Networks.FUTURENET
 const explorerBase = isTestnet
   ? 'https://stellar.expert/explorer/testnet'
-  : 'https://stellar.expert/explorer/public'
+  : isFuturenet
+    ? 'https://stellar.expert/explorer/futurenet'
+    : 'https://stellar.expert/explorer/public'
+
+/**
+ * Explorer base for an explicit passphrase (issue #241 coordination).
+ * `getContractUrl` / `getTransactionUrl` / `getAddressUrl` use the app's
+ * configured `NETWORK_PASSPHRASE`; this helper covers the same three-network
+ * mapping for wallet-reported or unknown passphrases so callers don't
+ * re-implement the testnet/public fallback and silently map Futurenet to
+ * public.
+ */
+export const getExplorerBase = (passphrase: string = NETWORK_PASSPHRASE): string => {
+  if (passphrase === Networks.TESTNET) return 'https://stellar.expert/explorer/testnet'
+  if (passphrase === Networks.FUTURENET) return 'https://stellar.expert/explorer/futurenet'
+  if (passphrase === Networks.PUBLIC) return 'https://stellar.expert/explorer/public'
+  return explorerBase
+}
 
 export const getContractUrl = (contractId: string = CONTRACT_ID) =>
   `${explorerBase}/contract/${contractId}`
