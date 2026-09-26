@@ -11,6 +11,9 @@ Please read this in full before opening a pull request.
 - [Running the checks CI runs](#running-the-checks-ci-runs)
 - [What a good pull request looks like](#what-a-good-pull-request-looks-like)
 - [Frontend-specific rules](#frontend-specific-rules)
+- [State model and conventions](#state-model-and-conventions)
+- [Testing strategy](#testing-strategy)
+- [Architectural decisions](#architectural-decisions)
 - [What gets closed without review](#what-gets-closed-without-review)
 - [Reporting a security issue](#reporting-a-security-issue)
 - [License](#license)
@@ -101,6 +104,38 @@ npm run build
 - **Respect the `useSyncExternalStore` contract if you touch `useNow.ts` or write a similar hook.** `getSnapshot` must return a stable value between real store changes. Returning a fresh value on every call (e.g. `Date.now()`) causes an infinite render loop. There's a regression test covering this; don't work around it.
 - **Contract call signatures live in `src/lib/dao-client.ts`.** If [`ourdao-contracts`](https://github.com/ourdao/ourdao-contracts) changes an entrypoint, that's the file to update. Note the contract commit in your PR description.
 - **Icons: `lucide-react` only.** This matches the shadcn/ui convention `src/components/ui/` is already built from. `@heroicons/react` is being migrated out file-by-file (tracked in #47) — don't add new imports from it, and if you touch a file that still uses it, swap it to the closest `lucide-react` equivalent as part of your change rather than leaving it mixed.
+
+## State model and conventions
+
+State is split across four mechanisms with clear rules for each. See [docs/state-model.md](docs/state-model.md) for the full reference.
+
+- **TanStack Query cache** — all server-derived data (contract reads, backend API, IPFS content). No manual `fetch`-in-`useEffect`.
+- **React context** — wallet connection state only (`src/lib/wallet.tsx`).
+- **Component-local `useState`** — UI-only ephemeral state (form inputs, modals).
+- **URL params** — persistent filter/sort/pagination that should survive refresh.
+
+**Query-key rule:** wallet-scoped keys must carry the address. See `src/lib/query-keys.ts` and `docs/state-model.md`.
+
+**Write invalidation:** all write actions specify which query keys they affect via `useWriteAction().run()`. If you add a new write and forget to list affected keys, the UI will show stale data.
+
+## Testing strategy
+
+See [docs/testing-strategy.md](docs/testing-strategy.md) for the full reference.
+
+- **Mock at the client boundary** (`dao-client.ts`, `backend.ts`), not the hook boundary. This tests real hook logic.
+- **Use `renderWithProviders`** from `test/test-utils.tsx` for page/component tests.
+- **Every logic change needs a test** that fails without your change. Pure visual changes are the exception.
+- Use `// @vitest-environment node` for pure-logic tests that don't need the DOM.
+
+## Architectural decisions
+
+Significant architectural decisions are recorded in [docs/decisions/](docs/decisions/) as short ADR records (context, decision, consequences). When making an architectural decision:
+
+1. Create `docs/decisions/ADR-NNN-short-title.md`.
+2. Reference the ADR from code comments (link, don't duplicate prose).
+3. Include the ADR in your PR description.
+
+This ensures decisions are discoverable in one place rather than scattered across comments, closed issues, and git history.
 
 ## What gets closed without review
 
