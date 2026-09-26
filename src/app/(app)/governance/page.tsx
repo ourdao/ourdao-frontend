@@ -30,6 +30,7 @@ import {
 import { formatToken, formatThreshold } from '@/lib/utils'
 import { formatStellarAddress } from '@/lib/stellar'
 import { PROPOSAL_STATUS_LABELS, PROPOSAL_STATUS_AWAITING_FUNDS } from '@/constants'
+import { VirtualizedList } from '@/components/ui/virtualized-list'
 
 function StatusBadge({ status }: { status: number }) {
   const variant =
@@ -330,17 +331,22 @@ export default function GovernancePage() {
               ) : loanProposals.length === 0 ? (
                 <EmptyState label="No loan proposals yet." />
               ) : (
-                <ul className="divide-y divide-border">
-                  {loanProposals.map((p) => (
+                <VirtualizedList
+                  items={loanProposals}
+                  threshold={50}
+                  itemHeight={120}
+                  className="divide-y divide-border"
+                  listAriaLabel="Loan proposals"
+                  keyExtractor={(p) => p.id}
+                  renderItem={(p) => (
                     <LoanProposalRow
-                      key={p.id}
                       proposal={p}
                       canVote={userData.isMember}
                       votingLoan={votingLoan}
                       onVote={voteOnProposal}
                     />
-                  ))}
-                </ul>
+                  )}
+                />
               )}
               {!loadingLoans && hasMoreLoans && (
                 <div className="mt-4 flex justify-center">
@@ -373,17 +379,22 @@ export default function GovernancePage() {
               ) : treasuryProposals.length === 0 ? (
                 <EmptyState label="No treasury withdrawals yet." />
               ) : (
-                <ul className="divide-y divide-border">
-                  {treasuryProposals.map((p) => (
+                <VirtualizedList
+                  items={treasuryProposals}
+                  threshold={50}
+                  itemHeight={120}
+                  className="divide-y divide-border"
+                  listAriaLabel="Treasury proposals"
+                  keyExtractor={(p) => p.id}
+                  renderItem={(p) => (
                     <TreasuryProposalRow
-                      key={p.id}
                       proposal={p}
                       canVote={userData.isMember}
                       votingTreasury={votingTreasury}
                       onVote={voteOnTreasury}
                     />
-                  ))}
-                </ul>
+                  )}
+                />
               )}
               {!loadingTreasury && hasMoreTreasury && (
                 <div className="mt-4 flex justify-center">

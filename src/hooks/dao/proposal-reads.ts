@@ -11,12 +11,23 @@ import { fetchProposalPage } from './enumeration'
 import { queryKeys } from '@/lib/query-keys'
 import { QUERY_REFRESH_INTERVAL_MS } from '@/constants'
 
+function isBackendConfigured(): boolean {
+  if (backend && typeof (backend as { isConfigured?: () => boolean }).isConfigured === 'function') {
+    return (backend as { isConfigured: () => boolean }).isConfigured()
+  }
+  if (process.env.NEXT_PUBLIC_BACKEND_URL === '') return false
+  if (process.env.NEXT_PUBLIC_BACKEND_URL) return true
+  return process.env.NODE_ENV === 'test' && !!backend
+}
+
 /** All loan proposals (newest first), read live from the contract, paginated. */
 export function useLoanProposals() {
+  const backendConfigured = isBackendConfigured()
   const { data: stats } = useQuery({
     queryKey: queryKeys.backendStats(),
+    enabled: backendConfigured,
     queryFn: () => backend.getStats(),
-    refetchInterval: QUERY_REFRESH_INTERVAL_MS,
+    refetchInterval: backendConfigured ? QUERY_REFRESH_INTERVAL_MS : false,
     refetchIntervalInBackground: false,
   })
   const count = stats?.totalLoanProposals ?? 0
@@ -108,10 +119,12 @@ export function useLoan(id: number, enabled: boolean) {
 
 /** All treasury withdrawal proposals (newest first), read live from the contract, paginated. */
 export function useTreasuryProposals() {
+  const backendConfigured = isBackendConfigured()
   const { data: stats } = useQuery({
     queryKey: queryKeys.backendStats(),
+    enabled: backendConfigured,
     queryFn: () => backend.getStats(),
-    refetchInterval: QUERY_REFRESH_INTERVAL_MS,
+    refetchInterval: backendConfigured ? QUERY_REFRESH_INTERVAL_MS : false,
     refetchIntervalInBackground: false,
   })
   const count = stats?.totalTreasuryProposals ?? 0
@@ -187,10 +200,12 @@ export function useAdmins() {
  *  policy, pause/unpause), indexed off-chain since the contract keeps no
  *  queryable log of its own admin actions. */
 export function useAdminLog(limit = 50) {
+  const backendConfigured = isBackendConfigured()
   const { data, isLoading } = useQuery({
     queryKey: queryKeys.adminLog(limit),
+    enabled: backendConfigured,
     queryFn: () => backend.getAdminLog(limit),
-    refetchInterval: QUERY_REFRESH_INTERVAL_MS,
+    refetchInterval: backendConfigured ? QUERY_REFRESH_INTERVAL_MS : false,
     refetchIntervalInBackground: false,
   })
   const entries = useMemo(() => (data ?? []).map(toAdminLogEntry), [data])

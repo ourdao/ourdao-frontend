@@ -90,9 +90,60 @@ function buildCsp(): string {
   return directives.join("; ");
 }
 
+function buildImageRemotePatterns() {
+  const ipfsGateways = (process.env.NEXT_PUBLIC_IPFS_GATEWAY || "https://gateway.pinata.cloud/ipfs/")
+    .split(",")
+    .map((g) => g.trim())
+    .filter(Boolean);
+
+  const patterns: {
+    protocol?: "http" | "https";
+    hostname: string;
+    port?: string;
+    pathname?: string;
+  }[] = [];
+  const seen = new Set<string>();
+
+  for (const raw of ipfsGateways) {
+    try {
+      const u = new URL(raw);
+      const protocol = (u.protocol.replace(":", "") as "http" | "https") || "https";
+      const hostname = u.hostname;
+      const port = u.port || undefined;
+      let pathname = u.pathname;
+      if (!pathname || pathname === "/") {
+        pathname = "/**";
+      } else {
+        pathname = pathname.endsWith("/") ? `${pathname}**` : `${pathname}/**`;
+      }
+
+      const key = `${protocol}://${hostname}:${port ?? ""}${pathname}`;
+      if (!seen.has(key)) {
+        seen.add(key);
+        patterns.push({
+          protocol,
+          hostname,
+          ...(port ? { port } : {}),
+          pathname,
+        });
+      }
+    } catch {
+      // Ignore malformed env values — don't break the build
+    }
+  }
+
+  return patterns;
+}
+
+export { buildImageRemotePatterns, buildCsp };
+
 const nextConfig: NextConfig = {
   poweredByHeader: false,
   turbopack: {},
+  images: {
+    formats: ["image/avif", "image/webp"],
+    remotePatterns: buildImageRemotePatterns(),
+  },
   async headers() {
     const csp = buildCsp();
     return [
@@ -134,3 +185,4 @@ const nextConfig: NextConfig = {
 };
 
 export default nextConfig;
+

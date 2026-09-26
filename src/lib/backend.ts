@@ -114,6 +114,7 @@ async function patch(path: string): Promise<boolean> {
 // --- Endpoints --------------------------------------------------------------
 
 export const backend = {
+  isConfigured: isBackendConfigured,
   getStats: () => get<BackendStats | null>('/api/stats', null),
 
   getLoans: (borrower?: string) =>
