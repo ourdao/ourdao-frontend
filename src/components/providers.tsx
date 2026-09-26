@@ -1,23 +1,15 @@
 'use client'
 
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
+import { QueryCache, QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { useState } from 'react'
-import { Toaster } from 'react-hot-toast'
+import toast, { Toaster } from 'react-hot-toast'
 import { ThemeProvider } from 'next-themes'
 import { WalletProvider } from '@/lib/wallet'
+import { QUERY_STALE_TIME_MS } from '@/constants'
+import { reportError } from '@/lib/error-reporting'
 
 export function Providers({ children }: { children: React.ReactNode }) {
-  const [queryClient] = useState(
-    () =>
-      new QueryClient({
-        defaultOptions: {
-          queries: {
-            staleTime: 60 * 1000, // 1 minute
-            refetchOnWindowFocus: false,
-          },
-        },
-      })
-  )
+  const [queryClient] = useState(() => createQueryClient())
 
   return (
     <ThemeProvider attribute="class" defaultTheme="system" enableSystem>
@@ -51,4 +43,32 @@ export function Providers({ children }: { children: React.ReactNode }) {
       </QueryClientProvider>
     </ThemeProvider>
   )
+}
+
+export function createQueryClient() {
+  return new QueryClient({
+    queryCache: new QueryCache({
+      onError: (error, query) => {
+        console.error('Query failed', { queryKey: query.queryKey, error })
+        // Subject to the member's error-reporting opt-in (#247) — see
+        // src/lib/error-reporting.ts. `backend.ts`'s fetch helpers currently
+        // swallow failed-response headers rather than surfacing them on the
+        // thrown/returned error (see `get`/`patch` in src/lib/backend.ts),
+        // so there's no `x-correlation-id` reliably available here yet —
+        // this passes along whatever the error object does carry, and
+        // reportError() will pick up a correlation id if one is present.
+        reportError(error, { queryKey: query.queryKey })
+        if (query.meta?.notifyOnError) {
+          toast.error('Unable to refresh this data. Please try again.')
+        }
+      },
+    }),
+    defaultOptions: {
+      queries: {
+        staleTime: QUERY_STALE_TIME_MS,
+        refetchOnWindowFocus: true,
+        retry: 0,
+      },
+    },
+  })
 }

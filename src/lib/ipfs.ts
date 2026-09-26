@@ -1,15 +1,38 @@
-import { IPFS_GATEWAY } from '@/constants'
+import { IPFS_GATEWAY, IPFS_GATEWAYS, IPFS_GATEWAY_TIMEOUT_MS } from '@/constants'
 
-// Encryption utilities
-export async function encryptData(data: string, password: string): Promise<string> {
+// PBKDF2 iteration count per OWASP guidance (as of 2024).
+// Raised from 100,000 to provide protection against offline brute-force attacks
+// on documents stored on public IPFS. Future versions may increase this further.
+const PBKDF2_ITERATIONS = 600000
+
+// Encryption version marker: increment if algorithm changes to support migrations
+const ENCRYPTION_VERSION = 1
+
+// Helper functions for chunked Base64 encoding/decoding without stack overflow
+function bytesToBase64(bytes: Uint8Array): string {
+  let binString = ''
+  for (let i = 0; i < bytes.byteLength; i += 8192) {
+    binString += String.fromCharCode(...bytes.subarray(i, i + 8192))
+  }
+  return btoa(binString)
+}
+
+function base64ToBytes(base64: string): Uint8Array {
+  const binString = atob(base64)
+  const bytes = new Uint8Array(binString.length)
+  for (let i = 0; i < binString.length; i++) {
+    bytes[i] = binString.charCodeAt(i)
+  }
+  return bytes
+}
+
+export async function encryptBytes(data: Uint8Array, password: string): Promise<string> {
   const encoder = new TextEncoder()
-  const decoder = new TextDecoder()
-  
+
   // Generate salt and IV
   const salt = crypto.getRandomValues(new Uint8Array(16))
   const iv = crypto.getRandomValues(new Uint8Array(12))
-  
-  // Derive key from password
+
   const keyMaterial = await crypto.subtle.importKey(
     'raw',
     encoder.encode(password),
@@ -17,12 +40,12 @@ export async function encryptData(data: string, password: string): Promise<strin
     false,
     ['deriveBits', 'deriveKey']
   )
-  
+
   const key = await crypto.subtle.deriveKey(
     {
       name: 'PBKDF2',
       salt: salt,
-      iterations: 100000,
+      iterations: PBKDF2_ITERATIONS,
       hash: 'SHA-256'
     },
     keyMaterial,
@@ -30,38 +53,43 @@ export async function encryptData(data: string, password: string): Promise<strin
     false,
     ['encrypt', 'decrypt']
   )
-  
-  // Encrypt data
+
   const encrypted = await crypto.subtle.encrypt(
     { name: 'AES-GCM', iv: iv },
     key,
-    encoder.encode(data)
+    data as unknown as BufferSource
   )
-  
-  // Combine salt, iv, and encrypted data
-  const combined = new Uint8Array(salt.length + iv.length + encrypted.byteLength)
-  combined.set(salt, 0)
-  combined.set(iv, salt.length)
-  combined.set(new Uint8Array(encrypted), salt.length + iv.length)
-  
-  return btoa(String.fromCharCode(...combined))
+
+  const combined = new Uint8Array(1 + salt.length + iv.length + encrypted.byteLength)
+  combined[0] = ENCRYPTION_VERSION
+  combined.set(salt, 1)
+  combined.set(iv, 1 + salt.length)
+  combined.set(new Uint8Array(encrypted), 1 + salt.length + iv.length)
+
+  return bytesToBase64(combined)
 }
 
-export async function decryptData(encryptedData: string, password: string): Promise<string> {
+export async function decryptBytes(encryptedData: string, password: string): Promise<Uint8Array> {
   const encoder = new TextEncoder()
-  const decoder = new TextDecoder()
-  
-  // Decode base64
-  const combined = new Uint8Array(
-    atob(encryptedData).split('').map(char => char.charCodeAt(0))
-  )
-  
-  // Extract components
-  const salt = combined.slice(0, 16)
-  const iv = combined.slice(16, 28)
-  const encrypted = combined.slice(28)
-  
-  // Derive key from password
+  const combined = base64ToBytes(encryptedData)
+
+  let salt: Uint8Array
+  let iv: Uint8Array
+  let encrypted: Uint8Array
+  let iterations: number
+
+  if (combined[0] === ENCRYPTION_VERSION && combined.length >= 1 + 16 + 12 + 16) {
+    salt = combined.slice(1, 17)
+    iv = combined.slice(17, 29)
+    encrypted = combined.slice(29)
+    iterations = PBKDF2_ITERATIONS
+  } else {
+    salt = combined.slice(0, 16)
+    iv = combined.slice(16, 28)
+    encrypted = combined.slice(28)
+    iterations = 100000
+  }
+
   const keyMaterial = await crypto.subtle.importKey(
     'raw',
     encoder.encode(password),
@@ -69,12 +97,12 @@ export async function decryptData(encryptedData: string, password: string): Prom
     false,
     ['deriveBits', 'deriveKey']
   )
-  
+
   const key = await crypto.subtle.deriveKey(
     {
       name: 'PBKDF2',
-      salt: salt,
-      iterations: 100000,
+      salt: salt as unknown as BufferSource,
+      iterations: iterations,
       hash: 'SHA-256'
     },
     keyMaterial,
@@ -82,15 +110,24 @@ export async function decryptData(encryptedData: string, password: string): Prom
     false,
     ['encrypt', 'decrypt']
   )
-  
-  // Decrypt data
+
   const decrypted = await crypto.subtle.decrypt(
-    { name: 'AES-GCM', iv: iv },
+    { name: 'AES-GCM', iv: iv as unknown as BufferSource },
     key,
-    encrypted
+    encrypted as unknown as BufferSource
   )
-  
-  return decoder.decode(decrypted)
+
+  return new Uint8Array(decrypted)
+}
+
+// Encryption utilities for string data
+export async function encryptData(data: string, password: string): Promise<string> {
+  return encryptBytes(new TextEncoder().encode(data), password)
+}
+
+export async function decryptData(encryptedData: string, password: string): Promise<string> {
+  const decryptedBytes = await decryptBytes(encryptedData, password)
+  return new TextDecoder().decode(decryptedBytes)
 }
 
 // IPFS upload with encryption. Encryption happens here, client-side, before
@@ -102,15 +139,14 @@ export async function uploadToIPFS(
   password?: string,
   wallet?: { address: string; signMessage: (message: string) => Promise<string> }
 ): Promise<{ hash: string; size: number; encrypted: boolean }> {
-  const fileContent = await file.arrayBuffer()
+  const fileContent = new Uint8Array(await file.arrayBuffer())
   let processedData: Uint8Array
 
   if (encrypt && password) {
-    const fileText = new TextDecoder().decode(fileContent)
-    const encryptedText = await encryptData(fileText, password)
+    const encryptedText = await encryptBytes(fileContent, password)
     processedData = new TextEncoder().encode(encryptedText)
   } else {
-    processedData = new Uint8Array(fileContent)
+    processedData = fileContent
   }
 
   if (!wallet?.address || !wallet?.signMessage) {
@@ -160,6 +196,25 @@ export async function uploadToIPFS(
   }
 }
 
+// Public gateways rate-limit, go down and stall, so each configured gateway is
+// tried in order with a timeout; a timeout, network error or non-2xx response
+// moves on to the next one instead of hanging DocumentViewer.
+async function fetchFromGateways(hash: string): Promise<Response> {
+  let lastError: Error | undefined
+  for (const gateway of IPFS_GATEWAYS) {
+    try {
+      const res = await fetch(`${gateway}${hash}`, {
+        signal: AbortSignal.timeout(IPFS_GATEWAY_TIMEOUT_MS),
+      })
+      if (res.ok) return res
+      lastError = new Error(`Failed to fetch document from IPFS gateway (${res.status})`)
+    } catch (err) {
+      lastError = err instanceof Error ? err : new Error(String(err))
+    }
+  }
+  throw lastError ?? new Error('No IPFS gateway configured')
+}
+
 // IPFS download with decryption, read straight from the public gateway — no
 // credential needed for reads.
 export async function downloadFromIPFS(
@@ -167,17 +222,14 @@ export async function downloadFromIPFS(
   encrypted: boolean = false,
   password?: string
 ): Promise<{ content: Uint8Array; decrypted: boolean }> {
-  const res = await fetch(`${IPFS_GATEWAY}${hash}`)
-  if (!res.ok) {
-    throw new Error(`Failed to fetch document from IPFS gateway (${res.status})`)
-  }
+  const res = await fetchFromGateways(hash)
   const fileData = new Uint8Array(await res.arrayBuffer())
 
   if (encrypted && password) {
     const encryptedText = new TextDecoder().decode(fileData)
-    const decryptedText = await decryptData(encryptedText, password)
+    const content = await decryptBytes(encryptedText, password)
     return {
-      content: new TextEncoder().encode(decryptedText),
+      content,
       decrypted: true,
     }
   }
@@ -193,64 +245,20 @@ export function getIPFSUrl(hash: string): string {
   return `${IPFS_GATEWAY}${hash}`
 }
 
-// Validate IPFS hash
+// Validate IPFS hash. Not yet called by getIPFSUrl or downloadFromIPFS, so a
+// malformed hash still flows straight into the gateway URL.
 export function validateIPFSHash(hash: string): boolean {
-  // Basic validation for IPFS CID v0 and v1
+  // Shape check only — validates format but not cryptographic integrity.
+  // CIDv0: Qm followed by 44 base58btc chars (46 total)
   const cidV0Regex = /^Qm[1-9A-HJ-NP-Za-km-z]{44}$/
-  const cidV1Regex = /^b[a-z2-7]{58}$/
+
+  // CIDv1: multibase prefix + variable-length hash
+  // Supports common prefixes: b (base32), B (base32upper), f (base16), z (base58btc)
+  // Accepts 7-60 chars after prefix to cover common multihash lengths
+  const cidV1Regex = /^[bBfz][0-9A-Za-z]{7,60}$/
+
   return cidV0Regex.test(hash) || cidV1Regex.test(hash)
 }
-
-/* AUDIT COMMENT - ISSUE #151 & #152 ANALYSIS:
- *
- * CURRENT STATUS: ❌ NEEDS FIXES
- *
- * ISSUE #151 - CID validation is too restrictive:
- * - cidV1Regex hard-codes exactly 59 characters via {58} quantifier
- * - Only accepts base32 prefix 'b', rejects other valid multibase prefixes (f, z, uppercase)
- * - Rejects valid CIDv1 with non-sha2-256 multihashes (different lengths)
- * - Example failures: 60-char CIDv1 strings, 'f'/'z'-prefixed CIDv1
- *
- * ISSUE #152 - Validator is never called:
- * - grep shows this function has exactly ONE occurrence (its declaration)
- * - getIPFSUrl (line 167-169) does bare string interpolation: `${IPFS_GATEWAY}${hash}`
- * - downloadFromIPFS (line 145) uses unvalidated hash in fetch URL
- * - No validation before contract calls either
- * - Malformed/malicious hashes flow straight through to URL construction
- *
- * REQUIRED FIXES:
- * 1. Relax cidV1Regex to accept variable-length hashes and multiple multibase prefixes
- *    - Support common prefixes: b (base32), f (base16), z (base58btc)
- *    - Use length range instead of fixed {58}: CIDv1 multibase has ~7-60 chars after prefix
- * 2. Add explicit comment documenting:
- *    - What IS accepted: CIDv0 (46 chars), CIDv1 with b/f/z prefixes (variable length)
- *    - What is NOT accepted: other multibase prefixes, malformed strings
- *    - This is a SHAPE CHECK only, not cryptographic proof
- * 3. Call validateIPFSHash() before URL construction:
- *    - Modify getIPFSUrl() to validate and throw on failure
- *    - Add validation to downloadFromIPFS() before fetch
- *    - Add validation before contract calls that use hashes
- * 4. Update test/ipfs.test.ts to cover:
- *    - CIDv0 pass case (already in test)
- *    - Common CIDv1 forms (bafybei..., bafkrei...)
- *    - 60-char CIDv1 (should pass after fix)
- *    - Non-base32 prefixes (f-, z-prefixed after fix)
- *    - Invalid formats rejection (clear error message)
- *
- * SUGGESTED UPGRADES:
- * - Consider using a proper CID library (multiformats/cid) for multihash validation
- *   + Pros: Full CID spec compliance, catches more errors
- *   + Cons: +~50KB bundle size for one validation function
- * - Alternative: Regex only but relaxed — accept more prefixes and lengths
- *   + Pros: No dependency, explicit set documented
- *   + Cons: Cannot validate multihash structure itself
- * - Add logging on validation failure (not hard errors initially)
- *   + Helps identify production issues without breaking existing documents
- *
- * SECURITY NOTE: This is NOT currently a security boundary. Hash validation
- * matters for UX (broken images) not security (no sanitization of output URL).
- * If later used as security control, proper URL encoding is also needed.
- */
 
 // Generate document metadata
 export interface DocumentMetadata {
@@ -281,7 +289,9 @@ export function createDocumentMetadata(
     uploadedAt: new Date(),
     encrypted,
     hash,
-    permissions: permissions || { public: !encrypted }
+    // Closed unless the caller says otherwise: encryption and public access are
+    // separate decisions, so not encrypting must never imply "anyone may read".
+    permissions: permissions || { public: false }
   }
 }
 
@@ -356,8 +366,8 @@ export function filterDocuments(
     if (filter.tags && !filter.tags.some(tag => doc.tags?.includes(tag))) return false
     if (filter.dateFrom && doc.uploadedAt < filter.dateFrom) return false
     if (filter.dateTo && doc.uploadedAt > filter.dateTo) return false
-    if (filter.sizeMin && doc.size < filter.sizeMin) return false
-    if (filter.sizeMax && doc.size > filter.sizeMax) return false
+    if (filter.sizeMin !== undefined && doc.size < filter.sizeMin) return false
+    if (filter.sizeMax !== undefined && doc.size > filter.sizeMax) return false
     return true
   })
 }

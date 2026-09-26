@@ -17,9 +17,9 @@ import {
   useAdminActions,
   useAdminLog,
 } from '@/hooks/useDAO'
-import { formatToken, formatAddress, formatDate } from '@/lib/utils'
+import { formatToken, formatDate, formatThreshold } from '@/lib/utils'
+import { formatStellarAddress, isStellarAddress } from '@/lib/stellar'
 import { LoadingSpinner } from '@/components/ui/skeleton'
-import { isStellarAddress } from '@/lib/stellar'
 import { PageHeader } from '@/components/PageHeader'
 
 type Tab = 'overview' | 'governance' | 'activity'
@@ -174,7 +174,7 @@ function OverviewTab({ stats }: { stats: ReturnType<typeof useDAOStats> }) {
         <StatCard label="Active Members" value={stats.activeMembers.toLocaleString()} sub={`${stats.totalMembers} total ever joined`} />
         <StatCard label="Active Loans" value={stats.activeLoans.toLocaleString()} sub={`${stats.totalLoans} total`} />
         <StatCard label="Treasury Balance" value={formatToken(stats.treasuryBalance)} />
-        <StatCard label="Consensus Threshold" value={`${(stats.consensusThreshold / 100).toFixed(2)}%`} />
+        <StatCard label="Consensus Threshold" value={formatThreshold(stats.consensusThreshold)} />
       </div>
     </div>
   )
@@ -197,7 +197,7 @@ function GovernanceTab({ stats }: { stats: ReturnType<typeof useDAOStats> }) {
   const submitAddAdmin = async (e: FormEvent) => {
     e.preventDefault()
     if (!trimmedNewAdmin || !isStellarAddress(trimmedNewAdmin)) return
-    if (!window.confirm(`Add ${formatAddress(trimmedNewAdmin)} as an admin? This grants full admin privileges.`)) return
+    if (!window.confirm(`Add ${formatStellarAddress(trimmedNewAdmin)} as an admin? This grants full admin privileges.`)) return
     await addAdmin(trimmedNewAdmin)
     setNewAdmin('')
     refetch()
@@ -207,7 +207,7 @@ function GovernanceTab({ stats }: { stats: ReturnType<typeof useDAOStats> }) {
     e.preventDefault()
     const bps = Number(threshold)
     if (!Number.isFinite(bps) || bps <= 0 || bps > 10_000) return
-    if (!window.confirm(`Update consensus threshold from ${(stats.consensusThreshold / 100).toFixed(2)}% to ${(bps / 100).toFixed(2)}%? This changes the approval bar for every open proposal.`)) return
+    if (!window.confirm(`Update consensus threshold from ${formatThreshold(stats.consensusThreshold)} to ${formatThreshold(bps)}? This changes the approval bar for every open proposal.`)) return
     await setThreshold(bps)
     setThresholdInput('')
   }
@@ -222,10 +222,10 @@ function GovernanceTab({ stats }: { stats: ReturnType<typeof useDAOStats> }) {
           {isLoading && <div className="px-6 py-4 text-sm text-muted-foreground">Loading…</div>}
           {admins.map((addr) => (
             <div key={addr} className="px-6 py-3 flex items-center justify-between">
-              <span className="font-mono text-sm text-foreground">{formatAddress(addr)}</span>
+              <span className="font-mono text-sm text-foreground">{formatStellarAddress(addr)}</span>
               <button
                 onClick={async () => {
-                  if (!window.confirm(`Remove admin ${formatAddress(addr)}? This action requires a remaining admin to re-add them.`)) return
+                  if (!window.confirm(`Remove admin ${formatStellarAddress(addr)}? This action requires a remaining admin to re-add them.`)) return
                   await removeAdmin(addr)
                   refetch()
                 }}
@@ -269,7 +269,7 @@ function GovernanceTab({ stats }: { stats: ReturnType<typeof useDAOStats> }) {
         <div className="px-6 py-4 border-b border-border">
           <h3 className="text-lg font-semibold text-foreground">Consensus Threshold</h3>
           <p className="text-sm text-muted-foreground">
-            Currently {(stats.consensusThreshold / 100).toFixed(2)}% of active members, in basis points.
+            Currently {formatThreshold(stats.consensusThreshold)} of active members, in basis points.
           </p>
         </div>
         <form onSubmit={submitThreshold} className="p-6 flex space-x-2">

@@ -4,12 +4,10 @@ import { useState, useCallback, useRef } from 'react'
 import { useWallet } from '@/lib/wallet'
 import { 
   CloudArrowUpIcon, 
-  DocumentIcon, 
   EyeIcon, 
   EyeSlashIcon,
   LockClosedIcon,
-  XMarkIcon,
-  CheckCircleIcon
+  XMarkIcon
 } from '@heroicons/react/24/outline'
 import { uploadMultipleDocuments, DocumentMetadata } from '@/lib/ipfs'
 
@@ -44,7 +42,7 @@ export default function DocumentUpload({
   const [password, setPassword] = useState('')
   const [showPassword, setShowPassword] = useState(false)
   const [permissions, setPermissions] = useState({
-    public: !requireEncryption,
+    public: false,
     allowedUsers: [] as string[],
     allowedRoles: [] as string[]
   })
@@ -122,10 +120,10 @@ export default function DocumentUpload({
           public: permissions.public,
           allowedUsers: permissions.allowedUsers,
           allowedRoles: permissions.allowedRoles
-        } : { public: true }
-      }))
+        }
+      )
 
-      onUpload?.(documentsWithPermissions)
+      onUpload?.(uploadedDocuments)
       setFiles([])
       setPassword('')
       setUploadProgress(0)
@@ -168,14 +166,6 @@ export default function DocumentUpload({
       ...prev,
       allowedRoles: prev.allowedRoles.filter(r => r !== role)
     }))
-  }
-
-  const formatFileSize = (bytes: number) => {
-    if (bytes === 0) return '0 Bytes'
-    const k = 1024
-    const sizes = ['Bytes', 'KB', 'MB', 'GB']
-    const i = Math.floor(Math.log(bytes) / Math.log(k))
-    return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i]
   }
 
   const getFileIcon = (type: string) => {
@@ -312,7 +302,7 @@ export default function DocumentUpload({
       )}
 
       {/* Permissions */}
-      {showPermissions && encrypt && (
+      {showPermissions && (
         <div className="space-y-4 p-4 bg-muted rounded-lg">
           <h4 className="font-medium text-foreground">Access Permissions</h4>
           
@@ -325,7 +315,7 @@ export default function DocumentUpload({
               className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-input rounded"
             />
             <label htmlFor="public" className="text-sm text-foreground">
-              Allow public access (with password)
+              Allow public access{encrypt ? ' (with password)' : ''}
             </label>
           </div>
 

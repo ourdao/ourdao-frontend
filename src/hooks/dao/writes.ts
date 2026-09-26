@@ -1,43 +1,56 @@
 'use client'
 
 import { useQueryClient, type QueryKey } from '@tanstack/react-query'
-import { useCallback, useState } from 'react'
+import { useCallback, useRef, useState } from 'react'
+import React from 'react'
 import toast from 'react-hot-toast'
 import { useWallet } from '@/lib/wallet'
+import { getTransactionUrl } from '@/lib/stellar'
 import { daoWrite, InvokeError, type InvokeResult } from '@/lib/dao-client'
+import { queryKeys } from '@/lib/query-keys'
 
-const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms))
-
-// A transaction confirmed via invoke()'s getTransaction poll is final on the
-// ledger, but a simulateTransaction call issued immediately after can still
-// land on an RPC node whose view of that ledger hasn't caught up yet — which
-// reads back as pre-transaction state and looks like the write silently
-// failed. This short delay before invalidating gives that propagation a
-// window to close; it's a mitigation; not tested against a live testnet
-// contract (see PR description), so revisit if staleness is still observed.
-const RPC_PROPAGATION_DELAY_MS = 500
+type OptimisticUpdate = {
+  queryKey: QueryKey
+  update: (current: unknown) => unknown
+}
 
 /**
  * Shared plumbing for a write action: resolves the wallet + signer, tracks
  * pending/success/error, surfaces toasts, and invalidates the query keys the
- * action affects once the write is confirmed. A failed write invalidates
- * nothing — the cache should only move once the chain actually has.
+ * action affects once the write is confirmed.
  */
-function useWriteAction() {
+export function useWriteAction() {
   const { address, signXDR, isConnected } = useWallet()
   const queryClient = useQueryClient()
   const [isPending, setPending] = useState(false)
   const [isSuccess, setSuccess] = useState(false)
   const [error, setError] = useState<Error | null>(null)
-  // Surfaced separately from `error` so a caller can offer a "Try again"
-  // affordance without having to `instanceof`-check the error itself (#58).
   const [isRetryable, setRetryable] = useState(false)
+
+  const abortControllerRef = useRef<AbortController | null>(null)
+  const toastIdRef = useRef<string | null>(null)
+
+  const cancelSignature = useCallback(() => {
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort()
+      abortControllerRef.current = null
+    }
+    if (toastIdRef.current) {
+      toast.dismiss(toastIdRef.current)
+      toastIdRef.current = null
+    }
+    setPending(false)
+    setError(new Error('Signature request cancelled'))
+    setRetryable(true)
+    toast.error('Signature request cancelled')
+  }, [])
 
   const run = useCallback(
     async (
       label: string,
       fn: (w: ReturnType<typeof daoWrite>) => Promise<InvokeResult>,
-      invalidates: QueryKey[] = []
+      invalidates: QueryKey[] = [],
+      optimisticUpdates: OptimisticUpdate[] = []
     ) => {
       if (!isConnected || !address) {
         toast.error('Connect your wallet first')
@@ -47,163 +60,196 @@ function useWriteAction() {
       setSuccess(false)
       setError(null)
       setRetryable(false)
+
       const toastId = toast.loading(`${label}…`)
+      toastIdRef.current = toastId
+
+      const controller = new AbortController()
+      abortControllerRef.current = controller
+      const optimisticSnapshots = optimisticUpdates.map(({ queryKey, update }) => ({
+        queryKey,
+        previous: queryClient.getQueryData(queryKey),
+        update,
+      }))
+
+      await Promise.all(
+        optimisticUpdates.map(({ queryKey }) => queryClient.cancelQueries({ queryKey }))
+      )
+      for (const { queryKey, update } of optimisticSnapshots) {
+        queryClient.setQueryData(queryKey, update)
+      }
+
+      const wrappedSignXDR = (xdr: string) =>
+        signXDR(xdr, { signal: controller.signal })
+
       try {
-        const res = await fn(daoWrite(address, signXDR))
+        const res = await fn(daoWrite(address, wrappedSignXDR))
         setSuccess(true)
-        toast.success(`${label} confirmed`, { id: toastId })
-        if (invalidates.length) {
-          await sleep(RPC_PROPAGATION_DELAY_MS)
-          await Promise.all(
-            invalidates.map((queryKey) => queryClient.invalidateQueries({ queryKey }))
-          )
+        toast.success(
+          React.createElement(
+            'span',
+            null,
+            `${label} confirmed `,
+            React.createElement(
+              'a',
+              {
+                href: getTransactionUrl(res.hash),
+                target: '_blank',
+                rel: 'noopener noreferrer',
+                className: 'underline',
+              },
+              'View transaction'
+            )
+          ),
+          { id: toastId }
+        )
+        for (const queryKey of invalidates) {
+          queryClient.invalidateQueries({ queryKey })
         }
         return res
       } catch (err) {
         const e = err instanceof Error ? err : new Error(String(err))
-        const retryable = e instanceof InvokeError && e.retryable
+        for (const { queryKey, previous } of optimisticSnapshots) {
+          queryClient.setQueryData(queryKey, previous)
+        }
+        const isTimeout = e.message.includes('timed out')
+        const isCancel = e.message.includes('cancelled')
+        const isInvokeRetryable = e instanceof InvokeError && e.retryable
+
+        const retryable = isTimeout || isCancel || isInvokeRetryable
         setError(e)
         setRetryable(retryable)
-        toast.error(
-          retryable ? `${label} failed: ${e.message} You can try again.` : `${label} failed: ${e.message}`,
-          { id: toastId }
-        )
+
+        if (isTimeout) {
+          toast.error(`${label} timed out. Signature request took too long. You can try again.`, { id: toastId })
+        } else if (isCancel) {
+          toast.error(`${label} signature cancelled.`, { id: toastId })
+        } else if (retryable) {
+          toast.error(`${label} failed: ${e.message} You can try again.`, { id: toastId })
+        } else {
+          toast.error(`${label} failed: ${e.message}`, { id: toastId })
+        }
+
         throw e
       } finally {
         setPending(false)
+        abortControllerRef.current = null
+        toastIdRef.current = null
       }
     },
     [address, isConnected, signXDR, queryClient]
   )
 
-  return { run, isPending, isSuccess, error, isRetryable, address }
+  return { run, isPending, isSuccess, error, isRetryable, address, cancelSignature }
 }
 
 export function useMemberRegistration() {
-  const { run, isPending, isSuccess, error, address } = useWriteAction()
+  const { run, isPending, isSuccess, error, address, cancelSignature } = useWriteAction()
   const registerMember = () =>
     run('Registering membership', (w) => w.registerMember(), [
-      ['userData', address],
-      ['daoStats'],
+      queryKeys.userData(address!),
+      queryKeys.daoStats(),
     ])
-  return { registerMember, isPending, error, isSuccess }
+  return { registerMember, isPending, error, isSuccess, cancelSignature }
 }
 
 export function useLoanRequest() {
-  const { run, isPending, isSuccess, error } = useWriteAction()
-  // Returns the new proposal's id (request_loan's on-chain return value) so
-  // callers can immediately attach a supporting document to it.
+  const { run, isPending, isSuccess, error, address, cancelSignature } = useWriteAction()
   const requestLoan = (amount: bigint) =>
-    run('Requesting loan', (w) => w.requestLoan(amount), [['backendStats']]).then(
+    run('Requesting loan', (w) => w.requestLoan(amount), [
+      queryKeys.backendStats(),
+      queryKeys.userLoans(address!),
+      queryKeys.userData(address!),
+      queryKeys.loanProposalsAll(),
+    ]).then(
       (res) => Number(res.returnValue)
     )
-  return { requestLoan, isPending, error, isSuccess }
+  return { requestLoan, isPending, error, isSuccess, cancelSignature }
 }
 
 export function useVoting() {
-  const { run, isPending, isSuccess, error, address } = useWriteAction()
+  const { run, isPending, isSuccess, error, address, cancelSignature } = useWriteAction()
   const voteOnProposal = (proposalId: number, support: boolean) =>
     run('Casting vote', (w) => w.voteOnLoanProposal(proposalId, support), [
-      ['loanProposal', proposalId],
-      ['loanProposals'],
-      ['hasVoted', 'Loan', proposalId, address],
-      // A vote can push a proposal past quorum and trigger disbursement in
-      // the same transaction, moving the treasury balance.
-      ['daoStats'],
+      queryKeys.loanProposal(proposalId),
+      queryKeys.loanProposalsAll(),
+      queryKeys.hasVoted('Loan', proposalId, address!),
+      queryKeys.daoStats(),
+    ], [
+      {
+        queryKey: queryKeys.hasVoted('Loan', proposalId, address!),
+        update: () => support,
+      },
     ])
-  return { voteOnProposal, isPending, error, isSuccess }
+  return { voteOnProposal, isPending, error, isSuccess, cancelSignature }
 }
 
 export function useLoanRepayment() {
-  const { run, isPending, isSuccess, error, address } = useWriteAction()
-  // repay_loan takes no amount argument — the contract always collects the
-  // full outstanding balance (total_repayment - amount_repaid) in one shot.
-  // AUDIT COMMENT - ISSUE #154:
-  // ❌ OUTDATED: The comment above is misleading. The contract ALSO exposes
-  // repay_loan_partial(borrower, loan_id, amount) which allows partial repayment.
-  // Frontend currently does NOT call repay_loan_partial, limiting borrowers to
-  // full repayment only. This hook needs to be expanded.
-  //
-  // REQUIRED FIX:
-  // 1. Add repayLoanPartial(loanId: number, amount: bigint) hook alongside repayLoan
-  // 2. Use dao-client.repayLoanPartial() with proper i128 encoding
-  // 3. Invalidate same query keys on success: ['loan', loanId], ['userData', address], ['daoStats']
-  // 4. Update comment to describe BOTH entrypoints:
-  //    - repay_loan: full balance repayment in one transaction
-  //    - repay_loan_partial: repay any amount up to outstanding balance
-  // 5. Add client-side validation:
-  //    - Reject amount <= 0
-  //    - Reject amount > outstanding balance (fetch from useDAO read)
-  // 6. Ensure amount is handled as bigint throughout, use parseToken() (not float)
-  //    (prevents precision loss like issue #62)
-  //
-  // SUGGESTED UPGRADES:
-  // - Add optional parameter to repayLoan: repayLoan(loanId, amount?: bigint)
-  //   + If amount provided, call repay_loan_partial
-  //   + If amount omitted, call repay_loan (full balance)
-  //   + Pros: Single hook, backward compatible
-  //   + Cons: Less explicit than two separate hooks
-  // - OR keep separate hooks (current requirement)
-  //   + Pros: Clear intent, no logic branching
-  //   + Cons: Duplicate code
-  const repayLoan = (loanId: number) =>
-    run('Repaying loan', (w) => w.repayLoan(loanId), [
+  const { run, isPending, isSuccess, error, address, cancelSignature } = useWriteAction()
+  const repayLoan = (loanId: number, amount?: bigint) => {
+    if (amount !== undefined) {
+      if (amount <= BigInt(0)) throw new Error('Repayment amount must be greater than zero')
+      return run('Repaying loan', (w) => w.repayLoanPartial(loanId, amount), [
+        queryKeys.loan(loanId),
+        queryKeys.userData(address!),
+        queryKeys.daoStats(),
+      ])
+    }
+    return run('Repaying loan', (w) => w.repayLoan(loanId), [
+      queryKeys.loan(loanId),
+      queryKeys.userData(address!),
+      queryKeys.daoStats(),
+    ])
+  }
+  const repayLoanPartial = (loanId: number, amount: bigint) => {
+    if (amount <= BigInt(0)) throw new Error('Repayment amount must be greater than zero')
+    return run('Repaying loan', (w) => w.repayLoanPartial(loanId, amount), [
       ['loan', loanId],
       ['userData', address],
       ['daoStats'],
     ])
-  return { repayLoan, isPending, error, isSuccess }
+  }
+  return { repayLoan, repayLoanPartial, isPending, error, isSuccess, cancelSignature }
 }
 
 export function useMarkLoanDefaulted() {
-  const { run, isPending, isSuccess, error } = useWriteAction()
-  // Permissionless: mark_loan_defaulted takes no caller argument, so this
-  // works even for a connected wallet that isn't the borrower or an admin.
-  // The borrower's own member record changes too, but that's a different
-  // address than whoever calls this — out of reach for this client's cache,
-  // and covered by their own next poll like any other member's actions.
+  const { run, isPending, isSuccess, error, cancelSignature } = useWriteAction()
   const markLoanDefaulted = (loanId: number) =>
-    run('Marking loan defaulted', (w) => w.markLoanDefaulted(loanId), [['loan', loanId]])
-  return { markLoanDefaulted, isPending, error, isSuccess }
+    run('Marking loan defaulted', (w) => w.markLoanDefaulted(loanId), [queryKeys.loan(loanId)])
+  return { markLoanDefaulted, isPending, error, isSuccess, cancelSignature }
 }
 
 export function useRewards() {
-  const { run, isPending, isSuccess, error, address } = useWriteAction()
+  const { run, isPending, isSuccess, error, address, cancelSignature } = useWriteAction()
   const claimRewards = () =>
-    run('Claiming rewards', (w) => w.claimRewards(), [['userData', address]])
+    run('Claiming rewards', (w) => w.claimRewards(), [queryKeys.userData(address!)])
   const claimYield = () =>
-    run('Claiming yield', (w) => w.claimRewards(), [['userData', address]])
-  return { claimRewards, claimYield, isPending, error, isSuccess }
+    run('Claiming yield', (w) => w.claimRewards(), [queryKeys.userData(address!)])
+  return { claimRewards, claimYield, isPending, error, isSuccess, cancelSignature }
 }
 
-// ---------------------------------------------------------------------------
-// Staking + treasury write hooks
-// ---------------------------------------------------------------------------
-
 export function useStaking() {
-  const { run, isPending, isSuccess, error, address } = useWriteAction()
+  const { run, isPending, isSuccess, error, address, cancelSignature } = useWriteAction()
   const stake = (amount: bigint) =>
-    run('Staking', (w) => w.stake(amount), [['stake', address], ['daoStats']])
+    run('Staking', (w) => w.stake(amount), [queryKeys.stake(address!), queryKeys.daoStats()])
   const unstake = (amount: bigint) =>
-    run('Unstaking', (w) => w.unstake(amount), [['stake', address], ['daoStats']])
-  return { stake, unstake, isPending, isSuccess, error }
+    run('Unstaking', (w) => w.unstake(amount), [queryKeys.stake(address!), queryKeys.daoStats()])
+  return { stake, unstake, isPending, isSuccess, error, cancelSignature }
 }
 
 export function useTreasuryVoting() {
-  const { run, isPending, isSuccess, error, address } = useWriteAction()
+  const { run, isPending, isSuccess, error, address, cancelSignature } = useWriteAction()
   const voteOnTreasury = (proposalId: number, support: boolean) =>
     run('Casting vote', (w) => w.voteOnTreasuryProposal(proposalId, support), [
-      ['treasuryProposals'],
-      ['hasVoted', 'Treasury', proposalId, address],
-      // A vote can push a proposal past quorum and execute the withdrawal in
-      // the same transaction, moving the treasury balance.
-      ['daoStats'],
+      queryKeys.treasuryProposalsAll(),
+      queryKeys.hasVoted('Treasury', proposalId, address!),
+      queryKeys.daoStats(),
     ])
-  return { voteOnTreasury, isPending, isSuccess, error }
+  return { voteOnTreasury, isPending, isSuccess, error, cancelSignature }
 }
 
 export function useProposeTreasury() {
-  const { run, isPending, isSuccess, error } = useWriteAction()
+  const { run, isPending, isSuccess, error, cancelSignature } = useWriteAction()
   const propose = (
     amount: bigint,
     destination: string,
@@ -213,52 +259,32 @@ export function useProposeTreasury() {
     run(
       'Proposing withdrawal',
       (w) => w.proposeTreasuryWithdrawal(amount, destination, reason, isPrivate),
-      [['backendStats']]
+      [queryKeys.backendStats()]
     )
-  return { propose, isPending, isSuccess, error }
+  return { propose, isPending, isSuccess, error, cancelSignature }
 }
 
-// ---------------------------------------------------------------------------
-// Proposal documents (the Filecoin-analog content hash)
-//
-// The contract stores an opaque byte string per proposal; the convention here
-// is that it's a UTF-8 content id (an IPFS CID or digest). We encode on
-// write (decoding on read is the read hook's job).
-// ---------------------------------------------------------------------------
-
 export function useAttachDocument() {
-  const { run, isPending, isSuccess, error } = useWriteAction()
+  const { run, isPending, isSuccess, error, cancelSignature } = useWriteAction()
   const attach = (kind: 'Loan' | 'Treasury', proposalId: number, cid: string) =>
     run(
       'Attaching document',
       (w) => w.attachDocument(kind, proposalId, new TextEncoder().encode(cid.trim())),
-      [['document', kind, proposalId]]
+      [queryKeys.proposalDocument(kind, proposalId)]
     )
-  return { attach, isPending, isSuccess, error }
+  return { attach, isPending, isSuccess, error, cancelSignature }
 }
 
-// ---------------------------------------------------------------------------
-// Admin actions
-//
-// The contract enforces admin authorization itself; these just expose the
-// entrypoints. A non-admin caller gets a NotAdmin error back from the write,
-// surfaced the same way any other failed write is (via the toast in
-// useWriteAction).
-// ---------------------------------------------------------------------------
-
 export function useAdminActions() {
-  const { run, isPending, isSuccess, error } = useWriteAction()
-  const pause = () => run('Pausing the DAO', (w) => w.pause(), [['daoStats']])
-  const unpause = () => run('Unpausing the DAO', (w) => w.unpause(), [['daoStats']])
-  // The admin log itself is backend-indexed (not read directly off-chain),
-  // so it isn't invalidated here — the indexer needs to have processed the
-  // event first, which the existing poll already covers.
-  const addAdmin = (admin: string) => run('Adding admin', (w) => w.addAdmin(admin), [['admins']])
+  const { run, isPending, isSuccess, error, cancelSignature } = useWriteAction()
+  const pause = () => run('Pausing the DAO', (w) => w.pause(), [queryKeys.daoStats()])
+  const unpause = () => run('Unpausing the DAO', (w) => w.unpause(), [queryKeys.daoStats()])
+  const addAdmin = (admin: string) => run('Adding admin', (w) => w.addAdmin(admin), [queryKeys.admins()])
   const removeAdmin = (admin: string) =>
-    run('Removing admin', (w) => w.removeAdmin(admin), [['admins']])
+    run('Removing admin', (w) => w.removeAdmin(admin), [queryKeys.admins()])
   const setThreshold = (thresholdBps: number) =>
     run('Updating consensus threshold', (w) => w.setConsensusThreshold(thresholdBps), [
-      ['daoStats'],
+      queryKeys.daoStats(),
     ])
-  return { pause, unpause, addAdmin, removeAdmin, setThreshold, isPending, isSuccess, error }
+  return { pause, unpause, addAdmin, removeAdmin, setThreshold, isPending, isSuccess, error, cancelSignature }
 }

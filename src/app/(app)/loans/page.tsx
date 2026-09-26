@@ -14,7 +14,6 @@ import {
   XCircle,
   Eye,
   EyeOff,
-  ArrowLeft,
   FileText,
 } from 'lucide-react'
 import {
@@ -25,10 +24,12 @@ import {
   type UILoanProposal,
 } from '@/hooks/useDAO'
 import { useNow } from '@/hooks/useNow'
-import { formatToken, formatDate, formatAddress, calculatePercentage } from '@/lib/utils'
+import { formatToken, formatDate, calculatePercentage } from '@/lib/utils'
+import { formatStellarAddress } from '@/lib/stellar'
 import { PROPOSAL_STATUS_LABELS } from '@/constants'
 import { PageHeader } from '@/components/PageHeader'
 import type { UserData } from '@/types/dao'
+import { VirtualizedList } from '@/components/ui/virtualized-list'
 
 function getStatusIcon(status: number) {
   switch (status) {
@@ -51,6 +52,7 @@ function getStatusColor(status: number) {
     case 2: return 'text-blue-600 bg-blue-50 border-blue-200 dark:text-blue-400 dark:bg-blue-950/30 dark:border-blue-900'
     case 3: return 'text-green-600 bg-green-50 border-green-200 dark:text-green-400 dark:bg-green-950/30 dark:border-green-900'
     case 4: return 'text-red-600 bg-red-50 border-red-200 dark:text-red-400 dark:bg-red-950/30 dark:border-red-900'
+    case 7: return 'text-amber-700 bg-amber-50 border-amber-200 dark:text-amber-300 dark:bg-amber-950/30 dark:border-amber-900'
     default: return 'text-muted-foreground bg-muted border-border'
   }
 }
@@ -119,7 +121,7 @@ function LoanProposalCard({
                 )}
               </div>
               <CardDescription>
-                By {formatAddress(proposal.borrower)} • Created {formatDate(proposal.creationTime)}
+                By {formatStellarAddress(proposal.borrower)} • Created {formatDate(proposal.creationTime)}
               </CardDescription>
             </div>
           </div>
@@ -463,16 +465,23 @@ export default function LoansPage() {
               </CardContent>
             </Card>
           ) : (
-            filteredProposals.map((proposal) => (
-              <LoanProposalCard
-                key={proposal.id}
-                proposal={proposal}
-                now={now}
-                userData={userData}
-                isPending={isPending}
-                onVote={handleVote}
-              />
-            ))
+            <VirtualizedList
+              items={filteredProposals}
+              keyExtractor={(proposal) => proposal.id}
+              threshold={50}
+              itemHeight={220}
+              className="space-y-6"
+              listAriaLabel="Loan proposals list"
+              renderItem={(proposal) => (
+                <LoanProposalCard
+                  proposal={proposal}
+                  now={now}
+                  userData={userData}
+                  isPending={isPending}
+                  onVote={handleVote}
+                />
+              )}
+            />
           )}
           {!isLoading && hasMore && (
             <div className="flex justify-center">

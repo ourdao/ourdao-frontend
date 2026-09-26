@@ -7,7 +7,7 @@ import {
   type NotificationData,
   type ActivityItem
 } from '@/lib/pushNotifications'
-import { useIsMobile, useResponsiveModal } from '@/lib/responsive'
+import { useIsMobile } from '@/lib/responsive'
 import { Popover, PopoverTrigger, PopoverContent } from '@/components/ui/popover'
 import {
   Bell, 
@@ -25,6 +25,7 @@ import {
   Wallet,
   Shield
 } from 'lucide-react'
+import { VirtualizedList } from '@/components/ui/virtualized-list'
 
 interface NotificationCenterProps {
   className?: string
@@ -36,7 +37,6 @@ const NotificationCenter: React.FC<NotificationCenterProps> = ({ className = '' 
   const [filter, setFilter] = useState<'all' | 'unread'>('all')
   
   const isMobile = useIsMobile()
-  const { shouldUseDrawer } = useResponsiveModal()
 
   const {
     notifications,
@@ -269,77 +269,84 @@ const NotificationCenter: React.FC<NotificationCenterProps> = ({ className = '' 
                       </p>
                     </div>
                   ) : (
-                    filteredNotifications.map(notification => (
-                      <div
-                        key={notification.id}
-                        className={`p-3 hover:bg-accent cursor-pointer ${
-                          !notification.read ? 'bg-blue-50/50 dark:bg-blue-950/20' : ''
-                        }`}
-                        onClick={() => {
-                          markAsRead(notification.id)
-                          if (notification.actionUrl) {
-                            window.location.href = notification.actionUrl
-                            setIsOpen(false)
-                          }
-                        }}
-                        onKeyDown={(e) => {
-                          if (e.key === 'Enter' || e.key === ' ') {
+                    <VirtualizedList
+                      items={filteredNotifications}
+                      threshold={30}
+                      itemHeight={90}
+                      className="divide-y divide-border"
+                      listAriaLabel="Notifications list"
+                      keyExtractor={(n) => n.id}
+                      renderItem={(notification) => (
+                        <div
+                          className={`p-3 hover:bg-accent cursor-pointer ${
+                            !notification.read ? 'bg-blue-50/50 dark:bg-blue-950/20' : ''
+                          }`}
+                          onClick={() => {
                             markAsRead(notification.id)
                             if (notification.actionUrl) {
                               window.location.href = notification.actionUrl
                               setIsOpen(false)
                             }
-                          }
-                        }}
-                        role="button"
-                        tabIndex={0}
-                      >
-                        <div className="flex items-start justify-between">
-                          <div className="flex-1 min-w-0">
-                            <div className="flex items-center space-x-2 mb-1">
-                              <div className={`w-2 h-2 rounded-full ${
-                                getNotificationTypeColor(notification.type).split(' ')[1]
-                              }`} />
-                              <h4 className={`text-sm font-medium ${
-                                !notification.read ? 'text-foreground' : 'text-foreground'
-                              }`}>
-                                {notification.title}
-                              </h4>
+                          }}
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter' || e.key === ' ') {
+                              markAsRead(notification.id)
+                              if (notification.actionUrl) {
+                                window.location.href = notification.actionUrl
+                                setIsOpen(false)
+                              }
+                            }
+                          }}
+                          role="button"
+                          tabIndex={0}
+                        >
+                          <div className="flex items-start justify-between">
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-center space-x-2 mb-1">
+                                <div className={`w-2 h-2 rounded-full ${
+                                  getNotificationTypeColor(notification.type).split(' ')[1]
+                                }`} />
+                                <h4 className={`text-sm font-medium ${
+                                  !notification.read ? 'text-foreground' : 'text-foreground'
+                                }`}>
+                                  {notification.title}
+                                </h4>
+                              </div>
+                              <p className="text-sm text-muted-foreground mb-2">
+                                {notification.message}
+                              </p>
+                              <div className="flex items-center justify-between">
+                                <span className="text-xs text-muted-foreground">
+                                  {formatTime(notification.timestamp)}
+                                </span>
+                                {!notification.read && (
+                                  <button
+                                    onClick={(e) => {
+                                      e.stopPropagation()
+                                      markAsRead(notification.id)
+                                    }}
+                                    className="text-xs text-blue-600 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300"
+                                    aria-label="Mark as read"
+                                  >
+                                    <Check className="w-3 h-3" />
+                                  </button>
+                                )}
+                              </div>
                             </div>
-                            <p className="text-sm text-muted-foreground mb-2">
-                              {notification.message}
-                            </p>
-                            <div className="flex items-center justify-between">
-                              <span className="text-xs text-muted-foreground">
-                                {formatTime(notification.timestamp)}
-                              </span>
-                              {!notification.read && (
-                                <button
-                                  onClick={(e) => {
-                                    e.stopPropagation()
-                                    markAsRead(notification.id)
-                                  }}
-                                  className="text-xs text-blue-600 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300"
-                                  aria-label="Mark as read"
-                                >
-                                  <Check className="w-3 h-3" />
-                                </button>
-                              )}
-                            </div>
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation()
+                                removeNotification(notification.id)
+                              }}
+                              className="ml-2 p-1 hover:bg-accent rounded"
+                              title="Remove"
+                            >
+                              <X className="w-3 h-3" />
+                            </button>
                           </div>
-                          <button
-                            onClick={(e) => {
-                              e.stopPropagation()
-                              removeNotification(notification.id)
-                            }}
-                            className="ml-2 p-1 hover:bg-accent rounded"
-                            title="Remove"
-                          >
-                            <X className="w-3 h-3" />
-                          </button>
                         </div>
-                      </div>
-                    ))
+                      )}
+                    />
                   )}
                 </div>
               ) : (
@@ -353,37 +360,45 @@ const NotificationCenter: React.FC<NotificationCenterProps> = ({ className = '' 
                       </p>
                     </div>
                   ) : (
-                    activities.map(activity => (
-                      <div key={activity.id} className="p-3 hover:bg-accent">
-                        <div className="flex items-start space-x-3">
-                          <div className="flex-shrink-0 mt-1 text-muted-foreground">
-                            {getActivityIcon(activity.type)}
-                          </div>
-                          <div className="flex-1 min-w-0">
-                            <h4 className="text-sm font-medium text-foreground mb-1">
-                              {activity.title}
-                            </h4>
-                            <p className="text-sm text-muted-foreground mb-2">
-                              {activity.description}
-                            </p>
-                            <div className="flex items-center justify-between text-xs text-muted-foreground">
-                              <div className="flex items-center space-x-2">
-                                <Clock className="w-3 h-3" />
-                                <span>{formatTime(activity.timestamp)}</span>
-                              </div>
-                              {activity.user && (
-                                <div className="flex items-center space-x-1">
-                                  <User className="w-3 h-3" />
-                                  <span className="truncate max-w-20">
-                                    {activity.user}
-                                  </span>
+                    <VirtualizedList
+                      items={activities}
+                      threshold={30}
+                      itemHeight={90}
+                      className="divide-y divide-border"
+                      listAriaLabel="Activity feed"
+                      keyExtractor={(activity) => activity.id}
+                      renderItem={(activity) => (
+                        <div className="p-3 hover:bg-accent">
+                          <div className="flex items-start space-x-3">
+                            <div className="flex-shrink-0 mt-1 text-muted-foreground">
+                              {getActivityIcon(activity.type)}
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <h4 className="text-sm font-medium text-foreground mb-1">
+                                {activity.title}
+                              </h4>
+                              <p className="text-sm text-muted-foreground mb-2">
+                                {activity.description}
+                              </p>
+                              <div className="flex items-center justify-between text-xs text-muted-foreground">
+                                <div className="flex items-center space-x-2">
+                                  <Clock className="w-3 h-3" />
+                                  <span>{formatTime(activity.timestamp)}</span>
                                 </div>
-                              )}
+                                {activity.user && (
+                                  <div className="flex items-center space-x-1">
+                                    <User className="w-3 h-3" />
+                                    <span className="truncate max-w-20">
+                                      {activity.user}
+                                    </span>
+                                  </div>
+                                )}
+                              </div>
                             </div>
                           </div>
                         </div>
-                      </div>
-                    ))
+                      )}
+                    />
                   )}
                 </div>
               )}

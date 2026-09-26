@@ -31,8 +31,9 @@ import {
   type UILoan,
 } from '@/hooks/useDAO'
 import { useNow } from '@/hooks/useNow'
-import { formatToken, formatDate, formatAddress, calculatePercentage } from '@/lib/utils'
-import { PROPOSAL_STATUS_LABELS, IPFS_GATEWAY } from '@/constants'
+import { formatToken, formatDate, calculatePercentage, parseToken } from '@/lib/utils'
+import { formatStellarAddress } from '@/lib/stellar'
+import { PROPOSAL_STATUS_LABELS, PROPOSAL_STATUS_AWAITING_FUNDS, IPFS_GATEWAY } from '@/constants'
 import toast from 'react-hot-toast'
 import { PageHeader } from '@/components/PageHeader'
 
@@ -42,7 +43,7 @@ export default function LoanDetailsPage() {
   const userData = useUserData()
   const { activeMembers } = useDAOStats()
   const { voteOnProposal, isPending: isVoting } = useVoting()
-  const { repayLoan, isPending: isRepaying } = useLoanRepayment()
+  const { repayLoan, repayLoanPartial, isPending: isRepaying } = useLoanRepayment()
   const { markLoanDefaulted, isPending: isMarkingDefaulted } = useMarkLoanDefaulted()
   const now = useNow()
 
@@ -58,6 +59,8 @@ export default function LoanDetailsPage() {
   const { cid: documentCid, refetch: refetchDocument } = useProposalDocument('Loan', loanId)
   const { attach, isPending: attaching } = useAttachDocument()
   const [cidInput, setCidInput] = useState('')
+  const [repayAmount, setRepayAmount] = useState('')
+  const [repayError, setRepayError] = useState<string | null>(null)
 
   useEffect(() => {
     if (!isLoading && !proposal) {
@@ -65,6 +68,17 @@ export default function LoanDetailsPage() {
       router.push('/loans')
     }
   }, [isLoading, proposal, router])
+
+  // Default the repayment input to the full outstanding balance
+  useEffect(() => {
+    if (realLoan) {
+      const out = realLoan.totalRepayment - realLoan.amountRepaid
+      if (out > BigInt(0) && repayAmount === '') {
+        // eslint-disable-next-line react-hooks/set-state-in-effect
+        setRepayAmount(formatToken(out, { displayDecimals: 7 }))
+      }
+    }
+  }, [realLoan, repayAmount])
 
   if (isLoading) {
     return (
@@ -97,7 +111,36 @@ export default function LoanDetailsPage() {
   }
 
   const handleRepayment = async () => {
-    await repayLoan(loanId)
+    const trimmed = repayAmount.trim()
+    if (!trimmed) {
+      setRepayError('Enter an amount')
+      return
+    }
+    if (isNaN(Number(trimmed))) {
+      setRepayError('Enter a valid number')
+      return
+    }
+    const parsed = parseToken(trimmed)
+    if (parsed <= BigInt(0)) {
+      setRepayError('Amount must be greater than zero')
+      return
+    }
+    if (parsed > outstanding) {
+      setRepayError(`Amount exceeds outstanding balance of ${formatToken(outstanding)}`)
+      return
+    }
+    setRepayError(null)
+    try {
+      if (parsed === outstanding) {
+        await repayLoan(loanId)
+      } else {
+        await repayLoanPartial(loanId, parsed)
+      }
+      setRepayAmount('')
+      await Promise.all([refetchLoan(), refetchProposal()])
+    } catch {
+      // toast handled in hook
+    }
   }
 
   const handleMarkDefaulted = async () => {
@@ -112,6 +155,7 @@ export default function LoanDetailsPage() {
       case 2: return <ClockIcon className="h-6 w-6 text-blue-500 dark:text-blue-400" />
       case 3: return <CheckCircleIcon className="h-6 w-6 text-green-500 dark:text-green-400" />
       case 4: return <XCircleIcon className="h-6 w-6 text-red-500 dark:text-red-400" />
+      case 7: return <ClockIcon className="h-6 w-6 text-amber-500 dark:text-amber-400" />
       default: return <ClockIcon className="h-6 w-6 text-muted-foreground" />
     }
   }
@@ -122,6 +166,7 @@ export default function LoanDetailsPage() {
       case 2: return 'text-blue-600 bg-blue-50 border-blue-200 dark:text-blue-400 dark:bg-blue-950/30 dark:border-blue-900'
       case 3: return 'text-green-600 bg-green-50 border-green-200 dark:text-green-400 dark:bg-green-950/30 dark:border-green-900'
       case 4: return 'text-red-600 bg-red-50 border-red-200 dark:text-red-400 dark:bg-red-950/30 dark:border-red-900'
+    case 7: return 'text-amber-700 bg-amber-50 border-amber-200 dark:text-amber-300 dark:bg-amber-950/30 dark:border-amber-900'
       default: return 'text-muted-foreground bg-muted border-border'
     }
   }
@@ -157,6 +202,38 @@ export default function LoanDetailsPage() {
     realLoan?.status === 'Active' && now !== null && Math.floor(now / 1000) > realLoan.dueTime
 
   const outstanding = realLoan ? realLoan.totalRepayment - realLoan.amountRepaid : BigInt(0)
+
+  // Estimated interest/principal split for the repayment input.
+  // Mirrors the contract's "interest first, then principal" rule (loans.rs);
+  // stated as an estimate since the exact on-chain split is computed inside
+  // the contract's repay_loan_partial handler and may drift if its formula
+  // changes. All bigint, never float.
+  const totalInterest = realLoan ? realLoan.totalRepayment - realLoan.principal : BigInt(0)
+  const interestPaid = realLoan
+    ? (realLoan.amountRepaid <= totalInterest ? realLoan.amountRepaid : totalInterest)
+    : BigInt(0)
+  const outstandingInterest = totalInterest - interestPaid
+  const parsedRepayAmountForSplit = (() => {
+    const t = repayAmount.trim()
+    if (!t || isNaN(Number(t))) return null
+    const v = parseToken(t)
+    // parseToken returns 0n for invalid; but we already checked NaN, so 0n here is truly zero
+    return v
+  })()
+  const isRepayAmountValidForSplit =
+    parsedRepayAmountForSplit !== null &&
+    parsedRepayAmountForSplit > BigInt(0) &&
+    parsedRepayAmountForSplit <= outstanding
+  const interestPortion =
+    isRepayAmountValidForSplit && parsedRepayAmountForSplit !== null
+      ? (parsedRepayAmountForSplit <= outstandingInterest
+          ? parsedRepayAmountForSplit
+          : outstandingInterest)
+      : BigInt(0)
+  const principalPortion =
+    isRepayAmountValidForSplit && parsedRepayAmountForSplit !== null
+      ? parsedRepayAmountForSplit - interestPortion
+      : BigInt(0)
 
   const votingProgress = calculatePercentage(proposal.votesFor, proposal.votesFor + proposal.votesAgainst)
   const totalVotes = proposal.votesFor + proposal.votesAgainst
@@ -213,7 +290,7 @@ export default function LoanDetailsPage() {
 
                 <div className="flex justify-between text-sm">
                   <span className="text-muted-foreground">Borrower</span>
-                  <span className="font-medium text-foreground">{formatAddress(proposal.borrower)}</span>
+                  <span className="font-medium text-foreground">{formatStellarAddress(proposal.borrower)}</span>
                 </div>
 
                 {/* Voting Progress */}
@@ -304,6 +381,25 @@ export default function LoanDetailsPage() {
               </Card>
             )}
 
+            {/* Approved by vote but the treasury can't cover it yet */}
+            {proposal.status === PROPOSAL_STATUS_AWAITING_FUNDS && (
+              <Card role="status" className="border-amber-300 dark:border-amber-900">
+                <CardHeader>
+                  <CardTitle>Approved — awaiting treasury funds</CardTitle>
+                  <CardDescription>
+                    Members voted to approve this loan, but the treasury balance is too low to
+                    disburse {formatToken(proposal.amount)} right now. It will be paid out once the
+                    treasury is topped up and the loan is disbursed.
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <Button asChild variant="outline">
+                    <Link href="/treasury">Go to Treasury</Link>
+                  </Button>
+                </CardContent>
+              </Card>
+            )}
+
             {/* Real disbursed-loan status, once approved */}
             {proposal.status === 3 && (
               <Card>
@@ -378,8 +474,9 @@ export default function LoanDetailsPage() {
                 <CardHeader>
                   <CardTitle>Loan Repayment</CardTitle>
                   <CardDescription>
-                    Repayment is always the full outstanding balance — the
-                    contract doesn&apos;t support partial repayments.
+                    Enter an amount up to the outstanding balance. Interest is
+                    paid first, then principal — the interest portion is
+                    distributed to active members as yield immediately.
                   </CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-4">
@@ -387,8 +484,64 @@ export default function LoanDetailsPage() {
                     <span className="text-sm text-muted-foreground">Outstanding balance</span>
                     <span className="text-lg font-semibold text-foreground">{formatToken(outstanding)}</span>
                   </div>
+                  <div className="space-y-2">
+                    <label htmlFor="repay-amount" className="block text-sm font-medium text-foreground">
+                      Repayment amount
+                    </label>
+                    <div className="flex gap-2">
+                      <input
+                        id="repay-amount"
+                        type="text"
+                        inputMode="decimal"
+                        placeholder="0.00"
+                        value={repayAmount}
+                        onChange={(e) => {
+                          setRepayAmount(e.target.value)
+                          if (repayError) setRepayError(null)
+                        }}
+                        className="flex-1 rounded-lg border border-input px-3 py-2 text-sm transition-colors focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-500/20"
+                      />
+                      <Button
+                        type="button"
+                        variant="outline"
+                        onClick={() => {
+                          setRepayAmount(formatToken(outstanding, { displayDecimals: 7 }))
+                          setRepayError(null)
+                        }}
+                      >
+                        Max
+                      </Button>
+                    </div>
+                    {repayError && (
+                      <p className="text-sm text-red-600 dark:text-red-400" role="alert">
+                        {repayError}
+                      </p>
+                    )}
+                  </div>
+                  {isRepayAmountValidForSplit && parsedRepayAmountForSplit !== null && (
+                    <div className="rounded-lg border border-border p-3 space-y-2 bg-blue-50/50 dark:bg-blue-950/20">
+                      <p className="text-sm font-medium text-foreground">Estimated split (interest first)</p>
+                      <div className="flex justify-between text-sm">
+                        <span className="text-muted-foreground">Interest</span>
+                        <span className="font-medium text-foreground">{formatToken(interestPortion)}</span>
+                      </div>
+                      <div className="flex justify-between text-sm">
+                        <span className="text-muted-foreground">Principal</span>
+                        <span className="font-medium text-foreground">{formatToken(principalPortion)}</span>
+                      </div>
+                      <p className="text-xs text-muted-foreground">Estimate — exact split is computed on-chain.</p>
+                      <div className="flex justify-between text-sm pt-2 border-t border-border">
+                        <span className="text-muted-foreground">Remaining balance after</span>
+                        <span className="font-medium text-foreground">{formatToken(outstanding - parsedRepayAmountForSplit)}</span>
+                      </div>
+                    </div>
+                  )}
                   <Button onClick={handleRepayment} disabled={isRepaying} className="w-full">
-                    {isRepaying ? 'Processing...' : 'Repay Full Outstanding Balance'}
+                    {isRepaying
+                      ? 'Processing...'
+                      : parsedRepayAmountForSplit === outstanding
+                        ? 'Repay Full Outstanding Balance'
+                        : 'Repay'}
                   </Button>
                 </CardContent>
               </Card>

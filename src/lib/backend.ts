@@ -11,12 +11,11 @@
  * rather than throwing.
  */
 
-export const BACKEND_URL =
-  process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:4000'
+export const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL || ''
 
-export const isBackendConfigured = (): boolean => !!BACKEND_URL
+export const isBackendConfigured = (): boolean => !!process.env.NEXT_PUBLIC_BACKEND_URL
 
-// --- Response shapes (mirror ourdao-backend/src/types.ts; amounts are strings) ---
+// --- Response shapes (mirror ourdao-backend/src/types.ts as of commit 7620d26; amounts are strings) ---
 
 export interface BackendStats {
   totalMembers: number
@@ -24,21 +23,34 @@ export interface BackendStats {
   totalLoanProposals: number
   totalLoans: number
   activeLoans: number
+  defaultedLoans: number
   totalTreasuryProposals: number
   totalStaked: string
   lastIndexedLedger: number | null
+  secondsSinceUpdate: number | null
+  indexerStale: boolean
+  totalDefaultedValue: string
+  interestCollected: string
+  principalLent: string
+  principalRepaid: string
+  valueDefaulted: string
 }
 
+// Verified against LoanRow and /api/loans withLoanDerived route in ourdao-backend @ 7620d26
 export interface BackendLoan {
   id: number
   borrower: string
   amount: string
   outstanding: string
+  total_repayment: string
+  due_time: number | null
   status: 'active' | 'repaid' | 'defaulted'
   approved_ledger: number | null
   repaid_ledger: number | null
   defaulted_ledger: number | null
   updated_at: string
+  interest_charge?: string | null
+  repaid_amount?: string | null
 }
 
 export interface BackendNotification {
@@ -67,9 +79,14 @@ export interface BackendEvent {
 
 // --- Fetch helper -----------------------------------------------------------
 
+// None of these fetches set a timeout or abort signal, so a hung indexer leaves
+// a request pending indefinitely instead of degrading to the on-chain-only state.
+
 async function get<T>(path: string, fallback: T): Promise<T> {
+  if (!isBackendConfigured()) return fallback
+  const base = process.env.NEXT_PUBLIC_BACKEND_URL || ''
   try {
-    const res = await fetch(`${BACKEND_URL}${path}`, {
+    const res = await fetch(`${base}${path}`, {
       headers: { accept: 'application/json' },
       // Indexed data changes often; never serve a stale cache.
       cache: 'no-store',
@@ -84,8 +101,10 @@ async function get<T>(path: string, fallback: T): Promise<T> {
 
 /** PATCH with no body. Returns whether the backend accepted the mutation. */
 async function patch(path: string): Promise<boolean> {
+  if (!isBackendConfigured()) return false
+  const base = process.env.NEXT_PUBLIC_BACKEND_URL || ''
   try {
-    const res = await fetch(`${BACKEND_URL}${path}`, { method: 'PATCH' })
+    const res = await fetch(`${base}${path}`, { method: 'PATCH' })
     return res.ok
   } catch {
     return false
@@ -95,6 +114,7 @@ async function patch(path: string): Promise<boolean> {
 // --- Endpoints --------------------------------------------------------------
 
 export const backend = {
+  isConfigured: isBackendConfigured,
   getStats: () => get<BackendStats | null>('/api/stats', null),
 
   getLoans: (borrower?: string) =>

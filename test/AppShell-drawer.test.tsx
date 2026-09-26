@@ -13,6 +13,7 @@ vi.mock('next/navigation', () => ({
 
 vi.mock('@/hooks/useDAO', () => ({
   useUserData: (): Partial<UserData> => ({ isAdmin: false }),
+  useDAOStats: () => ({ indexerStale: false }),
 }))
 
 vi.mock('@/lib/stellar', () => ({
@@ -21,6 +22,10 @@ vi.mock('@/lib/stellar', () => ({
 
 vi.mock('@/components/ConnectButton', () => ({
   ConnectButton: () => <button type="button">Connect Wallet</button>,
+}))
+
+vi.mock('@/components/NetworkBadge', () => ({
+  NetworkBadge: () => null,
 }))
 
 vi.mock('@/components/NotificationCenter', () => ({

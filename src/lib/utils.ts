@@ -20,12 +20,49 @@ export function cn(...inputs: ClassValue[]) {
 // value is non-zero but rounds away to nothing at display precision, this
 // returns a "<0.0001"-style lower bound instead of the bare string '0', so
 // the UI never claims a non-empty balance is empty (#61).
+//
+// **Input contract**: `value` must be a BigInt or an integer string (i.e. a
+// Soroban stroop amount). Fractional strings like `"1.5"` and non-integer
+// numbers are rejected with an error rather than silently truncated. If a
+// caller legitimately has a decimal string (e.g. from a form field), it must
+// be converted to stroops first via `parseToken`.
+//
+// On any formatting failure the function returns `'—'` (an em-dash) so the
+// result is visually distinguishable from a genuine zero balance, and logs
+// the failure for diagnosis.
+//
+// **Why this doesn't use Intl.NumberFormat (#248):** Intl.NumberFormat
+// operates on JS `number`, which loses precision above 2^53 — a real risk
+// for large stroop-denominated treasury/loan amounts. Swapping the BigInt
+// division above for Intl.NumberFormat would reintroduce exactly the float
+// rounding this function exists to avoid. `whole`/`frac` below stay
+// string-built via BigInt arithmetic; grouping separators are deliberately
+// left off for now rather than risking a subtle precision regression for a
+// cosmetic thousands-separator. See docs/i18n-decision.md.
 export function formatToken(
-  value: bigint | string | number,
+  value: bigint | string,
   { decimals = 7, displayDecimals = 4 }: { decimals?: number; displayDecimals?: number } = {}
 ): string {
   try {
-    const v = typeof value === 'bigint' ? value : BigInt(String(value).split('.')[0] || '0')
+    if (typeof value === 'string') {
+      // Reject fractional strings — BigInt("1.5") throws, and the old
+      // split('.')[0] silently truncated. Exponent notation (e.g. "1e7") is
+      // also rejected since BigInt doesn't accept it.
+      if (value.includes('.')) {
+        throw new Error(
+          `formatToken received a fractional string "${value}". ` +
+          'Convert to stroops with parseToken before calling formatToken.'
+        )
+      }
+      if (/[eE]/.test(value)) {
+        throw new Error(
+          `formatToken received exponent notation "${value}". ` +
+          'Pass an integer string or BigInt instead.'
+        )
+      }
+    }
+
+    const v = typeof value === 'bigint' ? value : BigInt(value || '0')
     const neg = v < BigInt(0)
     const abs = neg ? -v : v
     const base = BigInt(10) ** BigInt(decimals)
@@ -39,12 +76,29 @@ export function formatToken(
     }
 
     return `${neg ? '-' : ''}${whole}${frac ? '.' + frac : ''}`
-  } catch {
-    return '0'
+  } catch (err) {
+    console.error('formatToken failed:', err, { value, decimals, displayDecimals })
+    return '—'
   }
 }
 
-// Format dates to readable format
+// Mirrors the contract's cap (loans.rs): treasury * ratio / BASIS_POINTS.
+export function computeMaxLoan(treasury: bigint, ratioBasisPoints: number): bigint {
+  return (treasury * BigInt(ratioBasisPoints)) / BigInt(10000)
+}
+
+// Format dates to readable format.
+//
+// Follows the browser's own locale (navigator.language) rather than
+// hardcoding 'en-US' — a member outside the US previously saw US-style
+// month/day ordering regardless of their own locale settings (#248). When
+// `navigator` isn't available (SSR / server components), we pass `undefined`
+// to toLocaleDateString, which falls back to the runtime's default locale
+// instead of forcing US formatting.
+//
+// This is a locale fix, not an i18n adoption — the surrounding UI strings
+// are still English-only, a deliberate scoping decision documented in
+// docs/i18n-decision.md.
 export function formatDate(timestamp: number | string | Date): string {
   try {
     let date: Date
@@ -56,8 +110,10 @@ export function formatDate(timestamp: number | string | Date): string {
     } else {
       date = timestamp
     }
-    
-    return date.toLocaleDateString('en-US', {
+
+    const locale = typeof navigator !== 'undefined' ? navigator.language : undefined
+
+    return date.toLocaleDateString(locale, {
       year: 'numeric',
       month: 'short',
       day: 'numeric',
@@ -69,10 +125,12 @@ export function formatDate(timestamp: number | string | Date): string {
   }
 }
 
-// Format an address to shortened form
-export function formatAddress(address: string, startLength: number = 6, endLength: number = 4): string {
-  if (!address || address.length < 10) return address
-  return `${address.slice(0, startLength)}...${address.slice(-endLength)}`
+
+// Format a basis-points consensus threshold (e.g. 5150 → "51.50%").
+// Trims trailing zeros so whole-number thresholds stay clean ("51%", not "51.00%").
+export function formatThreshold(basisPoints: number): string {
+  const pct = basisPoints / 100
+  return pct % 1 === 0 ? `${pct}%` : `${pct.toFixed(2)}%`
 }
 
 // Calculate percentage for voting results
@@ -132,6 +190,14 @@ export async function generateCommitment(support: boolean): Promise<{
   const commitment = new Uint8Array(hashBuffer)
 
   return { commitment, salt }
+}
+
+export function formatFileSize(bytes: number): string {
+  if (bytes === 0) return '0 Bytes'
+  const k = 1024
+  const sizes = ['Bytes', 'KB', 'MB', 'GB']
+  const i = Math.floor(Math.log(bytes) / Math.log(k))
+  return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i]
 }
 
 const SALT_STORAGE_KEY = 'ourdao-commit-salt'

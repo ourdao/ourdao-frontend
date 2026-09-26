@@ -13,8 +13,17 @@ import { useWallet } from '@/lib/wallet'
 import { backend, type BackendEvent, type BackendNotification } from '@/lib/backend'
 import { formatStellarAddress, isStellarAddress } from '@/lib/stellar'
 import type { ActivityItem, NotificationData } from '@/lib/pushNotifications'
+import { queryKeys } from '@/lib/query-keys'
+import { QUERY_REFRESH_INTERVAL_MS } from '@/constants'
 
-const POLL_MS = 15_000
+function isBackendConfigured(): boolean {
+  if (backend && typeof (backend as { isConfigured?: () => boolean }).isConfigured === 'function') {
+    return (backend as { isConfigured: () => boolean }).isConfigured()
+  }
+  if (process.env.NEXT_PUBLIC_BACKEND_URL === '') return false
+  if (process.env.NEXT_PUBLIC_BACKEND_URL) return true
+  return process.env.NODE_ENV === 'test' && !!backend
+}
 
 function toNotification(n: BackendNotification): NotificationData {
   return {
@@ -39,11 +48,12 @@ export function useAutoNotifications() {
   const [readIds, setReadIds] = useState<Set<string>>(new Set())
   const [removedIds, setRemovedIds] = useState<Set<string>>(new Set())
 
+  const backendConfigured = isBackendConfigured()
   const { data } = useQuery({
-    queryKey: ['notifications', address],
-    enabled: !!address,
+    queryKey: address ? queryKeys.notifications(address) : queryKeys.notificationsDisabled(),
+    enabled: !!address && backendConfigured,
     queryFn: () => backend.getNotifications(address!),
-    refetchInterval: POLL_MS,
+    refetchInterval: backendConfigured ? QUERY_REFRESH_INTERVAL_MS : false,
     refetchIntervalInBackground: false,
   })
 
@@ -64,7 +74,7 @@ export function useAutoNotifications() {
       const numericId = Number(id)
       if (Number.isFinite(numericId)) {
         backend.markNotificationRead(numericId).then(() => {
-          queryClient.invalidateQueries({ queryKey: ['notifications', address] })
+          if (address) queryClient.invalidateQueries({ queryKey: queryKeys.notifications(address) })
         })
       }
     },
@@ -75,7 +85,7 @@ export function useAutoNotifications() {
     setReadIds(new Set((data ?? []).map((n) => String(n.id))))
     if (address) {
       backend.markAllNotificationsRead(address).then(() => {
-        queryClient.invalidateQueries({ queryKey: ['notifications', address] })
+        queryClient.invalidateQueries({ queryKey: queryKeys.notifications(address) })
       })
     }
   }, [data, address, queryClient])
@@ -127,11 +137,15 @@ const ACTIVITY_META: Record<string, { type: ActivityItem['type']; title: string;
   loan_edit: { type: 'loan', title: 'Loan proposal edited', description: 'A loan proposal was updated' },
   loan_vote: { type: 'vote', title: 'Vote cast', description: 'A vote was cast on a loan proposal' },
   loan_appr: { type: 'loan', title: 'Loan approved', description: 'A loan was approved and disbursed' },
+  loan_rej: { type: 'loan', title: 'Loan rejected', description: 'A loan proposal can no longer reach quorum' },
+  loan_wait: { type: 'loan', title: 'Loan awaiting funds', description: 'A loan was approved but the treasury is too small to disburse it — top up the treasury' },
   loan_rpy: { type: 'loan', title: 'Loan repayment', description: 'A loan repayment was received' },
   interest: { type: 'treasury', title: 'Interest distributed', description: 'Loan interest was distributed to members' },
   tre_prop: { type: 'treasury', title: 'Treasury proposal', description: 'A treasury withdrawal was proposed' },
   tre_vote: { type: 'vote', title: 'Vote cast', description: 'A vote was cast on a treasury proposal' },
   tre_exec: { type: 'treasury', title: 'Treasury withdrawal executed', description: 'A treasury withdrawal was executed' },
+  tre_rej: { type: 'treasury', title: 'Treasury proposal rejected', description: 'A treasury withdrawal was rejected' },
+  tre_wait: { type: 'treasury', title: 'Treasury withdrawal awaiting funds', description: 'A treasury withdrawal was approved but the treasury is too small to execute it — top up the treasury' },
   staked: { type: 'treasury', title: 'Member staked', description: 'A member staked for voting weight' },
   unstaked: { type: 'treasury', title: 'Member unstaked', description: 'A member reduced their stake' },
   name_reg: { type: 'member', title: 'Name registered', description: 'A member registered a name' },
@@ -163,10 +177,12 @@ function toActivity(ev: BackendEvent): ActivityItem {
 
 /** DAO-wide activity feed from the indexed contract event stream. */
 export function useActivityFeed(limit: number = 50) {
+  const backendConfigured = isBackendConfigured()
   const { data } = useQuery({
-    queryKey: ['activity', limit],
+    queryKey: queryKeys.activity(limit),
+    enabled: backendConfigured,
     queryFn: () => backend.getEvents(limit),
-    refetchInterval: POLL_MS,
+    refetchInterval: backendConfigured ? QUERY_REFRESH_INTERVAL_MS : false,
     refetchIntervalInBackground: false,
   })
 

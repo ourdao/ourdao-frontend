@@ -27,8 +27,10 @@ import {
   type UILoanProposal,
   type UITreasuryProposal,
 } from '@/hooks/useDAO'
-import { formatToken, formatAddress } from '@/lib/utils'
-import { PROPOSAL_STATUS_LABELS } from '@/constants'
+import { formatToken, formatThreshold } from '@/lib/utils'
+import { formatStellarAddress } from '@/lib/stellar'
+import { PROPOSAL_STATUS_LABELS, PROPOSAL_STATUS_AWAITING_FUNDS } from '@/constants'
+import { VirtualizedList } from '@/components/ui/virtualized-list'
 
 function StatusBadge({ status }: { status: number }) {
   const variant =
@@ -36,7 +38,9 @@ function StatusBadge({ status }: { status: number }) {
       ? 'default'
       : status === 4
         ? 'destructive'
-        : 'secondary'
+        : status === PROPOSAL_STATUS_AWAITING_FUNDS
+          ? 'outline'
+          : 'secondary'
   return (
     <Badge variant={variant}>
       {PROPOSAL_STATUS_LABELS[status as keyof typeof PROPOSAL_STATUS_LABELS]}
@@ -105,7 +109,7 @@ function LoanProposalRow({
         </Link>
         <p className="mt-0.5 text-sm text-muted-foreground">
           {formatToken(p.amount)} · {(p.interestRate / 100).toFixed(1)}% ·{' '}
-          {formatAddress(p.borrower)}
+          {formatStellarAddress(p.borrower)}
         </p>
         <p className="mt-1 text-xs text-muted-foreground">
           For {p.votesFor} · Against {p.votesAgainst}
@@ -153,7 +157,7 @@ function TreasuryProposalRow({
           )}
         </div>
         <p className="mt-0.5 text-sm text-muted-foreground">
-          {formatToken(p.amount)} → {formatAddress(p.recipient)}
+          {formatToken(p.amount)} → {formatStellarAddress(p.recipient)}
         </p>
         <p className="mt-1 text-xs text-muted-foreground">
           For {p.votesFor} · Against {p.votesAgainst}
@@ -252,7 +256,7 @@ export default function GovernancePage() {
     )
   }
 
-  const thresholdPct = Math.round((stats.consensusThreshold || 0) / 100)
+  const thresholdPct = formatThreshold(stats.consensusThreshold || 0)
   const openProposals =
     loanProposals.filter((p) => p.status === 2).length +
     treasuryProposals.filter((p) => p.status === 2).length
@@ -289,7 +293,7 @@ export default function GovernancePage() {
         />
         <StatCard
           label="Consensus Threshold"
-          value={`${thresholdPct}%`}
+          value={thresholdPct}
           icon={ScaleIcon}
           tint="bg-amber-50 text-amber-600 dark:bg-amber-950/50 dark:text-amber-400"
         />
@@ -327,17 +331,22 @@ export default function GovernancePage() {
               ) : loanProposals.length === 0 ? (
                 <EmptyState label="No loan proposals yet." />
               ) : (
-                <ul className="divide-y divide-border">
-                  {loanProposals.map((p) => (
+                <VirtualizedList
+                  items={loanProposals}
+                  threshold={50}
+                  itemHeight={120}
+                  className="divide-y divide-border"
+                  listAriaLabel="Loan proposals"
+                  keyExtractor={(p) => p.id}
+                  renderItem={(p) => (
                     <LoanProposalRow
-                      key={p.id}
                       proposal={p}
                       canVote={userData.isMember}
                       votingLoan={votingLoan}
                       onVote={voteOnProposal}
                     />
-                  ))}
-                </ul>
+                  )}
+                />
               )}
               {!loadingLoans && hasMoreLoans && (
                 <div className="mt-4 flex justify-center">
@@ -370,17 +379,22 @@ export default function GovernancePage() {
               ) : treasuryProposals.length === 0 ? (
                 <EmptyState label="No treasury withdrawals yet." />
               ) : (
-                <ul className="divide-y divide-border">
-                  {treasuryProposals.map((p) => (
+                <VirtualizedList
+                  items={treasuryProposals}
+                  threshold={50}
+                  itemHeight={120}
+                  className="divide-y divide-border"
+                  listAriaLabel="Treasury proposals"
+                  keyExtractor={(p) => p.id}
+                  renderItem={(p) => (
                     <TreasuryProposalRow
-                      key={p.id}
                       proposal={p}
                       canVote={userData.isMember}
                       votingTreasury={votingTreasury}
                       onVote={voteOnTreasury}
                     />
-                  ))}
-                </ul>
+                  )}
+                />
               )}
               {!loadingTreasury && hasMoreTreasury && (
                 <div className="mt-4 flex justify-center">
