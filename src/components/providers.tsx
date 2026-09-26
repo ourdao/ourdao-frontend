@@ -6,6 +6,8 @@ import toast, { Toaster } from 'react-hot-toast'
 import { ThemeProvider } from 'next-themes'
 import { WalletProvider } from '@/lib/wallet'
 import { QUERY_STALE_TIME_MS } from '@/constants'
+import { LiveAnnouncer } from '@/components/LiveAnnouncer'
+import { SkipLink } from '@/components/SkipLink'
 
 export function Providers({ children }: { children: React.ReactNode }) {
   const [queryClient] = useState(() => createQueryClient())
@@ -14,6 +16,8 @@ export function Providers({ children }: { children: React.ReactNode }) {
     <ThemeProvider attribute="class" defaultTheme="system" enableSystem>
       <QueryClientProvider client={queryClient}>
         <WalletProvider>
+          <SkipLink />
+          <LiveAnnouncer />
           <Toaster
             position="top-right"
             toastOptions={{
@@ -59,6 +63,13 @@ export function createQueryClient() {
         staleTime: QUERY_STALE_TIME_MS,
         refetchOnWindowFocus: true,
         retry: 0,
+        // Central error-boundary policy. A query marked `meta.boundary` is
+        // the primary data of its page, so its failure throws to the nearest
+        // error boundary (a recoverable "couldn't load" screen). Everything
+        // else degrades in place: the hook reports `isError` and the
+        // consumer renders <LoadError> — never an empty state, which would be
+        // indistinguishable from "there is nothing here".
+        throwOnError: (_error, query) => query.meta?.boundary === true,
       },
     },
   })

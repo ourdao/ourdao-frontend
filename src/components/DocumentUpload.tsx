@@ -200,6 +200,7 @@ export default function DocumentUpload({
         <input
           ref={fileInputRef}
           type="file"
+          aria-label={multiple ? "Choose files to upload" : "Choose a file to upload"}
           multiple={multiple}
           accept={accept}
           onChange={handleFileSelect}
@@ -231,10 +232,12 @@ export default function DocumentUpload({
                   </div>
                 </div>
                 <button
+                  type="button"
                   onClick={() => removeFile(index)}
+                  aria-label={`Remove ${file.name}`}
                   className="p-1 text-muted-foreground hover:text-foreground"
                 >
-                  <XMarkIcon className="h-4 w-4" />
+                  <XMarkIcon className="h-4 w-4" aria-hidden="true" />
                 </button>
               </div>
             ))}

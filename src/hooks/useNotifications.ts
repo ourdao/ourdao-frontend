@@ -39,7 +39,7 @@ export function useAutoNotifications() {
   const [readIds, setReadIds] = useState<Set<string>>(new Set())
   const [removedIds, setRemovedIds] = useState<Set<string>>(new Set())
 
-  const { data } = useQuery({
+  const { data, isError, refetch } = useQuery({
     queryKey: address ? queryKeys.notifications(address) : queryKeys.notificationsDisabled(),
     enabled: !!address,
     queryFn: () => backend.getNotifications(address!),
@@ -102,6 +102,8 @@ export function useAutoNotifications() {
 
   return {
     notifications,
+    isError,
+    refetch,
     unreadCount,
     markAsRead,
     markAllAsRead,
@@ -167,7 +169,7 @@ function toActivity(ev: BackendEvent): ActivityItem {
 
 /** DAO-wide activity feed from the indexed contract event stream. */
 export function useActivityFeed(limit: number = 50) {
-  const { data } = useQuery({
+  const { data, isError, refetch } = useQuery({
     queryKey: queryKeys.activity(limit),
     queryFn: () => backend.getEvents(limit),
     refetchInterval: QUERY_REFRESH_INTERVAL_MS,
@@ -179,5 +181,5 @@ export function useActivityFeed(limit: number = 50) {
   // Retained for API compatibility; the feed is server-driven and read-only.
   const addActivity = useCallback(() => {}, [])
 
-  return { activities, addActivity }
+  return { activities, addActivity, isError, refetch }
 }

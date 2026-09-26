@@ -13,7 +13,7 @@ import { QUERY_REFRESH_INTERVAL_MS } from '@/constants'
 
 /** All loan proposals (newest first), read live from the contract, paginated. */
 export function useLoanProposals() {
-  const { data: stats } = useQuery({
+  const { data: stats, isError: countError, refetch: refetchCount } = useQuery({
     queryKey: queryKeys.backendStats(),
     queryFn: () => backend.getStats(),
     refetchInterval: QUERY_REFRESH_INTERVAL_MS,
@@ -21,9 +21,11 @@ export function useLoanProposals() {
   })
   const count = stats?.totalLoanProposals ?? 0
 
-  const { data, isLoading, fetchNextPage, hasNextPage, isFetchingNextPage } =
+  const { data, isLoading, isError: listError, refetch: refetchList, fetchNextPage, hasNextPage, isFetchingNextPage } =
     useInfiniteQuery({
       queryKey: queryKeys.loanProposals(count),
+      // The page's primary data: a failed read goes to the error boundary.
+      meta: { boundary: true },
       enabled: isContractConfigured() && count > 0,
       initialPageParam: 0,
       queryFn: ({ pageParam }) =>
@@ -44,6 +46,12 @@ export function useLoanProposals() {
     loadMore: fetchNextPage,
     isLoadingMore: isFetchingNextPage,
     hasErrors,
+    /** The proposal count (indexer) or the list read failed, so an empty list is not real. */
+    isError: countError || listError,
+    refetch: () => {
+      if (countError) void refetchCount()
+      void refetchList()
+    },
   }
 }
 
@@ -70,6 +78,9 @@ export function useHasVoted(kind: 'Loan' | 'Treasury', proposalId: number, enabl
 export function useLoanProposal(id: number) {
   const { data, isLoading, refetch: refetchProposal } = useQuery({
     queryKey: queryKeys.loanProposal(id),
+    // The subject of the loan detail page: a failed read must not fall
+    // through to "proposal not found".
+    meta: { boundary: true },
     enabled: isContractConfigured() && Number.isFinite(id) && id >= 0,
     queryFn: () => daoRead.getLoanProposal(id),
   })
@@ -108,7 +119,7 @@ export function useLoan(id: number, enabled: boolean) {
 
 /** All treasury withdrawal proposals (newest first), read live from the contract, paginated. */
 export function useTreasuryProposals() {
-  const { data: stats } = useQuery({
+  const { data: stats, isError: countError, refetch: refetchCount } = useQuery({
     queryKey: queryKeys.backendStats(),
     queryFn: () => backend.getStats(),
     refetchInterval: QUERY_REFRESH_INTERVAL_MS,
@@ -116,9 +127,11 @@ export function useTreasuryProposals() {
   })
   const count = stats?.totalTreasuryProposals ?? 0
 
-  const { data, isLoading, fetchNextPage, hasNextPage, isFetchingNextPage } =
+  const { data, isLoading, isError: listError, refetch: refetchList, fetchNextPage, hasNextPage, isFetchingNextPage } =
     useInfiniteQuery({
       queryKey: queryKeys.treasuryProposals(count),
+      // The page's primary data: a failed read goes to the error boundary.
+      meta: { boundary: true },
       enabled: isContractConfigured() && count > 0,
       initialPageParam: 0,
       queryFn: ({ pageParam }) =>
@@ -137,6 +150,11 @@ export function useTreasuryProposals() {
     loadMore: fetchNextPage,
     isLoadingMore: isFetchingNextPage,
     hasErrors,
+    isError: countError || listError,
+    refetch: () => {
+      if (countError) void refetchCount()
+      void refetchList()
+    },
   }
 }
 
@@ -175,24 +193,24 @@ export function useProposalDocument(kind: 'Loan' | 'Treasury', id: number) {
 
 /** The current admin set, read live from the contract. */
 export function useAdmins() {
-  const { data, isLoading, refetch } = useQuery({
+  const { data, isLoading, isError, refetch } = useQuery({
     queryKey: queryKeys.admins(),
     enabled: isContractConfigured(),
     queryFn: () => daoRead.getAdmins(),
   })
-  return { admins: data ?? [], isLoading, refetch }
+  return { admins: data ?? [], isLoading, isError, refetch }
 }
 
 /** The admin/governance event history (init, admin add/remove, threshold,
  *  policy, pause/unpause), indexed off-chain since the contract keeps no
  *  queryable log of its own admin actions. */
 export function useAdminLog(limit = 50) {
-  const { data, isLoading } = useQuery({
+  const { data, isLoading, isError, refetch } = useQuery({
     queryKey: queryKeys.adminLog(limit),
     queryFn: () => backend.getAdminLog(limit),
     refetchInterval: QUERY_REFRESH_INTERVAL_MS,
     refetchIntervalInBackground: false,
   })
   const entries = useMemo(() => (data ?? []).map(toAdminLogEntry), [data])
-  return { entries, isLoading }
+  return { entries, isLoading, isError, refetch }
 }
