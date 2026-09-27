@@ -7,6 +7,7 @@
  * Marking-as-read is persisted via the backend's mutation endpoints; removal
  * stays client-side only since there's no delete endpoint.
  */
+import { logger } from '@/lib/logger'
 import { useCallback, useMemo, useState } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { useWallet } from '@/lib/wallet'
@@ -103,7 +104,7 @@ export function useAutoNotifications() {
       try {
         await Notification.requestPermission()
       } catch (err) {
-        console.warn('Notification permission request failed:', err)
+        logger.warn('Notification permission request failed', { err })
       }
     }
   }, [])
