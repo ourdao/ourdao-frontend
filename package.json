@@ -4,14 +4,8 @@
   "private": true,
   "license": "MIT",
   "engines": {
-    "node": ">=20.0.0"
+    "node": ">=20.9.0"
   },
-  "browserslist": [
-    "chrome >= 100",
-    "firefox >= 100",
-    "safari >= 16",
-    "edge >= 100"
-  ],
   "scripts": {
     "dev": "next dev",
     "build": "next build",
@@ -19,6 +13,8 @@
     "lint": "eslint --max-warnings=0",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
+    "coverage": "vitest run --coverage",
+    "coverage:report": "vitest run --coverage --coverage.reporter=text",
     "audit": "audit-ci --config ./audit-ci.jsonc",
     "bundle-size": "node scripts/bundle-size.mjs measure && node scripts/bundle-size.mjs report",
     "depcheck": "depcheck",

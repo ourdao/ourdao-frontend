@@ -6,6 +6,10 @@
  * `read` simulates a contract call and decodes the result (no wallet needed).
  * `invoke` prepares, signs (via Freighter), submits, and polls a state-changing
  * call. Typed wrappers below mirror the Rust contract's public interface.
+ *
+ * All RPC calls are bounded by explicit timeouts so a hung Soroban RPC cannot
+ * leave a query pending indefinitely. Reads and writes have separate budgets
+ * because a write legitimately takes longer.
  */
 import {
   Account,
@@ -39,6 +43,38 @@ const INCLUSION_FEE_MULTIPLIER = 1.5
 // TransactionBuilder takes the fee as a string of stroops, and BASE_FEE is
 // itself a string, so it must be coerced before the multiplication.
 const INCLUSION_FEE = String(Math.ceil(Number(BASE_FEE) * INCLUSION_FEE_MULTIPLIER))
+
+// ---------------------------------------------------------------------------
+// Timeout configuration
+// ---------------------------------------------------------------------------
+
+/** Timeout for read-only RPC calls (simulateTransaction). */
+export const READ_TIMEOUT_MS = 10_000
+
+/** Timeout for write RPC calls (getAccount, prepareTransaction, sendTransaction, getTransaction). */
+export const WRITE_TIMEOUT_MS = 60_000
+
+/** Creates a promise that rejects after the given timeout. */
+export function timeout<T>(ms: number, label: string): Promise<T> {
+  return new Promise((_, reject) => {
+    setTimeout(() => reject(new Error(`${label} timed out after ${ms}ms`)), ms)
+  })
+}
+
+/** Wraps a promise with a timeout, preserving the original error type when possible. */
+export async function withTimeout<T>(promise: Promise<T>, ms: number, label: string): Promise<T> {
+  try {
+    return await Promise.race([promise, timeout<T>(ms, label)])
+  } catch (e) {
+    if (e instanceof Error && e.message.includes('timed out')) {
+      const timeoutError = new Error(e.message)
+      // Mark as retryable so the UI can offer a retry
+      ;(timeoutError as Error & { retryable: boolean }).retryable = true
+      throw timeoutError
+    }
+    throw e
+  }
+}
 
 // ---------------------------------------------------------------------------
 // ScVal argument builders (JS value -> Soroban value with the right type)
@@ -128,7 +164,7 @@ export async function read<T = unknown>(
     .setTimeout(30)
     .build()
 
-  const sim = await server.simulateTransaction(tx)
+  const sim = await withTimeout(server.simulateTransaction(tx), READ_TIMEOUT_MS, 'simulateTransaction')
   if (rpc.Api.isSimulationError(sim)) {
     throw new Error(formatContractError(sim.error))
   }
@@ -181,7 +217,7 @@ export async function invoke(
   }
 
   const contract = new Contract(CONTRACT_ID)
-  const account = await server.getAccount(walletAddress)
+  const account = await withTimeout(server.getAccount(walletAddress), WRITE_TIMEOUT_MS, 'getAccount')
   const built = new TransactionBuilder(account, {
     fee: INCLUSION_FEE,
     networkPassphrase: NETWORK_PASSPHRASE,
@@ -191,11 +227,11 @@ export async function invoke(
     .build()
 
   // Simulate + assemble auth entries and resource footprint.
-  const prepared = await server.prepareTransaction(built)
+  const prepared = await withTimeout(server.prepareTransaction(built), WRITE_TIMEOUT_MS, 'prepareTransaction')
   const signedXdr = await signXDR(prepared.toXDR())
   const signedTx = TransactionBuilder.fromXDR(signedXdr, NETWORK_PASSPHRASE)
 
-  const sent = await server.sendTransaction(signedTx)
+  const sent = await withTimeout(server.sendTransaction(signedTx), WRITE_TIMEOUT_MS, 'sendTransaction')
 
   // Every `sendTransaction` status gets an explicit branch (#58) — the old
   // code only checked for 'ERROR' and let PENDING, DUPLICATE, and
@@ -240,10 +276,10 @@ export async function invoke(
       ? Number(signedTx.timeBounds.maxTime) * 1000
       : Date.now() + DEFAULT_POLL_BUDGET_MS
 
-  let result = await server.getTransaction(sent.hash)
+  let result = await withTimeout(server.getTransaction(sent.hash), WRITE_TIMEOUT_MS, 'getTransaction')
   while (result.status === 'NOT_FOUND' && Date.now() < deadlineMs) {
     await sleep(POLL_INTERVAL_MS)
-    result = await server.getTransaction(sent.hash)
+    result = await withTimeout(server.getTransaction(sent.hash), WRITE_TIMEOUT_MS, 'getTransaction')
   }
 
   if (result.status === 'NOT_FOUND') {

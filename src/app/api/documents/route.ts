@@ -53,6 +53,9 @@ async function readBounded(req: NextRequest): Promise<Uint8Array | null> {
   return out
 }
 
+const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:4000'
+const ALLOWED_ORIGIN = process.env.NEXT_PUBLIC_APP_ORIGIN || 'http://localhost:3000'
+
 /**
  * Pins an already-encrypted document blob to IPFS via Pinata.
  *
@@ -60,64 +63,106 @@ async function readBounded(req: NextRequest): Promise<Uint8Array | null> {
  * ciphertext bytes here as the request body — this route never sees
  * plaintext. `PINATA_JWT` is a server-only env var (no `NEXT_PUBLIC_` prefix)
  * so the credential never reaches the client bundle.
+ *
+ * Access control: only authenticated DAO members can pin. Uses the same
+ * challenge-response scheme as ourdao-backend (GET /api/auth/challenge +
+ * signed header). Origin is checked as defence in depth.
  */
 export async function POST(req: NextRequest) {
   const jwt = process.env.PINATA_JWT
   if (!jwt) {
     return NextResponse.json(
-      { error: 'Document uploads are not configured on the server (PINATA_JWT is unset).' },
+      { error: 'Document uploads are not configured on the server.' },
       { status: 503 }
     )
   }
 
-  // 1. Rate limiting check (per IP and per member address)
-  const rateLimit = checkRateLimit(req)
-  if (!rateLimit.allowed) {
+  const origin = req.headers.get('origin')
+  if (origin && origin !== ALLOWED_ORIGIN) {
     return NextResponse.json(
-      { error: 'Too many upload requests. Please try again later.' },
-      {
-        status: 429,
-        headers: {
-          'Retry-After': String(rateLimit.retryAfterSeconds || 60),
-        },
-      }
+      { error: 'Invalid origin' },
+      { status: 403 }
     )
   }
 
-  // 2. Require explicit application/octet-stream Content-Type
   const contentType = req.headers.get('content-type')
-  if (!contentType || !contentType.toLowerCase().includes('application/octet-stream')) {
+  if (contentType !== 'application/octet-stream') {
     return NextResponse.json(
       { error: 'Content-Type must be application/octet-stream' },
       { status: 400 }
     )
   }
 
-  // 3. Reject on declared length over cap
-  const declared = Number(req.headers.get('content-length'))
-  if (Number.isFinite(declared) && declared > MAX_UPLOAD_BYTES) return tooLarge()
+  const declaredLength = Number(req.headers.get('content-length'))
+  if (Number.isFinite(declaredLength) && declaredLength > MAX_UPLOAD_BYTES) {
+    return tooLarge()
+  }
 
-  // 4. Read bounded body
-  const body = await readBounded(req)
-  if (!body) return tooLarge()
-
-  // 5. Enforce minimum plausible size check
-  if (body.byteLength < MIN_UPLOAD_BYTES) {
+  const authHeader = req.headers.get('authorization')
+  if (!authHeader?.startsWith('Bearer ')) {
     return NextResponse.json(
-      { error: `Upload payload must be at least ${MIN_UPLOAD_BYTES} bytes` },
+      { error: 'Authentication required' },
+      { status: 401 }
+    )
+  }
+
+  const signature = authHeader.slice(7)
+  const address = req.headers.get('x-stellar-address')
+  if (!address) {
+    return NextResponse.json(
+      { error: 'Authentication required' },
+      { status: 401 }
+    )
+  }
+
+  // Verify signature with backend (uses same challenge-response scheme)
+  const verifyRes = await fetch(`${BACKEND_URL}/api/auth/verify`, {
+    method: 'POST',
+    headers: {
+      'content-type': 'application/json',
+      accept: 'application/json',
+    },
+    body: JSON.stringify({ address, signature }),
+    cache: 'no-store',
+  })
+
+  if (!verifyRes.ok) {
+    return NextResponse.json(
+      { error: 'Authentication required' },
+      { status: 401 }
+    )
+  }
+
+  const verified = (await verifyRes.json()) as { valid: boolean; isMember: boolean }
+  if (!verified.valid || !verified.isMember) {
+    return NextResponse.json(
+      { error: 'Authentication required' },
+      { status: 401 }
+    )
+  }
+
+  const bodyBytes = await readBounded(req)
+  if (bodyBytes === null) return tooLarge()
+
+  if (bodyBytes.byteLength === 0) {
+    return NextResponse.json({ error: 'Empty upload' }, { status: 400 })
+  }
+  if (bodyBytes.byteLength < MIN_UPLOAD_BYTES) {
+    return NextResponse.json(
+      { error: `Upload must be at least ${MIN_UPLOAD_BYTES} bytes` },
       { status: 400 }
     )
   }
 
   // 6. Construct form data with Pinata pin metadata (no member PII or IP included)
   const form = new FormData()
-  form.append('file', new Blob([new Uint8Array(body)]), 'document')
+  form.append('file', new Blob([bodyBytes]), 'document')
 
   const metadata = {
     name: `doc-${Date.now()}`,
     keyvalues: {
       uploadedAt: new Date().toISOString(),
-      size: String(body.byteLength),
+      size: String(bodyBytes.byteLength),
     },
   }
   form.append('pinataMetadata', JSON.stringify(metadata))
@@ -161,7 +206,7 @@ export async function POST(req: NextRequest) {
   }
 
   // 8. Verify returned CID format & content match against uploaded bytes
-  if (!verifyIPFSHash(IpfsHash, body)) {
+  if (!verifyIPFSHash(IpfsHash, bodyBytes)) {
     return NextResponse.json(
       { error: 'Pinning provider returned invalid or mismatched IPFS hash' },
       { status: 502 }

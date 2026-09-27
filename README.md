@@ -53,6 +53,8 @@ npm run dev
 
 Open [http://localhost:3000](http://localhost:3000). Install the **Freighter** browser extension to connect a wallet.
 
+**Node.js:** 20.9+ (Next 16's floor), 22, and 24 are supported. CI runs `test` and `build` on all three; Node 20 (`.nvmrc`) is the required check and 22/24 are informational until Node 20 is dropped.
+
 ## Configuration
 
 All config is env-driven with public-testnet defaults (see `.env.example`):
@@ -66,6 +68,7 @@ All config is env-driven with public-testnet defaults (see `.env.example`):
 | `PINATA_JWT` | **Server-only** Pinata credential for pinning uploaded documents — read by `src/app/api/documents/route.ts`, never exposed to the client | _(empty → uploads fail with a visible error)_ |
 | `NEXT_PUBLIC_BACKEND_URL` | [`ourdao-backend`](https://github.com/ourdao/ourdao-backend) indexer/API (loan history, notifications, admin log, events) | _(empty → on-chain-only, no backend)_ — set to `http://localhost:4000` for local dev (see `.env.example`)_ |
 | `NEXT_PUBLIC_SITE_URL` | Public site origin, no trailing slash — used as `metadataBase` so Open Graph/Twitter image URLs resolve to an absolute address | `http://localhost:3000` |
+| `NEXT_PUBLIC_FEATURE_FLAGS` | Comma-separated names of the risky changes to **enable** in this build — everything is off unless listed, so a risky change can ship disabled (see [docs/FEATURE_FLAGS.md](docs/FEATURE_FLAGS.md)) | _(empty → all flags off)_ |
 
 Without a `NEXT_PUBLIC_CONTRACT_ID` the UI runs and renders, but on-chain reads/writes are disabled until you point it at a deployed contract. Without a reachable backend, everything backend-derived (loan history, notifications, activity/admin logs) degrades to empty rather than erroring — see `src/lib/backend.ts`. Without `PINATA_JWT`, document uploads fail with a clear error rather than uploading nowhere silently.
 
@@ -137,6 +140,8 @@ Two things worth knowing if you're touching styling:
 
 See [docs/DESIGN_TOKENS.md](docs/DESIGN_TOKENS.md) for the full token reference.
 
+**Component catalogue:** `npm run dev` and open [`/dev/components`](http://localhost:3000/dev/components) to see every `src/components/ui/*` primitive, with each variant, size, and state, side by side in light and dark. Check it before building something new (it may already exist) and use it as the single place to run contrast and accessible-name audits. It's a `page.dev.tsx` route, which `next.config.ts` only serves under `next dev`, so it never ships in a production build. Add new primitives or variants to it when you add them to `ui/`.
+
 ## Design Tokens
 
 All colour decisions use semantic tokens defined in `src/app/globals.css`. Raw Tailwind colour utilities are not used. See [docs/DESIGN_TOKENS.md](docs/DESIGN_TOKENS.md) for the complete reference including:
@@ -157,6 +162,13 @@ OurDAO Frontend requires a Node.js server runtime for full functionality (API ro
 - Security headers configuration
 - Docker and Vercel deployment recipes
 - Build-time vs runtime variable differences
+
+Two runbooks cover what happens *around* a deploy:
+
+- **[docs/ROLLBACK.md](docs/ROLLBACK.md)** — what to do when a deploy is wrong: turning a feature flag off, reverting to the last good build, or rolling forward, and what can't be rolled back at all (chain state).
+- **[docs/CONTRACT-REDPLOYMENT.md](docs/CONTRACT-REDPLOYMENT.md)** — the frontend's role when `ourdao-contracts` is redeployed: what has to change here, in what order, and how to verify it.
+
+Shipping something risky behind a flag? See [docs/FEATURE_FLAGS.md](docs/FEATURE_FLAGS.md).
 
 ## Licence Policy
 
@@ -224,12 +236,16 @@ Running on Next.js 16 (Turbopack by default) + React 19.2.
 
 ## Security notes
 
+**For security vulnerability reporting and our responsible disclosure policy, see [SECURITY.md](./SECURITY.md).**
+
+This section covers security design decisions and controls currently in place:
+
 - **Wallet Requirements & Minimum Version.** The app requires the Freighter browser extension (minimum supported version: `2.0.0`). Extension versions are automatically detected on connection and diagnostics surface a warning if an outdated version is installed.
 - **No custody.** The frontend never holds a private key — every signature happens inside the Freighter extension, in the user's own browser context. `src/lib/wallet.tsx` only ever receives a signed transaction XDR back, never a key.
 - **Read-only degradation, not silent failure.** Without a configured contract id or a reachable backend, the UI runs in an explicit "not configured" / empty state rather than throwing — see [Configuration](#configuration).
 - **Error boundaries.** `error.tsx` (route-segment) and `global-error.tsx` (root-layout-level) catch uncaught render errors and offer a retry instead of the previous behavior, where any single uncaught error anywhere in the tree would take down the entire client-side app with no recovery short of a hard reload.
-- **HTTP security headers & CSP.** `next.config.ts` sets `poweredByHeader: false` (no `X-Powered-By`) and a `headers()` function that applies on every response:
-  - `Content-Security-Policy` — enforced (not report-only). `default-src 'self'`, `script-src 'self' 'unsafe-inline'` (Next.js hydration needs it — a per-request nonce via middleware would be stricter but isn't achievable with a static `headers()` alone; tradeoff is documented in `next.config.ts`), `style-src 'self' 'unsafe-inline'`, `img-src 'self' data: blob: https:`, `font-src 'self' data:`, `connect-src 'self'` plus the RPC / backend / IPFS gateway origins derived from the same `NEXT_PUBLIC_SOROBAN_RPC_URL`, `NEXT_PUBLIC_BACKEND_URL`, `NEXT_PUBLIC_IPFS_GATEWAY` the app reads at runtime (so non-default deployments don't break), plus `ws:`/`wss:` for HMR, `frame-ancestors 'none'`, `object-src 'none'`, etc. Freighter needs no extra scheme — it injects `window.freighterApi` via the page's JS context and `postMessage`, verified with a real wallet connect/sign/submit flow and no CSP violations in the console across every route.
+- **HTTP security headers & CSP.** Per-request nonces and strict security headers are enforced via `src/middleware.ts`:
+  - `Content-Security-Policy` — enforced (not report-only). `default-src 'self'`, `script-src 'nonce-*' 'strict-dynamic'` (per-request nonce for XSS protection, generated in middleware), `style-src 'self' 'unsafe-inline'` (Next.js App Router still requires inline styles), `img-src 'self' data: blob: https:`, `font-src 'self' data:`, `connect-src 'self'` plus the RPC / backend / IPFS gateway origins derived from the same `NEXT_PUBLIC_SOROBAN_RPC_URL`, `NEXT_PUBLIC_BACKEND_URL`, `NEXT_PUBLIC_IPFS_GATEWAY` the app reads at runtime (so non-default deployments don't break), plus `ws:`/`wss:` for HMR, `frame-ancestors 'none'`, `object-src 'none'`, etc. Freighter needs no extra scheme — it injects `window.freighterApi` via the page's JS context and `postMessage`, verified with a real wallet connect/sign/submit flow and no CSP violations in the console across every route.
   - `Strict-Transport-Security: max-age=63072000; includeSubDomains; preload`
   - `X-Content-Type-Options: nosniff`
   - `Referrer-Policy: strict-origin-when-cross-origin` — prevents the member address in `/loans/[id]` leaking in the `Referer` to external links
@@ -250,7 +266,7 @@ Running on Next.js 16 (Turbopack by default) + React 19.2.
 
 Contributions are welcome — see [CONTRIBUTING.md](./CONTRIBUTING.md) for local setup, the checks CI enforces, and the frontend-specific rules (no fabricated content, TanStack Query for all data fetching, `cn()` for class composition, both themes verified). Please claim an issue before opening a pull request.
 
-Found a security vulnerability? Don't open a public issue — use GitHub's private vulnerability reporting on this repo.
+Found a security vulnerability? See [SECURITY.md](./SECURITY.md) for responsible disclosure procedures — don't open a public issue.
 
 ## License
 

@@ -64,6 +64,11 @@ describe('backend fetch wrappers', () => {
     expect(fetch).not.toHaveBeenCalled()
   })
 
+  it('getLoans falls back to an empty array when any loan row has the wrong shape', async () => {
+    vi.mocked(fetch).mockResolvedValueOnce(jsonResponse([{ id: 1, borrower: 'G', status: 'pending' }]))
+    expect(await backend.getLoans()).toEqual([])
+  })
+
   it('getEvents composes symbol + limit query params', async () => {
     vi.mocked(fetch).mockResolvedValueOnce(jsonResponse([]))
     await backend.getEvents(25, 'loan_req')
@@ -71,6 +76,11 @@ describe('backend fetch wrappers', () => {
       `${CONFIGURED_URL}/api/events?symbol=loan_req&limit=25`,
       expect.anything()
     )
+  })
+
+  it('getEvents falls back to an empty array when the event response shape drifts', async () => {
+    vi.mocked(fetch).mockResolvedValueOnce(jsonResponse([{ id: 1, ledger: 'not-a-number' }]))
+    expect(await backend.getEvents()).toEqual([])
   })
 
   it('getAdminLog hits /api/admin/log with the limit', async () => {

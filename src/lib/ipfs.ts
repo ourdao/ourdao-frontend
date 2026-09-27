@@ -26,6 +26,24 @@ function base64ToBytes(base64: string): Uint8Array {
   return bytes
 }
 
+// Convert arbitrary string to bytes using 8-bit character codes (safe for any data)
+function stringToBytes(str: string): Uint8Array {
+  const bytes = new Uint8Array(str.length)
+  for (let i = 0; i < str.length; i++) {
+    bytes[i] = str.charCodeAt(i)
+  }
+  return bytes
+}
+
+// Convert bytes back to string using 8-bit character codes (reverse of stringToBytes)
+function bytesToString(bytes: Uint8Array): string {
+  let str = ''
+  for (let i = 0; i < bytes.length; i += 8192) {
+    str += String.fromCharCode(...bytes.subarray(i, i + 8192))
+  }
+  return str
+}
+
 export async function encryptBytes(data: Uint8Array, password: string): Promise<string> {
   const encoder = new TextEncoder()
 
@@ -136,20 +154,38 @@ export async function decryptData(encryptedData: string, password: string): Prom
 export async function uploadToIPFS(
   file: File,
   encrypt: boolean = false,
-  password?: string
+  password?: string,
+  wallet?: { address: string; signMessage: (message: string) => Promise<string> }
 ): Promise<{ hash: string; size: number; encrypted: boolean }> {
   const fileContent = new Uint8Array(await file.arrayBuffer())
   let processedData: Uint8Array
 
   if (encrypt && password) {
-    const encryptedText = await encryptBytes(fileContent, password)
-    processedData = new TextEncoder().encode(encryptedText)
+    const encryptedBase64 = await encryptBytes(fileContent, password)
+    processedData = stringToBytes(encryptedBase64)
   } else {
     processedData = fileContent
   }
 
-  // No timeout on this POST: a stalled upload route hangs until the browser gives
-  // up. Gateway reads below are bounded (fetchFromGateways); this call is not.
+  if (!wallet?.address || !wallet?.signMessage) {
+    throw new Error('Wallet not connected')
+  }
+
+  // Get challenge from backend
+  const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:4000'
+  const challengeRes = await fetch(`${backendUrl}/api/auth/challenge?address=${encodeURIComponent(wallet.address)}`, {
+    headers: { accept: 'application/json' },
+    cache: 'no-store',
+  })
+
+  if (!challengeRes.ok) {
+    throw new Error('Could not get authentication challenge')
+  }
+
+  const { challenge } = (await challengeRes.json()) as { challenge: string }
+
+  // Sign challenge with wallet
+  const signature = await wallet.signMessage(challenge)
 
   // TS's Uint8Array is generic over its buffer type as of TS 5.7+; BlobPart
   // requires an ArrayBuffer-backed one specifically, so copy into a fresh
@@ -157,7 +193,10 @@ export async function uploadToIPFS(
   // DocumentViewer.tsx's preview blob.
   const res = await fetch('/api/documents', {
     method: 'POST',
-    headers: { 'Content-Type': 'application/octet-stream' },
+    headers: {
+      Authorization: `Bearer ${signature}`,
+      'x-stellar-address': wallet.address,
+    },
     body: new Blob([new Uint8Array(processedData)]),
   })
 
@@ -205,8 +244,8 @@ export async function downloadFromIPFS(
   const fileData = new Uint8Array(await res.arrayBuffer())
 
   if (encrypted && password) {
-    const encryptedText = new TextDecoder().decode(fileData)
-    const content = await decryptBytes(encryptedText, password)
+    const encryptedBase64 = bytesToString(fileData)
+    const content = await decryptBytes(encryptedBase64, password)
     return {
       content,
       decrypted: true,
@@ -306,14 +345,14 @@ export async function uploadMultipleDocuments(
   encrypt: boolean = false,
   password?: string,
   onProgress?: (progress: number) => void,
-  permissions?: DocumentMetadata['permissions']
+  wallet?: { address: string; signMessage: (message: string) => Promise<string> }
 ): Promise<DocumentMetadata[]> {
   const results: DocumentMetadata[] = []
   
   for (let i = 0; i < files.length; i++) {
     const file = files[i]
-    const uploadResult = await uploadToIPFS(file, encrypt, password)
-    const metadata = createDocumentMetadata(file, uploadResult.hash, encrypt, permissions)
+    const uploadResult = await uploadToIPFS(file, encrypt, password, wallet)
+    const metadata = createDocumentMetadata(file, uploadResult.hash, encrypt)
     results.push(metadata)
     
     if (onProgress) {

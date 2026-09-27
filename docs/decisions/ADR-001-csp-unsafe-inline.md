@@ -1,7 +1,7 @@
 # ADR-001: CSP uses `unsafe-inline` rather than nonces
 
-**Date:** 2026-09-24
-**Status:** Accepted
+**Date:** 2026-09-24  
+**Status:** ~~Accepted~~ **Superseded by nonce-based policy (2026-09-26)**  
 **Deciders:** Maintainers
 
 ## Context

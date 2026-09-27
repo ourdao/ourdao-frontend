@@ -14,6 +14,7 @@ import {
   getAddress,
   getNetwork,
   signTransaction,
+  signMessage as freighterSignMessage,
   WatchWalletChanges,
   isConnected as checkFreighterConnected,
 } from '@stellar/freighter-api'
@@ -44,7 +45,9 @@ interface WalletContextValue {
   connect: () => Promise<void>
   disconnect: () => void
   /** Signs a base64 transaction XDR with Freighter and returns the signed XDR. */
-  signXDR: (xdr: string, options?: { timeoutMs?: number; signal?: AbortSignal }) => Promise<string>
+  signXDR: (xdr: string) => Promise<string>
+  /** Signs an arbitrary message with Freighter and returns the base64 signature. */
+  signMessage: (message: string) => Promise<string>
   /** True when the connected Freighter wallet's active network differs from this app's configured NETWORK_PASSPHRASE. */
   networkMismatch: boolean
   /** Freighter's own network label (e.g. "PUBLIC", "TESTNET"), null until known. */
@@ -96,7 +99,7 @@ export function readSigned(res: unknown): { signedTxXdr: string; error?: string;
 }
 
 /** Friendly label for a network passphrase, for the mismatch banner. */
-function passphraseLabel(passphrase: string): string {
+export function passphraseLabel(passphrase: string): string {
   switch (passphrase) {
     case Networks.PUBLIC:
       return 'Mainnet'
@@ -107,6 +110,24 @@ function passphraseLabel(passphrase: string): string {
     default:
       return passphrase
   }
+}
+
+/**
+ * Pure predicate for the network-mismatch guard (issue #241).
+ *
+ * Decision (see docs/decisions/ADR-008-network-mismatch.md): a mismatch
+ * surfaces a banner AND blocks writes. Reads stay available so members can
+ * still inspect state while on the wrong network; `signXDR` and
+ * `useWriteAction.run` both reject until the wallet network matches
+ * `NETWORK_PASSPHRASE` again. Recovery is automatic via the watcher — no
+ * reload required.
+ */
+export function isNetworkMismatch(
+  address: string | null,
+  walletNetworkPassphrase: string | null,
+  expectedPassphrase: string = NETWORK_PASSPHRASE
+): boolean {
+  return !!address && !!walletNetworkPassphrase && walletNetworkPassphrase !== expectedPassphrase
 }
 
 // Poll interval for Freighter's own watcher (address/network changes aren't
@@ -179,8 +200,7 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
     return null
   }, [])
 
-  const networkMismatch =
-    !!address && !!walletNetworkPassphrase && walletNetworkPassphrase !== NETWORK_PASSPHRASE
+  const networkMismatch = isNetworkMismatch(address, walletNetworkPassphrase, NETWORK_PASSPHRASE)
 
   const isConnected = !!address
 
@@ -415,6 +435,35 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
     [address, networkMismatch, walletNetworkPassphrase]
   )
 
+  const signMessage = useCallback(
+    async (message: string): Promise<string> => {
+      if (!address) throw new Error('Wallet not connected')
+      if (networkMismatch) {
+        throw new Error(
+          `Wallet network mismatch: Freighter is on ${passphraseLabel(
+            walletNetworkPassphrase || ''
+          )}, this app is configured for ${passphraseLabel(NETWORK_PASSPHRASE)}. Switch Freighter's network to continue.`
+        )
+      }
+      const result = await freighterSignMessage(message, {
+        networkPassphrase: NETWORK_PASSPHRASE,
+        address,
+      })
+      // freighterSignMessage returns the signature string directly in newer versions
+      // or an object with signature/error in older versions
+      if (typeof result === 'string') {
+        if (!result) throw new Error('Message signing was rejected')
+        return result
+      }
+      const { signature, error } = result as { signature?: string; error?: string }
+      if (error || !signature) {
+        throw new Error(error || 'Message signing was rejected')
+      }
+      return signature
+    },
+    [address, networkMismatch, walletNetworkPassphrase]
+  )
+
   return (
     <WalletContext.Provider
       value={{
@@ -424,6 +473,7 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
         connect,
         disconnect,
         signXDR,
+        signMessage,
         networkMismatch,
         walletNetwork,
         freighterVersion,
@@ -433,6 +483,7 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
       {networkMismatch && (
         <div
           role="alert"
+          data-testid="network-mismatch-banner"
           className="fixed top-0 inset-x-0 z-[100] bg-red-600 text-white text-sm font-medium px-4 py-2 text-center shadow-md"
         >
           Wallet network mismatch: Freighter is set to{' '}
