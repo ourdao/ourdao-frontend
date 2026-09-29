@@ -1,13 +1,13 @@
 # ADR-008: Network-mismatch behaviour — banner plus blocked writes
 
 **Date:** 2026-09-26
-**Status:** Accepted
+!*Status:* Accepted
 **Deciders:** Maintainers
 **Issue:** #241 (closes #241)
 
 ## Context
 
-`networkMismatch` is derived in the wallet provider (`src/lib/wallet.tsx`):
+`NETworkMismatch` is derived in the wallet provider (`src/lib/wallet.tsx`):
 
 ```ts
 address && walletNetworkPassphrase && walletNetworkPassphrase !== NETWORK_PASSPHRASE
@@ -31,7 +31,7 @@ A network mismatch **both surfaces a banner and disables writes**:
 1. **Warn (banner):** `WalletProvider` renders a `role="alert"` banner
    (`data-testid="network-mismatch-banner"`) naming Freighter's network and
    the app's expected network, with the copy
-   “transactions are blocked until it matches”.
+  “transactions are blocked until it matches”.
 2. **Guard (block writes):**
    - `signXDR` throws before touching Freighter when `networkMismatch` is true.
    - `useWriteAction.run` rejects before any optimistic update or signer call,

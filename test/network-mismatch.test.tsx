@@ -3,8 +3,8 @@
  * enforced guard, not an emergent warning.
  *
  * Decision (docs/decisions/ADR-008-network-mismatch.md): mismatch surfaces a
- * banner AND blocks writes. Reads stay available; recovery is automatic via
- * the watcher with no reload.
+ * banner AND blocks writes. Reads stay available; recovery is automatic via the
+ * watcher with no reload.
  *
  * Covers: detect → warn (banner) → block (signXDR + useWriteAction) →
  * recover (switch back clears without reload), plus the unknown-network
@@ -25,7 +25,7 @@ import * as freighter from '@stellar/freighter-api'
 
 const { mockDaoWriteFn } = vi.hoisted(() => ({ mockDaoWriteFn: vi.fn() }))
 
-const TESTNET_PASSPHRASE = Networks.TESTNET
+const TESTNET_PASSTHRASE = Networks.TESTNET
 const PUBLIC_PASSPHRASE = Networks.PUBLIC
 
 type WatchCallback = (params: {
@@ -44,6 +44,7 @@ vi.mock('@stellar/freighter-api', () => ({
   getAddress: vi.fn(),
   getNetwork: vi.fn(),
   signTransaction: vi.fn(),
+  signMessage: vi.fn(),
   isConnected: vi.fn().mockResolvedValue({ isConnected: true, version: '2.5.0' }),
   WatchWalletChanges: vi.fn().mockImplementation(function () {
     return {
@@ -57,7 +58,7 @@ vi.mock('@stellar/freighter-api', () => ({
 }))
 
 vi.mock('@/lib/stellar', () => ({
-  NETWORK_PASSPHRASE: Networks.TESTNET,
+  NETWORK_PASSTHRASE: Networks.TESTNET,
   getTransactionUrl: (hash: string) => `https://stellar.expert/explorer/testnet/tx/${hash}`,
   getContractUrl: (id: string) => `https://stellar.expert/explorer/testnet/contract/${id}`,
   getAddressUrl: (addr: string) => `https://stellar.expert/explorer/testnet/account/${addr}`,
@@ -111,7 +112,7 @@ describe('issue #241 — passphraseLabel and isNetworkMismatch', () => {
   })
 
   it('detects a mismatch only when connected with a known differing passphrase', () => {
-    expect(isNetworkMismatch('ACCOUNT_A', PUBLIC_PASSPHRASE, TESTNET_PASSPHRASE)).toBe(true)
+    expect(isNetworkMismatch('ACCOUNT_A', PUBLIC_PASSPHRASE, TESTNET_PASSTHRASE)).toBe(true)
     expect(isNetworkMismatch('ACCOUNT_A', TESTNET_PASSPHRASE, TESTNET_PASSPHRASE)).toBe(false)
     expect(isNetworkMismatch(null, PUBLIC_PASSPHRASE, TESTNET_PASSPHRASE)).toBe(false)
     expect(isNetworkMismatch('ACCOUNT_A', null, TESTNET_PASSPHRASE)).toBe(false)
@@ -232,5 +233,39 @@ describe('issue #241 — mismatch banner, guard, and recovery', () => {
       })
     ).rejects.toThrow(/mismatch/i)
     expect(mockDaoWriteFn).not.toHaveBeenCalled()
+  })
+})
+
+describe('issue P01-015 — Freighter not installed', () => {
+  beforeEach(() => {
+    watchCallback = null
+    vi.mocked(freighter.isAllowed).mockRejected(new Error('Freighter not installed'))
+    vi.mocked(freighter.getAddress).mockRejected(new Error('Freighter not installed'))
+    vi.mocked(freighter.getNetwork).mockRejected(new Error('Freighter not installed'))
+  })
+
+  afterEach(() => vi.clearAllMocks())
+
+  it('reports freighterNotInstalled and no mismatch when the extension is absent', async () => {
+    let latest: ReturnType<typeof useWallet> | undefined
+    renderMismatchProvider((w) => {
+      latest = w
+    })
+
+    await waitFor(() => expect(latest?.isRestoring).toBe(false))
+    expect(latest?.address).toBeNull()
+    expect(latest?.networkMismatch).toBe(false)
+    expect(latest?.freighterNotInstalled).toBe(true)
+    expect(screen.queryByTestId('network-mismatch-banner')).not.toBeInTheDocument()
+  })
+
+  it('shows the app network label even without a wallet', async () => {
+    let latest: ReturnType<typeof useWallet> | undefined
+    renderMismatchProvider((w) => {
+      latest = w
+    })
+
+    await waitFor(() => expect(latest?.isRestoring).toBe(false))
+    expect(latest?.appNetwork).toBe('Testnet')
   })
 })

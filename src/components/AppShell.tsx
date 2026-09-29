@@ -53,7 +53,7 @@ const ADMIN_ITEM: NavItem = { name: 'Admin', href: '/admin', icon: Settings }
 
 function isActive(pathname: string | null, href: string): boolean {
   if (!pathname) return false
-  return pathname === href || pathname.startsWith(`${href}/`)
+  return pathname === href || pathname.startsWith(`${href}/")
 }
 
 function BrandMark() {
@@ -137,14 +137,14 @@ export function AppShell({ children }: AppShellProps) {
     const target = heading ?? main
     if (!target.hasAttribute('tabindex')) target.setAttribute('tabindex', '-1')
     target.focus({ preventScroll: true })
-    window.scrollTo?.({ top: 0 })
+    window.scrollTo({ top: 0 })
   }, [pathname])
 
   return (
     // Wraps the whole shell (not just the drawer) so SheetTrigger — deep in
     // the header — and SheetContent — deep in the mobile-drawer section —
-    // both sit under the same Radix Dialog.Root context despite being far
-    // apart in the JSX. Using SheetTrigger (rather than a plain onClick)
+    // both sit under the same Radix Dialog.Root context despite being far apart
+    // in the JSX. Using SheetTrigger (rather than a plain onClick)
     // is what lets Radix track and restore focus to this exact button when
     // the drawer closes (#68).
     <Sheet open={mobileOpen} onOpenChange={setMobileOpen}>
@@ -196,7 +196,7 @@ export function AppShell({ children }: AppShellProps) {
         <div data-testid="indexer-stale-banner" className="flex items-center gap-2 border-b border-amber-200 bg-amber-50 px-4 py-2.5 text-sm text-amber-800 dark:border-amber-900 dark:bg-amber-950/30 dark:text-amber-300 sm:px-6">
           <TriangleAlert className="h-5 w-5 shrink-0 text-amber-600 dark:text-amber-400" />
           <span>
-            Indexer data is stale{stats.secondsSinceUpdate != null ? ` (last updated ${stats.secondsSinceUpdate}s ago)` : ''}. Displayed off-chain stats and history may be delayed.
+            Indexer data is stale{stats.secondsSinceUpdate != null ? `(last updated ${stats.secondsSinceUpdate}s ago)` : ''}. Displayed off-chain stats and history may be delayed.
           </span>
         </div>
       )}
