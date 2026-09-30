@@ -12,7 +12,7 @@ import { Button } from '@/components/ui/button'
 
 interface CustomRenderProps {
   account?: { address: string; displayName: string }
-  chain?: { unsupported: boolean }
+  chain: { unsupported: boolean }
   openConnectModal: () => void
   openAccountModal: () => void
   mounted: boolean
@@ -20,7 +20,7 @@ interface CustomRenderProps {
 }
 
 function ConnectButton() {
-  const { address, isConnected, connect, disconnect, connecting } = useWallet()
+  const { address, isConnected, connect, disconnect, connecting, networkMismatch } = useWallet()
 
   if (isConnected && address) {
     return (
@@ -41,7 +41,7 @@ function Custom({
 }: {
   children: (props: CustomRenderProps) => ReactNode
 }) {
-  const { address, isConnected, connect, disconnect } = useWallet()
+  const { address, isConnected, connect, disconnect, networkMismatch } = useWallet()
   return (
     <>
       {children({
@@ -49,7 +49,7 @@ function Custom({
           isConnected && address
             ? { address, displayName: formatStellarAddress(address) }
             : undefined,
-        chain: { unsupported: false },
+        chain: { unsupported: networkMismatch },
         openConnectModal: connect,
         openAccountModal: disconnect,
         mounted: true,

@@ -18,6 +18,7 @@ describe('NetworkBadge', () => {
     mockUseWallet.mockReturnValue({
       walletNetwork: null,
       isConnected: false,
+      appNetwork: 'Testnet',
     })
 
     // ThemeProvider injects its own <script>, so assert on the badge span
@@ -30,6 +31,7 @@ describe('NetworkBadge', () => {
     mockUseWallet.mockReturnValue({
       walletNetwork: null,
       isConnected: true,
+      appNetwork: 'Testnet',
     })
 
     const { container } = renderWithProviders(<NetworkBadge />)
@@ -40,6 +42,7 @@ describe('NetworkBadge', () => {
     mockUseWallet.mockReturnValue({
       walletNetwork: 'PUBLIC',
       isConnected: true,
+      appNetwork: 'Testnet',
     })
 
     renderWithProviders(<NetworkBadge />)
@@ -50,6 +53,7 @@ describe('NetworkBadge', () => {
     mockUseWallet.mockReturnValue({
       walletNetwork: 'TESTNET',
       isConnected: true,
+      appNetwork: 'Testnet',
     })
 
     renderWithProviders(<NetworkBadge />)
@@ -63,6 +67,7 @@ describe('NetworkBadge', () => {
     mockUseWallet.mockReturnValue({
       walletNetwork: 'FUTURENET',
       isConnected: true,
+      appNetwork: 'Testnet',
     })
 
     renderWithProviders(<NetworkBadge />)
@@ -76,6 +81,7 @@ describe('NetworkBadge', () => {
     mockUseWallet.mockReturnValue({
       walletNetwork: 'Custom Network',
       isConnected: true,
+      appNetwork: 'Testnet',
     })
 
     renderWithProviders(<NetworkBadge />)

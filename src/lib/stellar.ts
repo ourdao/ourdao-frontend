@@ -15,6 +15,41 @@ export const NETWORK_PASSPHRASE =
 export const SOROBAN_RPC_URL =
   process.env.NEXT_PUBLIC_SOROBAN_RPC_URL || 'https://soroban-testnet.stellar.org'
 
+/**
+ * Human-readable name for the configured network, derived from the passphrase.
+ *
+ * Used by the header network badge and the wrong-network banner so users can
+ * see at a glance which network the app targets.
+ */
+export const NETWORK_NAME: string =
+  NETWORK_PASSPHRASE === Networks.PUBLIC
+    ? 'Mainnet'
+    : NETWORK_PASSPHRASE === Networks.TESTNET
+      ? 'Testnet'
+      : NETWORK_PASSPHRASE === Networks.FUTURENET
+        ? 'Futurenet'
+        : 'Unknown'
+
+/**
+ * Compares a wallet-reported network passphrase against the app's configured
+ * passphrase.
+ *
+ * Returns `true` when they match. A missing/empty wallet passphrase is treated
+ * as a mismatch so callers can surface an actionable error rather than
+ * proceeding to sign against the wrong network.
+ */
+export const isNetworkPassphraseMatch = (walletPassphrase?: string | null): boolean =>
+  !!walletPassphrase && walletPassphrase === NETWORK_PASSPHRASE
+
+/**
+ * Actionable message shown when the wallet's active network does not match the
+ * app's configured network.
+ */
+export const getNetworkMismatchMessage = (walletNetwork?: string | null): string => {
+  const wallet = walletNetwork && walletNetwork.trim() ? walletNetwork : 'a different network'
+  return `Wrong network: switch Freighter to ${NETWORK_NAME} (wallet is on ${wallet})`
+}
+
 /** Deployed OurDAO contract id (C...). Empty until a deployment is configured. */
 export const CONTRACT_ID = process.env.NEXT_PUBLIC_CONTRACT_ID || ''
 
