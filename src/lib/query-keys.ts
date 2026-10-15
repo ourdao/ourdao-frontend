@@ -35,6 +35,12 @@ export const queryKeys = {
   notifications: (address: Address) => ['notifications', address] as const,
   notificationsDisabled: () => ['notifications', null] as const,
   activity: (limit: number) => ['activity', limit] as const,
+  failedEvents: () => ['failedEvents'] as const,
+  documentHistory: (kind: string, proposalId: number) => ['documentHistory', kind, proposalId] as const,
+  loanTimeline: (id: number) => ['loanTimeline', id] as const,
+  treasuryTimeline: (id: number) => ['treasuryTimeline', id] as const,
+  memberSummary: (address: Address) => ['memberSummary', address] as const,
+  memberActivity: (address: Address, limit: number) => ['memberActivity', address, limit] as const,
 }
 
 export const allWalletScopedQueryKeys = (): QueryKey[] => [

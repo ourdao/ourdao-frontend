@@ -258,6 +258,7 @@ const EVENT_LABELS: Record<string, string> = {
   loan_rpy: 'Loan repayment',
   loan_dflt: 'Loan defaulted',
   loan_rej: 'Loan proposal rejected',
+  loan_exp: 'Loan expired',
   loan_wait: 'Loan approved, awaiting treasury funds',
   interest: 'Interest distributed',
   tre_prop: 'Treasury withdrawal proposed',

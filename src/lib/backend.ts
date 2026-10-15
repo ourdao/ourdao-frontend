@@ -54,6 +54,7 @@ export interface BackendStats {
   principalLent: string
   principalRepaid: string
   valueDefaulted: string
+  quarantinedEvents?: number
 }
 
 // Verified against LoanRow and /api/loans withLoanDerived route in ourdao-backend @ 7620d26
@@ -92,6 +93,90 @@ export interface BackendInterestDistribution {
   active_members: number
   tx_hash: string | null
   created_at: string
+}
+
+
+export interface BackendFailedEvent {
+  id: number | string
+  ledger: number
+  symbol: string
+  error: string
+  retry_count?: number
+  created_at: string
+  tx_hash?: string | null
+}
+
+export const isBackendFailedEvent = (value: unknown): value is BackendFailedEvent => {
+  if (!isRecord(value)) return false
+  return (
+    (isNumber(value.id) || isString(value.id)) &&
+    isNumber(value.ledger) &&
+    isString(value.symbol) &&
+    isString(value.error) &&
+    isString(value.created_at)
+  )
+}
+
+export interface BackendDocumentAttachment {
+  id: number | string
+  kind: string
+  proposal_id: number
+  cid: string
+  attached_by: string
+  ledger: number
+  tx_hash: string | null
+  created_at: string
+}
+
+export const isBackendDocumentAttachment = (value: unknown): value is BackendDocumentAttachment => {
+  if (!isRecord(value)) return false
+  return (
+    (isNumber(value.id) || isString(value.id)) &&
+    isString(value.kind) &&
+    isNumber(value.proposal_id) &&
+    isString(value.cid) &&
+    isString(value.attached_by) &&
+    isNumber(value.ledger) &&
+    isString(value.created_at)
+  )
+}
+
+export interface BackendTimelineEvent {
+  symbol: string
+  ledger: number
+  tx_hash: string | null
+  created_at: string
+  description?: string
+  data?: unknown
+}
+
+export const isBackendTimelineEvent = (value: unknown): value is BackendTimelineEvent => {
+  if (!isRecord(value)) return false
+  return isString(value.symbol) && isNumber(value.ledger) && isString(value.created_at)
+}
+
+export interface BackendMemberSummary {
+  address: string
+  is_active: boolean
+  joined_at: string | null
+  shares_bps: number
+  staked_amount: string
+  unread_notifications: number
+  loans_count: number
+  active_loans_count: number
+}
+
+export const isBackendMemberSummary = (value: unknown): value is BackendMemberSummary => {
+  if (!isRecord(value)) return false
+  return (
+    isString(value.address) &&
+    isBoolean(value.is_active) &&
+    isNumber(value.shares_bps) &&
+    isString(value.staked_amount) &&
+    isNumber(value.unread_notifications) &&
+    isNumber(value.loans_count) &&
+    isNumber(value.active_loans_count)
+  )
 }
 
 export interface BackendEvent {
@@ -137,7 +222,8 @@ export const isBackendStats = (value: unknown): value is BackendStats => {
     isString(value.interestCollected) &&
     isString(value.principalLent) &&
     isString(value.principalRepaid) &&
-    isString(value.valueDefaulted)
+    isString(value.valueDefaulted) &&
+    (value.quarantinedEvents === undefined || isNumber(value.quarantinedEvents))
   )
 }
 
@@ -430,4 +516,41 @@ export const backend = {
 
   markAllNotificationsRead: (address: string, signer: AuthSigner) =>
     patch(`/api/notifications/read-all?address=${encodeURIComponent(address)}`, signer),
+
+  getFailedEvents: () =>
+    get<BackendFailedEvent[]>('/api/admin/failed-events', [], arrayOf(isBackendFailedEvent)),
+
+  getDocumentHistory: (kind: string, proposalId: number) => {
+    const params = new URLSearchParams({ kind, proposal_id: String(proposalId) })
+    return get<BackendDocumentAttachment[]>(
+      `/api/documents?${params.toString()}`,
+      [],
+      arrayOf(isBackendDocumentAttachment)
+    )
+  },
+
+  getLoanTimeline: (id: number) =>
+    get<BackendTimelineEvent[]>(`/api/loans/${id}/timeline`, [], arrayOf(isBackendTimelineEvent)),
+
+  getTreasuryTimeline: (id: number) =>
+    get<BackendTimelineEvent[]>(
+      `/api/proposals/treasury/${id}/timeline`,
+      [],
+      arrayOf(isBackendTimelineEvent)
+    ),
+
+  getMemberSummary: (address: string) =>
+    get<BackendMemberSummary | null>(
+      `/api/members/${encodeURIComponent(address)}/summary`,
+      null,
+      (value): value is BackendMemberSummary | null => value === null || isBackendMemberSummary(value)
+    ),
+
+  getMemberActivity: (address: string, limit = 50) =>
+    get<BackendEvent[]>(
+      `/api/members/${encodeURIComponent(address)}/activity?limit=${limit}`,
+      [],
+      arrayOf(isBackendEvent)
+    ),
+
 }

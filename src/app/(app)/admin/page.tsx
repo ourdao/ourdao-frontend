@@ -16,6 +16,7 @@ import {
   useAdmins,
   useAdminActions,
   useAdminLog,
+  useFailedEvents,
 } from '@/hooks/useDAO'
 import { LoadError } from '@/components/LoadError'
 import { useAnnounceLoad } from '@/lib/useAnnounceLoad'
@@ -24,12 +25,13 @@ import { formatStellarAddress, isStellarAddress } from '@/lib/stellar'
 import { LoadingSpinner } from '@/components/ui/skeleton'
 import { PageHeader } from '@/components/PageHeader'
 
-type Tab = 'overview' | 'governance' | 'activity'
+type Tab = 'overview' | 'governance' | 'activity' | 'quarantined'
 
 const TABS: { id: Tab; name: string; icon: ReactNode }[] = [
   { id: 'overview', name: 'Overview', icon: <ChartBarIcon className="h-4 w-4" /> },
   { id: 'governance', name: 'Governance', icon: <UsersIcon className="h-4 w-4" /> },
   { id: 'activity', name: 'Activity Log', icon: <ClockIcon className="h-4 w-4" /> },
+  { id: 'quarantined', name: 'Quarantined Events', icon: <ExclamationTriangleIcon className="h-4 w-4" /> },
 ]
 
 export default function AdminPage() {
@@ -84,6 +86,14 @@ export default function AdminPage() {
   return (
     <>
       <PageHeader title="Admin Dashboard" subtitle="Real-time DAO governance and system state." />
+      {stats.stats?.quarantinedEvents && stats.stats.quarantinedEvents > 0 ? (
+        <div className="max-w-7xl mx-auto mb-6 p-4 rounded-lg bg-amber-500/10 border border-amber-500/30 flex items-center gap-3 text-amber-600 dark:text-amber-400">
+          <ExclamationTriangleIcon className="h-5 w-5 shrink-0" />
+          <div className="text-sm">
+            <span className="font-semibold">Warning:</span> {stats.stats.quarantinedEvents} quarantined event(s) detected. Handlers failed to process these events; some indexer data may be delayed or incomplete. Check the <strong>Quarantined Events</strong> tab for details.
+          </div>
+        </div>
+      ) : null}
       <div className="max-w-7xl mx-auto">
         <div className="bg-card rounded-lg shadow border border-border">
           <div className="border-b border-border">
@@ -108,6 +118,7 @@ export default function AdminPage() {
             {activeTab === 'overview' && <OverviewTab stats={stats} />}
             {activeTab === 'governance' && <GovernanceTab stats={stats} />}
             {activeTab === 'activity' && <ActivityTab />}
+            {activeTab === 'quarantined' && <QuarantinedEventsTab />}
           </div>
         </div>
       </div>
@@ -342,6 +353,51 @@ function ActivityTab() {
               <span className="text-sm text-foreground">Ledger {entry.ledger}</span>
             </div>
             <span className="text-xs text-muted-foreground">{formatDate(entry.closedAt)}</span>
+          </div>
+        ))}
+      </div>
+    </div>
+  )
+}
+
+function QuarantinedEventsTab() {
+  const { failedEvents, isLoading, isError, refetch } = useFailedEvents()
+
+  return (
+    <div className="bg-card rounded-lg border border-border">
+      <div className="px-6 py-4 border-b border-border">
+        <h3 className="text-lg font-semibold text-foreground">
+          Quarantined / Failed Events
+        </h3>
+        <p className="text-sm text-muted-foreground">
+          Events that failed indexer handler processing and are quarantined for investigation.
+        </p>
+      </div>
+      <div className="divide-y divide-border">
+        {isLoading && <div className="px-6 py-4 text-sm text-muted-foreground">Loading quarantined events…</div>}
+        {isError && <LoadError what="quarantined events" onRetry={() => void refetch()} className="m-4" />}
+        {!isLoading && !isError && failedEvents.length === 0 && (
+          <div className="px-6 py-8 text-center text-muted-foreground">
+            No quarantined events found. All handlers operating cleanly.
+          </div>
+        )}
+        {failedEvents.map((ev) => (
+          <div key={ev.id} className="px-6 py-4 flex flex-col gap-1">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center space-x-3">
+                <span className="px-2 py-1 text-xs font-mono bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-300 rounded">
+                  {ev.symbol}
+                </span>
+                <span className="text-sm font-medium text-foreground">Ledger #{ev.ledger}</span>
+                {ev.retry_count !== undefined && (
+                  <span className="text-xs text-muted-foreground">Retries: {ev.retry_count}</span>
+                )}
+              </div>
+              <span className="text-xs text-muted-foreground">{formatDate(ev.created_at)}</span>
+            </div>
+            <div className="text-xs font-mono text-red-600 dark:text-red-400 mt-1 bg-red-50 dark:bg-red-950/20 p-2 rounded">
+              {ev.error}
+            </div>
           </div>
         ))}
       </div>

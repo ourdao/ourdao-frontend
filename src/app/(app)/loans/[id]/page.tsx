@@ -36,6 +36,8 @@ import { formatStellarAddress } from '@/lib/stellar'
 import { PROPOSAL_STATUS_LABELS, PROPOSAL_STATUS_AWAITING_FUNDS, IPFS_GATEWAY } from '@/constants'
 import toast from 'react-hot-toast'
 import { PageHeader } from '@/components/PageHeader'
+import { DocumentHistory } from '@/components/DocumentHistory'
+import { ProposalTimeline } from '@/components/ProposalTimeline'
 
 export default function LoanDetailsPage() {
   const params = useParams()
@@ -336,6 +338,8 @@ export default function LoanDetailsPage() {
               </CardContent>
             </Card>
 
+            <DocumentHistory kind="loan" proposalId={loanId} />
+
             {/* Voting Actions */}
             {canVote() && (
               <Card>
@@ -613,6 +617,8 @@ export default function LoanDetailsPage() {
                 )}
               </CardContent>
             </Card>
+
+            <DocumentHistory kind="loan" proposalId={loanId} />
           </div>
 
           {/* Sidebar */}

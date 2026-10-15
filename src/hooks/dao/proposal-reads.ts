@@ -251,3 +251,66 @@ export function useAdminLog(limit = 50) {
   const entries = useMemo(() => (data ?? []).map(toAdminLogEntry), [data])
   return { entries, isLoading, isError, refetch }
 }
+
+export function useFailedEvents() {
+  const { data, isLoading, isError, refetch } = useQuery({
+    queryKey: queryKeys.failedEvents(),
+    queryFn: () => backend.getFailedEvents(),
+    refetchInterval: QUERY_REFRESH_INTERVAL_MS,
+    refetchIntervalInBackground: false,
+  })
+  return {
+    failedEvents: data ?? [],
+    isLoading,
+    isError,
+    refetch,
+  }
+}
+
+export function useDocumentHistory(kind: 'loan' | 'treasury' | string, proposalId: number) {
+  const { data, isLoading, isError, refetch } = useQuery({
+    queryKey: queryKeys.documentHistory(kind, proposalId),
+    queryFn: () => backend.getDocumentHistory(kind, proposalId),
+    enabled: proposalId > 0,
+    refetchInterval: QUERY_REFRESH_INTERVAL_MS,
+    refetchIntervalInBackground: false,
+  })
+  return {
+    history: data ?? [],
+    isLoading,
+    isError,
+    refetch,
+  }
+}
+
+export function useLoanTimeline(id: number) {
+  const { data, isLoading, isError, refetch } = useQuery({
+    queryKey: queryKeys.loanTimeline(id),
+    queryFn: () => backend.getLoanTimeline(id),
+    enabled: id > 0,
+    refetchInterval: QUERY_REFRESH_INTERVAL_MS,
+    refetchIntervalInBackground: false,
+  })
+  return {
+    timeline: data ?? [],
+    isLoading,
+    isError,
+    refetch,
+  }
+}
+
+export function useTreasuryTimeline(id: number) {
+  const { data, isLoading, isError, refetch } = useQuery({
+    queryKey: queryKeys.treasuryTimeline(id),
+    queryFn: () => backend.getTreasuryTimeline(id),
+    enabled: id > 0,
+    refetchInterval: QUERY_REFRESH_INTERVAL_MS,
+    refetchIntervalInBackground: false,
+  })
+  return {
+    timeline: data ?? [],
+    isLoading,
+    isError,
+    refetch,
+  }
+}

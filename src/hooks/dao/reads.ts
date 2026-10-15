@@ -298,3 +298,35 @@ export function useInterestDistributions(options?: { before?: number; limit?: nu
     refetch,
   }
 }
+
+export function useMemberSummary(address?: string | null) {
+  const { data, isLoading, isError, refetch } = useQuery({
+    queryKey: address ? queryKeys.memberSummary(address) : ['memberSummary', null],
+    queryFn: () => (address ? backend.getMemberSummary(address) : null),
+    enabled: !!address,
+    refetchInterval: QUERY_REFRESH_INTERVAL_MS,
+    refetchIntervalInBackground: false,
+  })
+  return {
+    summary: data,
+    isLoading,
+    isError,
+    refetch,
+  }
+}
+
+export function useMemberActivity(address?: string | null, limit = 50) {
+  const { data, isLoading, isError, refetch } = useQuery({
+    queryKey: address ? queryKeys.memberActivity(address, limit) : ['memberActivity', null, limit],
+    queryFn: () => (address ? backend.getMemberActivity(address, limit) : []),
+    enabled: !!address,
+    refetchInterval: QUERY_REFRESH_INTERVAL_MS,
+    refetchIntervalInBackground: false,
+  })
+  return {
+    activity: data ?? [],
+    isLoading,
+    isError,
+    refetch,
+  }
+}

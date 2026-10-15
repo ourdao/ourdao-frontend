@@ -15,6 +15,8 @@ import {
   CheckCircle,
 } from 'lucide-react'
 import { PageHeader } from '@/components/PageHeader'
+import { DocumentHistory } from '@/components/DocumentHistory'
+import { ProposalTimeline } from '@/components/ProposalTimeline'
 import {
   useUserData,
   useTreasuryProposal,
@@ -196,6 +198,13 @@ export default function TreasuryProposalDetailPage() {
 
         {/* Voting & Sidebar */}
         <div className="space-y-6">
+          <ProposalTimeline
+            kind="treasury"
+            id={proposalId}
+            fallbackDates={{
+              created: proposal.creationTime,
+            }}
+          />
           <Card>
             <CardHeader>
               <CardTitle className="text-lg">Voting Results</CardTitle>
