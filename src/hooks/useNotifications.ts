@@ -21,6 +21,7 @@ import { backend, type BackendEvent, type BackendNotification, type MutationFail
 import { serializePerAddress } from '@/lib/backend-auth'
 import { formatStellarAddress, isStellarAddress } from '@/lib/stellar'
 import type { ActivityItem, NotificationData } from '@/lib/pushNotifications'
+import { EVENT_CATALOG } from '@/lib/dao-mappers'
 import { queryKeys } from '@/lib/query-keys'
 import { QUERY_REFRESH_INTERVAL_MS } from '@/constants'
 import { announce } from '@/lib/announce'
@@ -239,29 +240,9 @@ export function useAutoNotifications() {
 }
 
 // Map a raw contract event symbol to an activity category + label.
-const ACTIVITY_META: Record<string, { type: ActivityItem['type']; title: string; description: string }> = {
-  joined: { type: 'member', title: 'New member joined', description: 'A member joined the DAO' },
-  exited: { type: 'member', title: 'Member exited', description: 'A member withdrew their share' },
-  claimed: { type: 'treasury', title: 'Yield claimed', description: 'A member claimed rewards' },
-  loan_req: { type: 'loan', title: 'Loan requested', description: 'A new loan proposal was opened' },
-  loan_edit: { type: 'loan', title: 'Loan proposal edited', description: 'A loan proposal was updated' },
-  loan_vote: { type: 'vote', title: 'Vote cast', description: 'A vote was cast on a loan proposal' },
-  loan_appr: { type: 'loan', title: 'Loan approved', description: 'A loan was approved and disbursed' },
-  loan_rej: { type: 'loan', title: 'Loan rejected', description: 'A loan proposal can no longer reach quorum' },
-  loan_wait: { type: 'loan', title: 'Loan awaiting funds', description: 'A loan was approved but the treasury is too small to disburse it — top up the treasury' },
-  loan_rpy: { type: 'loan', title: 'Loan repayment', description: 'A loan repayment was received' },
-  interest: { type: 'treasury', title: 'Interest distributed', description: 'Loan interest was distributed to members' },
-  tre_prop: { type: 'treasury', title: 'Treasury proposal', description: 'A treasury withdrawal was proposed' },
-  tre_vote: { type: 'vote', title: 'Vote cast', description: 'A vote was cast on a treasury proposal' },
-  tre_exec: { type: 'treasury', title: 'Treasury withdrawal executed', description: 'A treasury withdrawal was executed' },
-  tre_rej: { type: 'treasury', title: 'Treasury proposal rejected', description: 'A treasury withdrawal was rejected' },
-  tre_wait: { type: 'treasury', title: 'Treasury withdrawal awaiting funds', description: 'A treasury withdrawal was approved but the treasury is too small to execute it — top up the treasury' },
-  staked: { type: 'treasury', title: 'Member staked', description: 'A member staked for voting weight' },
-  unstaked: { type: 'treasury', title: 'Member unstaked', description: 'A member reduced their stake' },
-  name_reg: { type: 'member', title: 'Name registered', description: 'A member registered a name' },
-  committed: { type: 'vote', title: 'Private vote committed', description: 'A commit-reveal vote was committed' },
-  revealed: { type: 'vote', title: 'Private vote revealed', description: 'A commit-reveal vote was revealed' },
-}
+// Derived from EVENT_CATALOG in lib/dao-mappers — the single source of truth
+// for all event display text in the app (#324). Adding a new contract event
+// only requires updating EVENT_CATALOG; this hook picks it up automatically.
 
 function firstAddress(data: unknown): string | undefined {
   if (!Array.isArray(data)) return undefined
@@ -270,16 +251,12 @@ function firstAddress(data: unknown): string | undefined {
 }
 
 function toActivity(ev: BackendEvent): ActivityItem {
-  const meta = ACTIVITY_META[ev.symbol] ?? {
-    type: 'proposal' as const,
-    title: ev.symbol,
-    description: 'Contract event',
-  }
+  const entry = EVENT_CATALOG[ev.symbol]
   return {
     id: ev.id,
-    type: meta.type,
-    title: meta.title,
-    description: meta.description,
+    type: entry?.category ?? 'proposal',
+    title: entry?.label ?? ev.symbol,
+    description: entry?.description ?? 'Contract event',
     timestamp: new Date(ev.closed_at),
     user: firstAddress(ev.data),
   }

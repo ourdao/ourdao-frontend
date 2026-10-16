@@ -244,47 +244,69 @@ export function mapTreasuryProposal(raw: Record<string, unknown>, hasVoted = fal
   }
 }
 
+/**
+ * Unified catalog mapping every contract event symbol to a human label,
+ * a longer description, and an activity category.
+ *
+ * This is the **single source of truth** for event display text used by:
+ *   - `eventLabel()` / `toAdminLogEntry()` in this file (dashboard/admin views)
+ *   - `useActivityFeed()` in hooks/useNotifications.ts (notification centre)
+ *
+ * Adding a new contract event only requires adding one entry here (#324).
+ */
+export interface EventCatalogEntry {
+  /** Short human label shown in tables and toasts. */
+  label: string
+  /** Longer sentence used in the activity feed description. */
+  description: string
+  /**
+   * Activity category consumed by `useActivityFeed`.
+   * Matches `ActivityItem['type']` from lib/pushNotifications.ts.
+   */
+  category: 'loan' | 'vote' | 'proposal' | 'member' | 'treasury' | 'document'
+}
+
+export const EVENT_CATALOG: Record<string, EventCatalogEntry> = {
+  joined:    { label: 'New member joined',                          description: 'A member joined the DAO',                                                      category: 'member'   },
+  exited:    { label: 'Member exited',                             description: 'A member withdrew their share',                                                 category: 'member'   },
+  claimed:   { label: 'Yield claimed',                             description: 'A member claimed rewards',                                                      category: 'treasury' },
+  loan_req:  { label: 'Loan requested',                            description: 'A new loan proposal was opened',                                                category: 'loan'     },
+  loan_edit: { label: 'Loan proposal edited',                      description: 'A loan proposal was updated',                                                   category: 'loan'     },
+  loan_vote: { label: 'Loan vote cast',                            description: 'A vote was cast on a loan proposal',                                            category: 'vote'     },
+  loan_appr: { label: 'Loan approved',                             description: 'A loan was approved and disbursed',                                             category: 'loan'     },
+  loan_rpy:  { label: 'Loan repayment',                            description: 'A loan repayment was received',                                                 category: 'loan'     },
+  loan_dflt: { label: 'Loan defaulted',                            description: 'A loan was not repaid by its due date',                                         category: 'loan'     },
+  loan_rej:  { label: 'Loan proposal rejected',                    description: 'A loan proposal can no longer reach quorum',                                    category: 'loan'     },
+  loan_exp:  { label: 'Loan expired',                              description: 'A loan proposal expired without reaching quorum',                               category: 'loan'     },
+  loan_wait: { label: 'Loan approved, awaiting treasury funds',    description: 'A loan was approved but the treasury is too small to disburse it — top up the treasury', category: 'loan' },
+  interest:  { label: 'Interest distributed',                      description: 'Loan interest was distributed to members',                                      category: 'treasury' },
+  tre_prop:  { label: 'Treasury withdrawal proposed',              description: 'A treasury withdrawal was proposed',                                            category: 'treasury' },
+  tre_vote:  { label: 'Treasury vote cast',                        description: 'A vote was cast on a treasury proposal',                                        category: 'vote'     },
+  tre_exec:  { label: 'Treasury withdrawal executed',              description: 'A treasury withdrawal was executed',                                            category: 'treasury' },
+  tre_rej:   { label: 'Treasury withdrawal rejected',              description: 'A treasury withdrawal was rejected',                                            category: 'treasury' },
+  tre_wait:  { label: 'Treasury withdrawal approved, awaiting funds',   description: 'A treasury withdrawal was approved but the treasury is too small to execute it — top up the treasury', category: 'treasury' },
+  staked:    { label: 'Member staked',                             description: 'A member staked for voting weight',                                             category: 'treasury' },
+  unstaked:  { label: 'Member unstaked',                           description: 'A member reduced their stake',                                                  category: 'treasury' },
+  name_reg:  { label: 'Name registered',                           description: 'A member registered a name',                                                    category: 'member'   },
+  committed: { label: 'Private vote committed',                    description: 'A commit-reveal vote was committed',                                            category: 'vote'     },
+  revealed:  { label: 'Private vote revealed',                     description: 'A commit-reveal vote was revealed',                                             category: 'vote'     },
+  doc_attn:  { label: 'Document attached',                         description: 'A document was attached to a proposal',                                         category: 'document' },
+  init:      { label: 'DAO initialized',                           description: 'The DAO contract was initialized',                                              category: 'member'   },
+  admin_add: { label: 'Admin added',                               description: 'A new admin was added to the DAO',                                              category: 'member'   },
+  admin_rem: { label: 'Admin removed',                             description: 'An admin was removed from the DAO',                                             category: 'member'   },
+  threshold: { label: 'Consensus threshold updated',               description: 'The voting consensus threshold was updated',                                    category: 'proposal' },
+  policy:    { label: 'Loan policy updated',                       description: 'The loan policy was updated',                                                   category: 'loan'     },
+  paused:    { label: 'DAO paused',                                description: 'The DAO contract was paused by an admin',                                       category: 'member'   },
+  unpaused:  { label: 'DAO unpaused',                              description: 'The DAO contract was unpaused by an admin',                                     category: 'member'   },
+}
+
 /** Human-readable label for a raw contract event topic symbol (e.g. `loan_dflt`
  *  -> "Loan defaulted"). Unknown symbols fall back to the raw name rather than
  *  a generic "Unknown event" so new event types stay legible without a code change. */
-const EVENT_LABELS: Record<string, string> = {
-  joined: 'New member joined',
-  exited: 'Member exited',
-  claimed: 'Yield claimed',
-  loan_req: 'Loan requested',
-  loan_edit: 'Loan proposal edited',
-  loan_vote: 'Loan vote cast',
-  loan_appr: 'Loan approved',
-  loan_rpy: 'Loan repayment',
-  loan_dflt: 'Loan defaulted',
-  loan_rej: 'Loan proposal rejected',
-  loan_exp: 'Loan expired',
-  loan_wait: 'Loan approved, awaiting treasury funds',
-  interest: 'Interest distributed',
-  tre_prop: 'Treasury withdrawal proposed',
-  tre_vote: 'Treasury vote cast',
-  tre_exec: 'Treasury withdrawal executed',
-  tre_rej: 'Treasury withdrawal rejected',
-  tre_wait: 'Treasury withdrawal approved, awaiting funds',
-  staked: 'Member staked',
-  unstaked: 'Member unstaked',
-  name_reg: 'Name registered',
-  committed: 'Private vote committed',
-  revealed: 'Private vote revealed',
-  doc_attn: 'Document attached',
-  init: 'DAO initialized',
-  admin_add: 'Admin added',
-  admin_rem: 'Admin removed',
-  threshold: 'Consensus threshold updated',
-  policy: 'Loan policy updated',
-  paused: 'DAO paused',
-  unpaused: 'DAO unpaused',
-}
-
 export function eventLabel(symbol: unknown): string {
   const key = String(symbol ?? '').trim()
   if (!key) return 'Unknown event'
-  return EVENT_LABELS[key] ?? key
+  return EVENT_CATALOG[key]?.label ?? key
 }
 
 export interface AdminLogEntry {
