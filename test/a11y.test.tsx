@@ -4,7 +4,7 @@ import userEvent from '@testing-library/user-event'
 import { renderWithProviders } from './test-utils'
 import { AppShell } from '@/components/AppShell'
 import { ConnectButton } from '@/components/ConnectButton'
-import { runAxe, formatViolations, assertInteractiveNames } from './a11y'
+import { runAxe, runAxeWithAllowlist, KNOWN_A11Y_ALLOWLIST, formatViolations, assertInteractiveNames } from './a11y'
 
 /**
  * Issue #238 — interactive components must have automated accessibility
@@ -144,4 +144,104 @@ describe('issue #238 — automated accessibility assertions', () => {
     // The pre-fix bell had title="Notifications" with no aria-label.
     expect(screen.getByRole('button', { name: /notifications/i })).toBeInTheDocument()
   })
+
+  describe('issue #375 — accessibility allow-list and main pages at rest', () => {
+    it('documents the allow-list with each entry linking a valid issue URL', () => {
+      expect(KNOWN_A11Y_ALLOWLIST.length).toBeGreaterThan(0)
+      for (const entry of KNOWN_A11Y_ALLOWLIST) {
+        expect(entry.ruleId).toBeTruthy()
+        expect(entry.issue).toMatch(/^https:\/\/github\.com\/ourdao\/ourdao-frontend\/issues\/\d+$/)
+        expect(entry.reason).toBeTruthy()
+      }
+    })
+
+    it('AppShell and main page layout at rest have no unallowlisted axe violations', async () => {
+      const { container } = renderWithProviders(
+        <AppShell>
+          <header>
+            <h1>Dashboard</h1>
+          </header>
+          <main>
+            <section aria-labelledby="metrics-heading">
+              <h2 id="metrics-heading">Overview Metrics</h2>
+              <p>Active Members: 10</p>
+            </section>
+          </main>
+        </AppShell>
+      )
+
+      const violations = await runAxeWithAllowlist(container)
+      expect(formatViolations(violations)).toBe('')
+      expect(violations).toEqual([])
+    })
+
+    it('Form controls at rest have no unallowlisted axe violations', async () => {
+      const { container } = renderWithProviders(
+        <AppShell>
+          <form aria-label="Sample Loan Request Form">
+            <div className="space-y-4">
+              <label htmlFor="loan-amount" className="block text-sm font-medium">
+                Loan Amount (XLM)
+              </label>
+              <input
+                id="loan-amount"
+                type="number"
+                name="amount"
+                aria-describedby="loan-amount-desc"
+                className="border p-2 rounded"
+              />
+              <p id="loan-amount-desc" className="text-xs text-muted-foreground">
+                Minimum loan is 10 XLM
+              </p>
+              <button type="submit" className="btn btn-primary">
+                Submit Request
+              </button>
+            </div>
+          </form>
+        </AppShell>
+      )
+
+      assertInteractiveNames(container)
+      const violations = await runAxeWithAllowlist(container)
+      expect(formatViolations(violations)).toBe('')
+      expect(violations).toEqual([])
+    })
+
+    it('Governance page at rest inside AppShell has no unallowlisted axe violations', async () => {
+      const { container } = renderWithProviders(
+        <AppShell>
+          <header>
+            <h1>Governance Proposals</h1>
+          </header>
+          <main>
+            <section aria-labelledby="proposals-heading">
+              <h2 id="proposals-heading">Active Proposals</h2>
+              <ul>
+                <li className="flex items-center justify-between p-4">
+                  <div>
+                    <h3>Loan Proposal #1</h3>
+                    <p>100 XLM · 5.0%</p>
+                  </div>
+                  <div role="group" aria-label="Vote options">
+                    <button type="button" aria-label="Vote for proposal 1">
+                      Vote For
+                    </button>
+                    <button type="button" aria-label="Vote against proposal 1">
+                      Vote Against
+                    </button>
+                  </div>
+                </li>
+              </ul>
+            </section>
+          </main>
+        </AppShell>
+      )
+
+      assertInteractiveNames(container)
+      const violations = await runAxeWithAllowlist(container)
+      expect(formatViolations(violations)).toBe('')
+      expect(violations).toEqual([])
+    })
+  })
 })
+

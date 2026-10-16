@@ -162,7 +162,7 @@ npm run build
 
 ## Changelog
 
-If your change is something a member would notice (a new or removed feature, a changed number, label, or flow, a fixed bug they could hit), add a line under `## [Unreleased]` in [CHANGELOG.md](CHANGELOG.md) in the same PR. Refactors, tests, CI, and docs don't need one.
+If your change is something a member would notice (a new or removed feature, a changed number, label, or flow, a fixed bug they could hit), add a line under `## [Unreleased]` in [CHANGELOG.md](CHANGELOG.md) in the same PR. See [docs/RELEASE_PROCESS.md](docs/RELEASE_PROCESS.md) for the release checklist and versioning guidelines. Refactors, tests, CI, and docs don't need one.
 
 If your change targets a different `ourdao-backend` or `ourdao-contracts` build, also update the `Backend:` / `Contracts:` lines under Unreleased. The contracts line must match `_last_verified` in `contract/interface.json`, and a test enforces that. These lines are what let a bug report, which names the version shown in the app sidebar, be traced to a combination of versions.
 
@@ -245,7 +245,7 @@ Because the contract is immutable and this app hard-codes its entrypoints, redep
 
 ## Reporting a security issue
 
-**Do not open a public issue for a security vulnerability.** Use GitHub's [private vulnerability reporting](https://docs.github.com/en/code-security/security-advisories/guidance-on-reporting-and-writing-information-about-vulnerabilities/privately-reporting-a-security-vulnerability) on this repository.
+**Do not open a public issue for a security vulnerability.** Please review our [Security Policy](./SECURITY.md) and use GitHub's [private vulnerability reporting](https://github.com/ourdao/ourdao-frontend/security/advisories/new) on this repository.
 
 Include what you found, how to reproduce it, and what an attacker could do with it.
 

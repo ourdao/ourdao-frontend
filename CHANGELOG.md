@@ -14,9 +14,21 @@ release names the backend and contract builds it was written against:
 
 The running build's version is shown at the foot of the app sidebar, so a bug
 report can name the entry below it came from. See
-[CONTRIBUTING.md](CONTRIBUTING.md#changelog) for when an entry is required.
+[CONTRIBUTING.md](CONTRIBUTING.md#changelog) for when an entry is required and
+[docs/RELEASE_PROCESS.md](docs/RELEASE_PROCESS.md) for the release and versioning process.
 
 ## [Unreleased]
+
+### Added
+- Playwright end-to-end smoke test suite against mocked Soroban RPC and backend covering load, connect, register, request loan, and vote flows (#374).
+- Automated accessibility checks with documented known-issues allow-list for the shell, forms, and main pages at rest (#375).
+- Security vulnerability reporting policy in `SECURITY.md` linked from `CONTRIBUTING.md` (#376).
+- Documented release and versioning process in `docs/RELEASE_PROCESS.md` (#377).
+- The app version and commit are shown at the foot of the sidebar and mobile
+  navigation drawer, so a bug report can name the build it came from (#250).
+- Build-time feature flags (`NEXT_PUBLIC_FEATURE_FLAGS`, off by default) so a
+  risky change can ship disabled; plus a rollback runbook and a contract
+  redeployment checklist (#274, #275, #277).
 
 ### Changed
 - Upgraded `@stellar/stellar-sdk` to `^17.1.0` and added migration plan and testnet smoke verification checklist (#383).
@@ -32,13 +44,6 @@ report can name the entry below it came from. See
 
 Backend: ourdao-backend unversioned (main; no tagged release to pin yet)
 Contracts: ourdao-contracts @ 00b0c62
-
-### Added
-- The app version and commit are shown at the foot of the sidebar and mobile
-  navigation drawer, so a bug report can name the build it came from (#250).
-- Build-time feature flags (`NEXT_PUBLIC_FEATURE_FLAGS`, off by default) so a
-  risky change can ship disabled; plus a rollback runbook and a contract
-  redeployment checklist (#274, #275, #277).
 
 ## [0.1.0] - 2026-09-26
 

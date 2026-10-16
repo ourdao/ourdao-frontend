@@ -16,6 +16,7 @@
     "coverage": "vitest run --coverage",
     "coverage:report": "vitest run --coverage --coverage.reporter=text",
     "test:visual": "playwright test",
+    "e2e": "playwright test --config=playwright.e2e.config.ts",
     "audit": "audit-ci --config ./audit-ci.jsonc",
     "bundle-size": "node scripts/bundle-size.mjs measure && node scripts/bundle-size.mjs report",
     "depcheck": "depcheck",

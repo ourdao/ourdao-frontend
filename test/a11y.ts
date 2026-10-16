@@ -1,19 +1,61 @@
 import axe from 'axe-core'
 import { expect } from 'vitest'
 
+export interface KnownA11yIssue {
+  /** The axe rule ID being allow-listed (e.g., 'label', 'aria-dialog-name') */
+  ruleId: string
+  /** The GitHub issue tracking the fix */
+  issue: string
+  /** Explanation of why this rule is allow-listed for this component/target */
+  reason: string
+}
+
 /**
- * Shared axe helper for issue #238.
+ * Documented allow-list for known accessibility issues (#375).
+ * Each entry is tied to an open tracking issue and explains the gap.
+ * As issues #231, #232, and #233 land, entries should be removed from this list.
+ */
+export const KNOWN_A11Y_ALLOWLIST: KnownA11yIssue[] = [
+  {
+    ruleId: 'label',
+    issue: 'https://github.com/ourdao/ourdao-frontend/issues/231',
+    reason: 'Unlabelled form inputs and select triggers across forms awaiting explicit accessible labels',
+  },
+  {
+    ruleId: 'aria-dialog-name',
+    issue: 'https://github.com/ourdao/ourdao-frontend/issues/232',
+    reason: 'Modals and dialogs lacking explicit aria-label/aria-labelledby (#232)',
+  },
+  {
+    ruleId: 'region',
+    issue: 'https://github.com/ourdao/ourdao-frontend/issues/233',
+    reason: 'Page regions or landmarks missing explicit heading hierarchy or container roles (#233)',
+  },
+]
+
+/**
+ * Shared axe helper for issues #238 and #375.
  *
  * Runs axe-core against a rendered container and returns the violations.
- * No rule is disabled without an inline reason — a suppression without a
- * reason is worse than a failing test. Currently no rule is disabled; any
- * new violation fails the suite by design.
  */
 export async function runAxe(container: HTMLElement) {
   const results = await axe.run(container, {
     resultTypes: ['violations'],
   })
   return results.violations
+}
+
+/**
+ * Runs axe-core against a container, filtering out documented known issues in KNOWN_A11Y_ALLOWLIST.
+ * Any unallowlisted violation will be returned and should fail the test.
+ */
+export async function runAxeWithAllowlist(
+  container: HTMLElement,
+  allowlist: KnownA11yIssue[] = KNOWN_A11Y_ALLOWLIST
+) {
+  const violations = await runAxe(container)
+  const allowedRules = new Set(allowlist.map((item) => item.ruleId))
+  return violations.filter((v) => !allowedRules.has(v.id))
 }
 
 export function formatViolations(
