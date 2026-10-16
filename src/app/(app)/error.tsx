@@ -5,6 +5,18 @@ import Link from 'next/link'
 import { useQueryErrorResetBoundary } from '@tanstack/react-query'
 import { TriangleAlert } from 'lucide-react'
 import { Button } from '@/components/ui/button'
+import { reportError } from '@/lib/error-reporting'
+
+function getReferenceId(error: Error & { digest?: string }): string {
+  if (error.digest) return error.digest
+  const str = error.message || error.name || 'unknown'
+  let hash = 0
+  for (let i = 0; i < str.length; i++) {
+    hash = (hash << 5) - hash + str.charCodeAt(i)
+    hash |= 0
+  }
+  return `ERR_${Math.abs(hash).toString(16).padStart(6, '0')}`
+}
 
 /**
  * Error boundary for everything inside the app shell. Unlike the root
@@ -26,10 +38,12 @@ export default function AppError({
   reset: () => void
 }) {
   const { reset: resetQueries } = useQueryErrorResetBoundary()
+  const referenceId = getReferenceId(error)
 
   useEffect(() => {
-    console.error('App route error boundary caught:', error)
-  }, [error])
+    console.error('App route error boundary caught:', error, { referenceId })
+    reportError(error, { boundary: 'app-route', digest: error.digest, referenceId })
+  }, [error, referenceId])
 
   return (
     <div
@@ -42,8 +56,11 @@ export default function AppError({
         The data for this page failed to load. That is a loading problem, not
         an empty result — nothing here has been lost.
       </p>
-      {error.message && (
-        <p className="mt-3 break-words rounded-lg bg-muted p-2 font-mono text-xs text-muted-foreground">
+      <p className="mt-2 text-xs font-mono text-muted-foreground" data-testid="error-reference-id">
+        Reference: {referenceId}
+      </p>
+      {process.env.NODE_ENV !== 'production' && error.message && (
+        <p className="mt-3 break-words rounded-lg bg-muted p-2 font-mono text-xs text-muted-foreground" data-testid="dev-error-message">
           {error.message}
         </p>
       )}

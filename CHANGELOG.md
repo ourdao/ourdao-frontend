@@ -18,6 +18,9 @@ report can name the entry below it came from. See
 
 ## [Unreleased]
 
+### Changed
+- Upgraded `@stellar/stellar-sdk` to `^17.1.0` and added migration plan and testnet smoke verification checklist (#383).
+
 ### Fixed
 - Disabled misleading loan document encryption and access-permission controls,
   clarified that loan and IPFS data are public, and show the submitted amount

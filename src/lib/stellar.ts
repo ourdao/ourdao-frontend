@@ -56,6 +56,49 @@ export const CONTRACT_ID = process.env.NEXT_PUBLIC_CONTRACT_ID || ''
 /** Whether a contract id is configured — the UI degrades gracefully without one. */
 export const isContractConfigured = (): boolean => CONTRACT_ID.startsWith('C')
 
+/**
+ * Determines whether a URL points to a local loopback interface.
+ */
+export function isLoopbackUrl(urlStr: string): boolean {
+  try {
+    const parsed = new URL(urlStr)
+    const hostname = parsed.hostname.toLowerCase().replace(/^\[|\]$/g, '')
+    return (
+      hostname === 'localhost' ||
+      hostname === '127.0.0.1' ||
+      hostname === '::1' ||
+      hostname.endsWith('.localhost')
+    )
+  } catch {
+    return false
+  }
+}
+
+/**
+ * Validates that an RPC endpoint is secure or explicitly allowed.
+ * Rejects plain HTTP in production builds unless directed to a loopback address
+ * or explicitly opted into via NEXT_PUBLIC_ALLOW_INSECURE_RPC=true.
+ */
+export function validateRpcEndpoint(
+  urlStr: string,
+  nodeEnv = process.env.NODE_ENV,
+  allowInsecure = process.env.NEXT_PUBLIC_ALLOW_INSECURE_RPC === 'true'
+): boolean {
+  if (urlStr.startsWith('http://')) {
+    const isLoopback = isLoopbackUrl(urlStr)
+    if (nodeEnv === 'production' && !isLoopback && !allowInsecure) {
+      throw new Error(
+        `Insecure HTTP RPC endpoint "${urlStr}" is not allowed in production builds. Use HTTPS, connect to localhost, or set NEXT_PUBLIC_ALLOW_INSECURE_RPC=true for trusted private networks.`
+      )
+    }
+    return true
+  }
+  return false
+}
+
+// Validate RPC URL configuration at module initialization
+validateRpcEndpoint(SOROBAN_RPC_URL)
+
 /** Shared JSON-RPC client for simulation and submission. */
 export const server = new rpc.Server(SOROBAN_RPC_URL, {
   allowHttp: SOROBAN_RPC_URL.startsWith('http://'),

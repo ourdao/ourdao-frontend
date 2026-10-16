@@ -59,6 +59,21 @@ describe('central throwOnError policy', () => {
     expect(screen.queryByText('Nothing here')).not.toBeInTheDocument()
   })
 
+  it('renders a reference ID and hides raw error details like RPC URLs in production', async () => {
+    const originalEnv = process.env.NODE_ENV
+    process.env.NODE_ENV = 'production'
+    try {
+      renderWithClient(
+        <Primary fn={() => Promise.reject(new Error('Simulation failed against https://soroban-testnet.stellar.org: tx 123'))} />
+      )
+      expect(await screen.findByRole('alert')).toHaveTextContent("This page couldn't load")
+      expect(screen.getByTestId('error-reference-id')).toHaveTextContent(/Reference: ERR_/)
+      expect(screen.queryByText(/https:\/\/soroban-testnet\.stellar\.org/)).not.toBeInTheDocument()
+    } finally {
+      process.env.NODE_ENV = originalEnv
+    }
+  })
+
   it('lets a failed secondary query degrade in place without tripping the boundary', async () => {
     renderWithClient(
       <>

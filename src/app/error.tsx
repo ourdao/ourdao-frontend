@@ -7,6 +7,17 @@ import { Button } from '@/components/ui/button'
 import { MAIN_CONTENT_ID } from '@/lib/a11y'
 import { reportError } from '@/lib/error-reporting'
 
+function getReferenceId(error: Error & { digest?: string }): string {
+  if (error.digest) return error.digest
+  const str = error.message || error.name || 'unknown'
+  let hash = 0
+  for (let i = 0; i < str.length; i++) {
+    hash = (hash << 5) - hash + str.charCodeAt(i)
+    hash |= 0
+  }
+  return `ERR_${Math.abs(hash).toString(16).padStart(6, '0')}`
+}
+
 /**
  * Route-segment error boundary. Without this, an uncaught render error
  * anywhere below the root layout unmounts the whole app with no way to
@@ -22,14 +33,15 @@ export default function Error({
   reset: () => void
 }) {
   const { reset: resetQueries } = useQueryErrorResetBoundary()
+  const referenceId = getReferenceId(error)
 
   useEffect(() => {
-    console.error('Route error boundary caught:', error)
+    console.error('Route error boundary caught:', error, { referenceId })
     // Subject to the member's error-reporting opt-in (#247) — see
     // src/lib/error-reporting.ts. `digest` is Next.js's own reference id
     // for this error occurrence, safe to include as-is.
-    reportError(error, { boundary: 'route', digest: error.digest })
-  }, [error])
+    reportError(error, { boundary: 'route', digest: error.digest, referenceId })
+  }, [error, referenceId])
 
   return (
     <main id={MAIN_CONTENT_ID} tabIndex={-1} className="flex min-h-screen items-center justify-center bg-background px-4 focus:outline-none">
@@ -39,8 +51,11 @@ export default function Error({
           Something went wrong rendering this page. You can try again, or head
           back to the dashboard.
         </p>
-        {error.message && (
-          <p className="mt-3 rounded-lg bg-muted p-2 font-mono text-xs text-muted-foreground break-words">
+        <p className="mt-2 text-xs font-mono text-muted-foreground" data-testid="error-reference-id">
+          Reference: {referenceId}
+        </p>
+        {process.env.NODE_ENV !== 'production' && error.message && (
+          <p className="mt-3 rounded-lg bg-muted p-2 font-mono text-xs text-muted-foreground break-words" data-testid="dev-error-message">
             {error.message}
           </p>
         )}

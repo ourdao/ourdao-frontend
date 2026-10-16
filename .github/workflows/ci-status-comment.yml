@@ -1,9 +1,13 @@
 name: CI status comment
 
-# Runs in the base repo's context using the workflow file from `main`, never the
-# fork's copy of it — this is what makes it safe to give it write access even
-# though it's reacting to untrusted fork PRs. It never checks out or executes
-# any PR code; it only reads the ci-status.json artifact the CI workflow produced.
+# Runs in the base repo's context using the workflow file from `main`.
+# Security trust model:
+# Identity (PR number, run ID, and run URL) is derived strictly from trusted
+# GitHub workflow context and GitHub API calls (workflow_run.id, workflow_run.head_sha,
+# and repos.listPullRequestsAssociatedWithCommit), NEVER from untrusted artifacts that
+# could be crafted or manipulated by fork PRs. Job outcomes are queried directly
+# from the Actions API (actions.listJobsForWorkflowRun) and validated strictly
+# against the allowed set: success, failure, cancelled, skipped.
 on:
   workflow_run:
     workflows: ["CI"]
@@ -19,20 +23,34 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
-      - name: Download CI status artifact
-        uses: actions/download-artifact@v8
-        with:
-          name: ci-status
-          run-id: ${{ github.event.workflow_run.id }}
-          github-token: ${{ secrets.GITHUB_TOKEN }}
-
       - name: Post or update PR comment
         uses: actions/github-script@v9
         with:
           script: |
-            const fs = require('fs');
-            const status = JSON.parse(fs.readFileSync('ci-status.json', 'utf8'));
-            if (!status.pr_number) return;
+            const run = context.payload.workflow_run;
+            const runId = run.id;
+            const headSha = run.head_sha;
+
+            // Resolve PR number safely via GitHub API from the workflow run's head commit SHA
+            const { data: prs } = await github.rest.repos.listPullRequestsAssociatedWithCommit({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              commit_sha: headSha,
+            });
+
+            const pr = prs.find((p) => p.state === 'open') || prs[0];
+            if (!pr) {
+              console.log('No pull request found for head_sha:', headSha);
+              return;
+            }
+            const prNumber = pr.number;
+
+            // Query trusted job statuses directly via Actions API
+            const { data: jobsData } = await github.rest.actions.listJobsForWorkflowRun({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              run_id: runId,
+            });
 
             const jobs = [
               ['Lint', 'lint', 'npm run lint'],
@@ -42,19 +60,30 @@ jobs:
               ['Visual', 'visual', 'npm run test:visual'],
             ];
 
+            const allowedResults = new Set(['success', 'failure', 'cancelled', 'skipped']);
+
+            const results = {};
+            for (const [, key] of jobs) {
+              const matchedJob = jobsData.jobs.find((j) =>
+                j.name.toLowerCase().includes(key)
+              );
+              const conclusion = matchedJob ? matchedJob.conclusion : null;
+              results[key] = allowedResults.has(conclusion) ? conclusion : 'failure';
+            }
+
             const icon = (r) =>
               r === 'success' ? '✅' :
               r === 'skipped' ? '⏭️' :
               r === 'cancelled' ? '⏹️' : '❌';
 
             const failed = jobs.filter(([, key]) =>
-              !['success', 'skipped'].includes(status.results[key]));
+              !['success', 'skipped'].includes(results[key]));
 
-            const runUrl = `${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${status.run_id}`;
+            const runUrl = `${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${runId}`;
 
             const marker = '<!-- ci-status-comment -->';
             let body = `${marker}\n### CI status\n\n`;
-            body += jobs.map(([label, key]) => `- ${icon(status.results[key])} **${label}**`).join('\n');
+            body += jobs.map(([label, key]) => `- ${icon(results[key])} **${label}**`).join('\n');
             body += `\n\n[Full run details](${runUrl})`;
 
             if (failed.length > 0) {
@@ -67,9 +96,9 @@ jobs:
             const { data: comments } = await github.rest.issues.listComments({
               owner: context.repo.owner,
               repo: context.repo.repo,
-              issue_number: status.pr_number,
+              issue_number: prNumber,
             });
-            const existing = comments.find((c) => c.body.includes(marker));
+            const existing = comments.find((c) => c.body && c.body.includes(marker));
 
             if (existing) {
               await github.rest.issues.updateComment({
@@ -82,7 +111,7 @@ jobs:
               await github.rest.issues.createComment({
                 owner: context.repo.owner,
                 repo: context.repo.repo,
-                issue_number: status.pr_number,
+                issue_number: prNumber,
                 body,
               });
             }
