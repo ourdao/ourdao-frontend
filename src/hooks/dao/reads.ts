@@ -1,3 +1,15 @@
+
+/**
+ * Calculates member voting weight based on documented staking formula:
+ * 1 base vote + 1 bonus vote per 100 token units (100 * 10^7 stroops) staked,
+ * capped at a maximum of 6 votes (1 base + 5 bonus).
+ */
+export function calculateVotingWeight(stakeStroops: bigint): number {
+  const STROOPS_PER_BONUS = BigInt(100) * BigInt(10_000_000)
+  if (stakeStroops <= BigInt(0)) return 1
+  const bonus = Number(stakeStroops / STROOPS_PER_BONUS)
+  return 1 + Math.min(5, Math.max(0, bonus))
+}
 'use client'
 
 import { useEffect, useState } from 'react'
@@ -33,14 +45,15 @@ export function useUserData(): UserData {
     queryKey: address ? queryKeys.userData(address) : queryKeys.userDataDisabled(),
     enabled: !!address && isContractConfigured(),
     queryFn: async () => {
-      const [isMember, isAdmin, member, pendingYield, exitShare] = await Promise.all([
+      const [isMember, isAdmin, member, pendingYield, exitShare, stakeAmount] = await Promise.all([
         daoRead.isMember(address!),
         daoRead.isAdmin(address!),
         daoRead.getMember(address!),
         daoRead.getPendingYield(address!),
         daoRead.calculateExitShare ? daoRead.calculateExitShare(address!).catch(() => null) : Promise.resolve(null),
+        daoRead.getStake ? daoRead.getStake(address!).catch(() => BigInt(0)) : Promise.resolve(BigInt(0)),
       ])
-      return { isMember, isAdmin, member, pendingYield, exitShare }
+      return { isMember, isAdmin, member, pendingYield, exitShare, stakeAmount }
     },
   })
 
@@ -91,7 +104,7 @@ export function useUserData(): UserData {
           lastLoanDate: Number(m.last_loan_time ?? 0),
         }
       : undefined,
-    votingWeight: 1,
+    votingWeight: isMember ? calculateVotingWeight(asBigInt(data?.stakeAmount)) : 0,
     pendingRewards: asBigInt(data?.pendingYield),
     pendingYield: asBigInt(data?.pendingYield),
     hasActiveLoan: !!m?.has_active_loan,
@@ -113,6 +126,8 @@ export type ExtendedStats = DAOStats & {
   maxLoanToTreasuryRatio: number
   consensusThreshold: number
   indexerStale: boolean
+  lastIndexedLedger: number | null
+  indexerError: boolean
   /** A stats read failed, so the figures below are defaults, not the DAO's real numbers. */
   isError: boolean
   refetch: () => void
@@ -240,6 +255,8 @@ export function useDAOStats(): ExtendedStats {
     maxLoanToTreasuryRatio,
     consensusThreshold: Number(data?.threshold ?? 0),
     indexerStale: agg?.indexerStale ?? false,
+    lastIndexedLedger: agg?.lastIndexedLedger ?? null,
+    indexerError,
     isError: contractError || indexerError,
     refetch: () => {
       if (contractError) void refetchContract()

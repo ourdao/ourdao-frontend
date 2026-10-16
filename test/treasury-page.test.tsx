@@ -98,4 +98,13 @@ describe('TreasuryPage', () => {
     await waitFor(() => expect(screen.getByText('900')).toBeInTheDocument())
     expect(screen.getByText('50')).toBeInTheDocument()
   })
+
+  it('displays voting weight preview based on stake', async () => {
+    renderWithProviders(<TreasuryPage />)
+
+    await waitFor(() => {
+      expect(screen.getByText('Current Voting Weight')).toBeInTheDocument()
+    })
+    expect(screen.getByText('Projected Weight (after stake)')).toBeInTheDocument()
+  })
 })

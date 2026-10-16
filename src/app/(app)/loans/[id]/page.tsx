@@ -338,6 +338,17 @@ export default function LoanDetailsPage() {
               </CardContent>
             </Card>
 
+            <ProposalTimeline
+              kind="loan"
+              id={loanId}
+              isPrivate={proposal.isPrivate}
+              fallbackDates={{
+                created: proposal.createdAt,
+                votingStart: proposal.votingStartTime,
+                votingEnd: proposal.votingEndTime,
+              }}
+            />
+
             <DocumentHistory kind="loan" proposalId={loanId} />
 
             {/* Voting Actions */}
@@ -617,6 +628,17 @@ export default function LoanDetailsPage() {
                 )}
               </CardContent>
             </Card>
+
+            <ProposalTimeline
+              kind="loan"
+              id={loanId}
+              isPrivate={proposal.isPrivate}
+              fallbackDates={{
+                created: proposal.createdAt,
+                votingStart: proposal.votingStartTime,
+                votingEnd: proposal.votingEndTime,
+              }}
+            />
 
             <DocumentHistory kind="loan" proposalId={loanId} />
           </div>

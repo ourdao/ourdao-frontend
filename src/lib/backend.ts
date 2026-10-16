@@ -37,6 +37,14 @@ export class BackendError extends Error {
 
 // --- Response shapes (mirror ourdao-backend/src/types.ts as of commit 7620d26; amounts are strings) ---
 
+
+export interface BackendReady {
+  ready: boolean
+  indexerStale?: boolean
+  estimatedLagSeconds?: number
+  lastIndexedLedger?: number | null
+}
+
 export interface BackendStats {
   totalMembers: number
   activeMembers: number
@@ -459,6 +467,10 @@ async function patch(path: string, signer: AuthSigner): Promise<MutationResult> 
 
 export const backend = {
   isConfigured: isBackendConfigured,
+  getReady: () =>
+    get<BackendReady | null>('/ready', null, (value): value is BackendReady | null =>
+      value === null || (isRecord(value) && isBoolean(value.ready))
+    ),
   getStats: () =>
     get<BackendStats | null>('/api/stats', null, (value): value is BackendStats | null =>
       value === null || isBackendStats(value)

@@ -1,3 +1,6 @@
+import { useProposalFilters, type ProposalSortOrder } from '@/hooks/useProposalFilters'
+import { calculateVotingWeight } from '@/hooks/dao/reads'
+import { Search } from 'lucide-react'
 'use client'
 
 import { useState } from 'react'
@@ -157,6 +160,19 @@ export default function TreasuryPage() {
   const myStake = useStake()
   const { stake, unstake, isPending: staking } = useStaking()
   const { proposals, isLoading, hasMore, loadMore, isLoadingMore, hasErrors, isError, refetch } = useTreasuryProposals()
+  const proposalFilters = useProposalFilters(proposals)
+
+  // Voting weight calculation (Issue #405)
+  const enteredAmountStroops = (() => {
+    try {
+      const p = parseToken(amount)
+      return p > BigInt(0) ? p : BigInt(0)
+    } catch {
+      return BigInt(0)
+    }
+  })()
+  const currentWeight = calculateVotingWeight(myStake)
+  const projectedWeight = calculateVotingWeight(myStake + enteredAmountStroops)
   useAnnounceLoad('Treasury proposals', isLoading, isError)
   const { voteOnTreasury, isPending: voting } = useTreasuryVoting()
 
@@ -297,6 +313,25 @@ export default function TreasuryPage() {
                 className="w-full rounded-lg border border-input px-3 py-2.5 text-sm transition-colors focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-500/20 disabled:bg-muted"
               />
             </div>
+
+            {/* Voting Weight Preview (Issue #405) */}
+            <div className="rounded-lg border border-border bg-muted/40 p-3 space-y-1">
+              <div className="flex justify-between text-xs">
+                <span className="text-muted-foreground">Current Voting Weight</span>
+                <span className="font-semibold text-foreground">{currentWeight} vote{currentWeight > 1 ? 's' : ''}</span>
+              </div>
+              <div className="flex justify-between text-xs">
+                <span className="text-muted-foreground">Projected Weight (after stake)</span>
+                <span className="font-semibold text-emerald-600 dark:text-emerald-400">
+                  {projectedWeight} vote{projectedWeight > 1 ? 's' : ''}
+                  {projectedWeight > currentWeight && ` (+${projectedWeight - currentWeight})`}
+                </span>
+              </div>
+              <p className="text-[11px] text-muted-foreground pt-1">
+                1 base vote + 1 bonus per 100 tokens staked (max 6 votes).
+              </p>
+            </div>
+
             <div className="flex gap-2">
               <Button
                 onClick={handleStake}
@@ -332,6 +367,46 @@ export default function TreasuryPage() {
               Treasury Withdrawals
             </CardTitle>
           </CardHeader>
+          {/* Filter and Search Controls (Issue #404) */}
+          <div className="px-6 pb-2 grid grid-cols-1 gap-3 sm:grid-cols-3">
+            <div className="relative">
+              <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+              <input
+                type="text"
+                placeholder="Search proposals..."
+                value={proposalFilters.filters.search}
+                onChange={(e) => proposalFilters.setSearch(e.target.value)}
+                className="w-full rounded-lg border border-input pl-8 pr-2.5 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-primary-500/20"
+              />
+            </div>
+            <div>
+              <select
+                aria-label="Filter by Status"
+                value={proposalFilters.filters.status}
+                onChange={(e) => proposalFilters.setStatus(e.target.value)}
+                className="w-full rounded-lg border border-input px-2.5 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-primary-500/20"
+              >
+                <option value="all">All Statuses</option>
+                <option value="2">In Voting</option>
+                <option value="3">Approved</option>
+                <option value="4">Rejected</option>
+                <option value="5">Executed</option>
+              </select>
+            </div>
+            <div>
+              <select
+                aria-label="Sort proposals"
+                value={proposalFilters.filters.sort}
+                onChange={(e) => proposalFilters.setSort(e.target.value as ProposalSortOrder)}
+                className="w-full rounded-lg border border-input px-2.5 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-primary-500/20"
+              >
+                <option value="newest">Newest First</option>
+                <option value="oldest">Oldest First</option>
+                <option value="amount_high">Highest Amount</option>
+                <option value="amount_low">Lowest Amount</option>
+              </select>
+            </div>
+          </div>
           <CardContent>
             {hasErrors && (
               <div className="mb-4 rounded-lg border border-yellow-200 bg-yellow-50 p-4 text-sm text-yellow-800 dark:border-yellow-900 dark:bg-yellow-950/30 dark:text-yellow-300">
@@ -344,16 +419,16 @@ export default function TreasuryPage() {
                   <div key={i} className="skeleton h-20 w-full rounded-lg" />
                 ))}
               </div>
-            ) : isError && proposals.length === 0 ? (
+            ) : isError && proposalFilters.filteredItems.length === 0 ? (
               <LoadError what="treasury proposals" onRetry={refetch} />
-            ) : proposals.length === 0 ? (
+            ) : proposalFilters.filteredItems.length === 0 ? (
               <div className="py-10 text-center">
                 <Banknote className="mx-auto mb-3 h-10 w-10 text-muted-foreground" />
                 <p className="text-muted-foreground">No treasury withdrawals yet.</p>
               </div>
             ) : (
               <VirtualizedList
-                items={proposals}
+                items={proposalFilters.filteredItems}
                 threshold={50}
                 itemHeight={120}
                 className="divide-y divide-border"

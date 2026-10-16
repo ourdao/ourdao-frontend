@@ -8,6 +8,7 @@ import { formatDate } from '@/lib/utils'
 interface ProposalTimelineProps {
   kind: 'loan' | 'treasury'
   id: number
+  isPrivate?: boolean
   fallbackDates?: {
     created?: number | string
     votingStart?: number | string
@@ -16,7 +17,10 @@ interface ProposalTimelineProps {
   }
 }
 
-export function ProposalTimeline({ kind, id, fallbackDates }: ProposalTimelineProps) {
+import { useMemo } from 'react'
+import { formatStellarAddress } from '@/lib/stellar'
+
+export function ProposalTimeline({ kind, id, isPrivate = false, fallbackDates }: ProposalTimelineProps) {
   const loanTimeline = useLoanTimeline(kind === 'loan' ? id : 0)
   const treasuryTimeline = useTreasuryTimeline(kind === 'treasury' ? id : 0)
 
@@ -37,6 +41,45 @@ export function ProposalTimeline({ kind, id, fallbackDates }: ProposalTimelinePr
       </Card>
     )
   }
+
+  const votes = useMemo(() => {
+    if (!timeline) return []
+    return timeline
+      .filter((ev) => ev.symbol === 'loan_vote' || ev.symbol === 'tre_vote' || ev.symbol === 'committed')
+      .map((ev) => {
+        let voter = ''
+        let support: boolean | null = null
+        let weight: number | undefined
+
+        if (Array.isArray(ev.topics) && ev.topics.length >= 3) {
+          voter = String(ev.topics[2] ?? '')
+        }
+        if (ev.data && typeof ev.data === 'object' && !Array.isArray(ev.data)) {
+          const d = ev.data as Record<string, unknown>
+          if (d.voter) voter = String(d.voter)
+          if (typeof d.support === 'boolean') support = d.support
+          if (typeof d.weight === 'number') weight = d.weight
+        } else if (Array.isArray(ev.data)) {
+          if (typeof ev.data[0] === 'boolean') support = ev.data[0]
+          if (typeof ev.data[1] === 'number') weight = ev.data[1]
+        } else if (typeof ev.data === 'boolean') {
+          support = ev.data
+        }
+
+        if (ev.symbol === 'committed' || isPrivate) {
+          support = null
+        }
+
+        return {
+          voter: voter || 'Anonymous / Member',
+          support,
+          weight,
+          ledger: ev.ledger,
+          createdAt: ev.created_at,
+          isCommitment: ev.symbol === 'committed' || isPrivate,
+        }
+      })
+  }, [timeline, isPrivate])
 
   return (
     <Card>
@@ -111,6 +154,49 @@ export function ProposalTimeline({ kind, id, fallbackDates }: ProposalTimelinePr
         ) : (
           <p className="text-sm text-muted-foreground">No timeline events recorded yet.</p>
         )}
+
+        {/* Voter Breakdown (Issue #402) */}
+        <div className="mt-6 border-t border-border pt-4">
+          <h4 className="mb-2 text-sm font-semibold text-foreground">Voter Breakdown</h4>
+          {isPrivate ? (
+            <p className="text-xs text-muted-foreground">
+              Private proposal — individual choices are confidential ({votes.length} commitment{votes.length === 1 ? '' : 's'} recorded).
+            </p>
+          ) : votes.length === 0 ? (
+            <p className="text-xs text-muted-foreground">No individual voter records available.</p>
+          ) : (
+            <div className="space-y-2">
+              {votes.map((v, i) => (
+                <div
+                  key={`${v.voter}-${i}`}
+                  className="flex items-center justify-between rounded-lg bg-muted/40 p-2 text-xs"
+                >
+                  <span className="font-mono text-foreground">{formatStellarAddress(v.voter)}</span>
+                  <div className="flex items-center gap-2">
+                    {v.weight !== undefined && (
+                      <span className="text-muted-foreground">weight: {v.weight}</span>
+                    )}
+                    {v.support === true && (
+                      <span className="rounded bg-emerald-100 px-1.5 py-0.5 font-medium text-emerald-800 dark:bg-emerald-950/50 dark:text-emerald-400">
+                        Voted For
+                      </span>
+                    )}
+                    {v.support === false && (
+                      <span className="rounded bg-red-100 px-1.5 py-0.5 font-medium text-red-800 dark:bg-red-950/50 dark:text-red-400">
+                        Voted Against
+                      </span>
+                    )}
+                    {v.support === null && (
+                      <span className="rounded bg-muted px-1.5 py-0.5 text-muted-foreground">
+                        Commitment
+                      </span>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
       </CardContent>
     </Card>
   )

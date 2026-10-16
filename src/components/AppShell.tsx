@@ -196,7 +196,15 @@ export function AppShell({ children }: AppShellProps) {
         <div data-testid="indexer-stale-banner" className="flex items-center gap-2 border-b border-amber-200 bg-amber-50 px-4 py-2.5 text-sm text-amber-800 dark:border-amber-900 dark:bg-amber-950/30 dark:text-amber-300 sm:px-6">
           <TriangleAlert className="h-5 w-5 shrink-0 text-amber-600 dark:text-amber-400" />
           <span>
-            Indexer data is stale{stats.secondsSinceUpdate != null ? `(last updated ${stats.secondsSinceUpdate}s ago)` : ''}. Displayed off-chain stats and history may be delayed.
+            Indexer data is stale{stats.secondsSinceUpdate != null ? ` (last updated ${stats.secondsSinceUpdate}s ago)` : ''}{stats.lastIndexedLedger != null ? ` · last ledger #${stats.lastIndexedLedger}` : ''}. Displayed off-chain stats and history may be delayed.
+          </span>
+        </div>
+      )}
+      {stats.indexerError && isBackendConfigured() && !stats.indexerStale && (
+        <div data-testid="backend-unreachable-banner" className="flex items-center gap-2 border-b border-amber-200 bg-amber-50 px-4 py-2.5 text-sm text-amber-800 dark:border-amber-900 dark:bg-amber-950/30 dark:text-amber-300 sm:px-6">
+          <TriangleAlert className="h-5 w-5 shrink-0 text-amber-600 dark:text-amber-400" />
+          <span>
+            Off-chain backend is unreachable. Loan history, proposals, and live aggregates may be unavailable.
           </span>
         </div>
       )}

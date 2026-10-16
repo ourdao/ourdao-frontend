@@ -1,3 +1,6 @@
+import { useState } from 'react'
+import { useProposalFilters, type ProposalSortOrder } from '@/hooks/useProposalFilters'
+import { Search } from 'lucide-react'
 'use client'
 
 import Link from 'next/link'
@@ -243,8 +246,12 @@ export default function GovernancePage() {
   } = useTreasuryProposals()
   useAnnounceLoad('Loan proposals', loadingLoans, loanFailed)
   useAnnounceLoad('Treasury proposals', loadingTreasury, treasuryFailed)
+  const [tab, setTab] = useState<'loans' | 'treasury'>('loans')
   const { voteOnProposal, isPending: votingLoan } = useVoting()
   const { voteOnTreasury, isPending: votingTreasury } = useTreasuryVoting()
+
+  const loanFilters = useProposalFilters(loanProposals)
+  const treasuryFilters = useProposalFilters(treasuryProposals)
 
   if (!userData.isConnected) {
     return (
@@ -336,13 +343,13 @@ export default function GovernancePage() {
               )}
               {loadingLoans ? (
                 <LoadingRows />
-              ) : loanFailed && loanProposals.length === 0 ? (
+              ) : loanFailed && loanFilters.filteredItems.length === 0 ? (
                 <LoadError what="loan proposals" onRetry={refetchLoans} />
-              ) : loanProposals.length === 0 ? (
+              ) : loanFilters.filteredItems.length === 0 ? (
                 <EmptyState label="No loan proposals yet." />
               ) : (
                 <VirtualizedList
-                  items={loanProposals}
+                  items={loanFilters.filteredItems}
                   threshold={50}
                   itemHeight={120}
                   className="divide-y divide-border"
@@ -386,13 +393,13 @@ export default function GovernancePage() {
               )}
               {loadingTreasury ? (
                 <LoadingRows />
-              ) : treasuryFailed && treasuryProposals.length === 0 ? (
+              ) : treasuryFailed && treasuryFilters.filteredItems.length === 0 ? (
                 <LoadError what="treasury proposals" onRetry={refetchTreasury} />
-              ) : treasuryProposals.length === 0 ? (
+              ) : treasuryFilters.filteredItems.length === 0 ? (
                 <EmptyState label="No treasury withdrawals yet." />
               ) : (
                 <VirtualizedList
-                  items={treasuryProposals}
+                  items={treasuryFilters.filteredItems}
                   threshold={50}
                   itemHeight={120}
                   className="divide-y divide-border"
