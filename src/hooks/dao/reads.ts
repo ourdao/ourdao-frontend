@@ -68,7 +68,7 @@ export function useUserData(): UserData {
   const { data: loans, isError: loansError, refetch: refetchLoans } = useQuery({
     queryKey: address ? queryKeys.userLoans(address) : queryKeys.userLoansDisabled(),
     enabled: !!address && backendConfigured && (!isContractConfigured() || isMember),
-    queryFn: () => backend.getLoans(address!),
+    queryFn: ({ signal }) => backend.getLoans(address!, { signal }),
     refetchInterval: () => {
       if (!backendConfigured || !isMember) return false
       return QUERY_REFRESH_INTERVAL_MS
@@ -228,7 +228,7 @@ export function useDAOStats(): ExtendedStats {
   const { data: agg, isError: indexerError, refetch: refetchIndexer } = useQuery({
     queryKey: queryKeys.daoStatsBackend(),
     enabled: backendConfigured,
-    queryFn: () => backend.getStats(),
+    queryFn: ({ signal }) => backend.getStats({ signal }),
     refetchInterval: backendConfigured ? QUERY_REFRESH_INTERVAL_MS : false,
     refetchIntervalInBackground: false,
   })
@@ -288,7 +288,7 @@ export function useDAOEvents() {
   const { data, isError, refetch } = useQuery({
     queryKey: queryKeys.daoEvents(),
     enabled: backendConfigured,
-    queryFn: () => backend.getEvents(50),
+    queryFn: ({ signal }) => backend.getEvents(50, undefined, { signal }),
     refetchInterval: backendConfigured ? QUERY_REFRESH_INTERVAL_MS : false,
     refetchIntervalInBackground: false,
   })
@@ -303,7 +303,7 @@ export function useInterestDistributions(options?: { before?: number; limit?: nu
   const { data, isLoading, isError, refetch } = useQuery({
     queryKey: queryKeys.interestDistributions(options?.before),
     enabled: backendConfigured,
-    queryFn: () => backend.getInterestDistributions(options),
+    queryFn: ({ signal }) => backend.getInterestDistributions(options, { signal }),
     refetchInterval: backendConfigured ? QUERY_REFRESH_INTERVAL_MS : false,
     refetchIntervalInBackground: false,
   })
@@ -319,7 +319,7 @@ export function useInterestDistributions(options?: { before?: number; limit?: nu
 export function useMemberSummary(address?: string | null) {
   const { data, isLoading, isError, refetch } = useQuery({
     queryKey: address ? queryKeys.memberSummary(address) : ['memberSummary', null],
-    queryFn: () => (address ? backend.getMemberSummary(address) : null),
+    queryFn: ({ signal }) => (address ? backend.getMemberSummary(address, { signal }) : null),
     enabled: !!address,
     refetchInterval: QUERY_REFRESH_INTERVAL_MS,
     refetchIntervalInBackground: false,
@@ -335,7 +335,7 @@ export function useMemberSummary(address?: string | null) {
 export function useMemberActivity(address?: string | null, limit = 50) {
   const { data, isLoading, isError, refetch } = useQuery({
     queryKey: address ? queryKeys.memberActivity(address, limit) : ['memberActivity', null, limit],
-    queryFn: () => (address ? backend.getMemberActivity(address, limit) : []),
+    queryFn: ({ signal }) => (address ? backend.getMemberActivity(address, limit, { signal }) : []),
     enabled: !!address,
     refetchInterval: QUERY_REFRESH_INTERVAL_MS,
     refetchIntervalInBackground: false,

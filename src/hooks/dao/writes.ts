@@ -9,6 +9,7 @@ import { getTransactionUrl } from '@/lib/stellar'
 import { daoWrite, InvokeError, TransactionPendingError, watchTransaction, type InvokeResult } from '@/lib/dao-client'
 import { queryKeys } from '@/lib/query-keys'
 import { announce } from '@/lib/announce'
+import { reportError } from '@/lib/error-reporting'
 
 // Write-status toasts are visual only. Status is announced by <LiveAnnouncer>
 // (src/lib/announce.ts): a toast is inserted with its content already in it,
@@ -191,6 +192,7 @@ export function useWriteAction() {
             },
             onFailed: () => {
               const message = `${label} failed on-chain after being submitted.`
+              reportError(new Error(message), { action: label, hash: e.hash, stage: 'on-chain-watch' })
               toast.error(message, { id: toastId, ...SILENT_TOAST })
               announce(message, 'assertive')
             },
@@ -210,6 +212,7 @@ export function useWriteAction() {
         const isInvokeRetryable = e instanceof InvokeError && e.retryable
 
         const retryable = isTimeout || isCancel || isInvokeRetryable
+        reportError(e, { action: label, retryable })
         setError(e)
         setRetryable(retryable)
 

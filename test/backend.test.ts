@@ -57,6 +57,40 @@ describe('backend fetch wrappers', () => {
     await expect(backend.getStats()).rejects.toBeInstanceOf(BackendError)
   })
 
+  it('aborts request when external signal is aborted', async () => {
+    const controller = new AbortController()
+    controller.abort(new Error('User aborted'))
+    vi.mocked(fetch).mockImplementationOnce((_url, init) => {
+      const signal = init?.signal as AbortSignal | undefined
+      if (signal?.aborted) {
+        return Promise.reject(new Error('The operation was aborted'))
+      }
+      return new Promise((_, reject) => {
+        signal?.addEventListener('abort', () => reject(new Error('The operation was aborted')))
+      })
+    })
+
+    await expect(backend.getStats({ signal: controller.signal })).rejects.toBeInstanceOf(BackendError)
+  })
+
+  it('aborts request when timeout is reached', async () => {
+    vi.useFakeTimers()
+    try {
+      vi.mocked(fetch).mockImplementationOnce((_url, init) => {
+        const signal = init?.signal as AbortSignal | undefined
+        return new Promise((_, reject) => {
+          signal?.addEventListener('abort', () => reject(new Error(signal.reason?.message ?? 'aborted')))
+        })
+      })
+
+      const promise = backend.getStats({ timeoutMs: 100 })
+      vi.advanceTimersByTime(150)
+      await expect(promise).rejects.toBeInstanceOf(BackendError)
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
   it('getLoans without a borrower hits /api/loans with no query string', async () => {
     vi.mocked(fetch).mockResolvedValueOnce(jsonResponse([]))
     await backend.getLoans()

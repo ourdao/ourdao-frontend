@@ -24,6 +24,7 @@ import { formatToken, formatDate, formatThreshold } from '@/lib/utils'
 import { formatStellarAddress, isStellarAddress } from '@/lib/stellar'
 import { LoadingSpinner } from '@/components/ui/skeleton'
 import { PageHeader } from '@/components/PageHeader'
+import { StatCard } from '@/components/ui/stat-card'
 
 type Tab = 'overview' | 'governance' | 'activity' | 'quarantined'
 
@@ -138,15 +139,6 @@ function GuardMessage({ icon, title, message }: { icon: ReactNode; title: string
   )
 }
 
-function StatCard({ label, value, sub }: { label: string; value: string; sub?: string }) {
-  return (
-    <div className="bg-card rounded-lg p-6 border border-border">
-      <h4 className="text-sm font-medium text-muted-foreground">{label}</h4>
-      <div className="text-2xl font-bold mt-2 text-foreground">{value}</div>
-      {sub && <p className="text-xs text-muted-foreground mt-1">{sub}</p>}
-    </div>
-  )
-}
 
 function OverviewTab({ stats }: { stats: ReturnType<typeof useDAOStats> }) {
   const { pause, unpause, isPending } = useAdminActions()

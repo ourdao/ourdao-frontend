@@ -7,6 +7,7 @@ import { useState } from 'react'
 import Link from 'next/link'
 import { PageHeader } from '@/components/PageHeader'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { StatCard } from '@/components/ui/stat-card'
 import { InterestHistory } from '@/components/InterestHistory'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -128,31 +129,6 @@ function TreasuryProposalRow({
   )
 }
 
-function StatCard({
-  label,
-  value,
-  icon: Icon,
-  tint,
-}: {
-  label: string
-  value: string
-  icon: typeof Banknote
-  tint: string
-}) {
-  return (
-    <Card>
-      <CardContent className="flex items-center gap-4 p-5">
-        <div className={`rounded-xl p-3 ${tint}`}>
-          <Icon className="h-6 w-6" />
-        </div>
-        <div className="min-w-0">
-          <p className="text-sm text-muted-foreground">{label}</p>
-          <p className="truncate text-xl font-bold text-foreground">{value}</p>
-        </div>
-      </CardContent>
-    </Card>
-  )
-}
 
 export default function TreasuryPage() {
   const userData = useUserData()

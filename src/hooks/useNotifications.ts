@@ -83,7 +83,7 @@ export function useAutoNotifications() {
   const { data, isError, refetch } = useQuery({
     queryKey: address ? queryKeys.notifications(address) : queryKeys.notificationsDisabled(),
     enabled: !!address && backendConfigured,
-    queryFn: () => backend.getNotifications(address!),
+    queryFn: ({ signal }) => backend.getNotifications(address!, 50, { signal }),
     refetchInterval: backendConfigured ? QUERY_REFRESH_INTERVAL_MS : false,
     refetchIntervalInBackground: false,
   })
@@ -291,7 +291,7 @@ export function useActivityFeed(limit: number = 50) {
   const { data, isError, refetch } = useQuery({
     queryKey: queryKeys.activity(limit),
     enabled: backendConfigured,
-    queryFn: () => backend.getEvents(limit),
+    queryFn: ({ signal }) => backend.getEvents(limit, undefined, { signal }),
     refetchInterval: backendConfigured ? QUERY_REFRESH_INTERVAL_MS : false,
     refetchIntervalInBackground: false,
   })

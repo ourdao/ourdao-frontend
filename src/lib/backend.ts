@@ -303,25 +303,85 @@ const arrayOf =
 
 // --- Fetch helper -----------------------------------------------------------
 
-// None of these fetches set a timeout or abort signal, so a hung indexer leaves
-// a request pending indefinitely instead of degrading to the on-chain-only state.
+export const DEFAULT_BACKEND_TIMEOUT_MS = 10_000
 
-async function get<T>(path: string, fallback: T, validate?: Validator<T>): Promise<T> {
+export interface BackendRequestOptions {
+  signal?: AbortSignal
+  timeoutMs?: number
+}
+
+function combineSignals(
+  timeoutMs: number,
+  userSignal?: AbortSignal
+): { signal: AbortSignal; cleanup: () => void } {
+  const controller = new AbortController()
+  const timer = setTimeout(() => {
+    controller.abort(new Error(`Request timed out after ${timeoutMs}ms`))
+  }, timeoutMs)
+
+  const onAbort = () => {
+    controller.abort(userSignal?.reason ?? new Error('Request was aborted'))
+  }
+
+  if (userSignal) {
+    if (userSignal.aborted) {
+      clearTimeout(timer)
+      controller.abort(userSignal.reason ?? new Error('Request was aborted'))
+    } else {
+      userSignal.addEventListener('abort', onAbort, { once: true })
+    }
+  }
+
+  const cleanup = () => {
+    clearTimeout(timer)
+    if (userSignal) {
+      userSignal.removeEventListener('abort', onAbort)
+    }
+  }
+
+  return { signal: controller.signal, cleanup }
+}
+
+async function get<T>(
+  path: string,
+  fallback: T,
+  validate?: Validator<T>,
+  options?: BackendRequestOptions | AbortSignal
+): Promise<T> {
   // Preview mode: nothing to read from, so the empty fallback is the truth.
   if (!isBackendConfigured()) return fallback
   const base = process.env.NEXT_PUBLIC_BACKEND_URL || ''
+
+  const userSignal = options instanceof AbortSignal ? options : options?.signal
+  const timeoutMs =
+    options && !(options instanceof AbortSignal) && options.timeoutMs !== undefined
+      ? options.timeoutMs
+      : DEFAULT_BACKEND_TIMEOUT_MS
+
+  const { signal, cleanup } = combineSignals(timeoutMs, userSignal)
+
   let res: Response
   try {
     res = await fetch(`${base}${path}`, {
       headers: { accept: 'application/json' },
       // Indexed data changes often; never serve a stale cache.
       cache: 'no-store',
+      signal,
     })
   } catch (cause) {
+    if (signal.aborted) {
+      const msg =
+        signal.reason instanceof Error
+          ? signal.reason.message
+          : String(signal.reason ?? 'Request aborted or timed out')
+      throw new BackendError(msg)
+    }
     // Backend down / CORS / network.
     throw new BackendError(
       `Backend unreachable: ${cause instanceof Error ? cause.message : String(cause)}`
     )
+  } finally {
+    cleanup()
   }
   if (!res.ok) throw new BackendError(`Backend responded ${res.status}`, res.status)
   const body: unknown = await res.json()
@@ -412,7 +472,11 @@ async function classifyFailure(res: Response): Promise<MutationResult> {
  * signature" from "the backend 401'd" from "the backend was down", so every
  * caller had to assume success and leave its optimistic state in place (#306).
  */
-async function patch(path: string, signer: AuthSigner): Promise<MutationResult> {
+async function patch(
+  path: string,
+  signer: AuthSigner,
+  options?: BackendRequestOptions | AbortSignal
+): Promise<MutationResult> {
   if (!isBackendConfigured()) {
     return {
       ok: false,
@@ -422,10 +486,19 @@ async function patch(path: string, signer: AuthSigner): Promise<MutationResult> 
     }
   }
 
+  const userSignal = options instanceof AbortSignal ? options : options?.signal
+  const timeoutMs =
+    options && !(options instanceof AbortSignal) && options.timeoutMs !== undefined
+      ? options.timeoutMs
+      : DEFAULT_BACKEND_TIMEOUT_MS
+
+  const { signal, cleanup } = combineSignals(timeoutMs, userSignal)
+
   let auth: SignedAuth
   try {
     auth = await requestSignedAuth(signer)
   } catch (err) {
+    cleanup()
     if (err instanceof AuthError) {
       return { ok: false, status: err.status, reason: reasonFromAuth(err.reason), message: err.message }
     }
@@ -448,8 +521,21 @@ async function patch(path: string, signer: AuthSigner): Promise<MutationResult> 
         Authorization: buildAuthHeader(auth),
       },
       cache: 'no-store',
+      signal,
     })
   } catch (cause) {
+    if (signal.aborted) {
+      const msg =
+        signal.reason instanceof Error
+          ? signal.reason.message
+          : String(signal.reason ?? 'Request aborted or timed out')
+      return {
+        ok: false,
+        status: null,
+        reason: 'unavailable',
+        message: msg,
+      }
+    }
     return {
       ok: false,
       status: null,
@@ -458,6 +544,8 @@ async function patch(path: string, signer: AuthSigner): Promise<MutationResult> 
         cause instanceof Error ? cause.message : String(cause)
       }`,
     }
+  } finally {
+    cleanup()
   }
   if (!res.ok) return classifyFailure(res)
   return { ok: true, status: res.status }
@@ -467,102 +555,135 @@ async function patch(path: string, signer: AuthSigner): Promise<MutationResult> 
 
 export const backend = {
   isConfigured: isBackendConfigured,
-  getReady: () =>
-    get<BackendReady | null>('/ready', null, (value): value is BackendReady | null =>
-      value === null || (isRecord(value) && isBoolean(value.ready))
+  getReady: (options?: BackendRequestOptions | AbortSignal) =>
+    get<BackendReady | null>(
+      '/ready',
+      null,
+      (value): value is BackendReady | null =>
+        value === null || (isRecord(value) && isBoolean(value.ready)),
+      options
     ),
-  getStats: () =>
-    get<BackendStats | null>('/api/stats', null, (value): value is BackendStats | null =>
-      value === null || isBackendStats(value)
+  getStats: (options?: BackendRequestOptions | AbortSignal) =>
+    get<BackendStats | null>(
+      '/api/stats',
+      null,
+      (value): value is BackendStats | null =>
+        value === null || isBackendStats(value),
+      options
     ),
 
-  getLoans: (borrower?: string) =>
+  getLoans: (borrower?: string, options?: BackendRequestOptions | AbortSignal) =>
     get<BackendLoan[]>(
       borrower ? `/api/loans?borrower=${encodeURIComponent(borrower)}` : '/api/loans',
       [],
-      arrayOf(isBackendLoan)
+      arrayOf(isBackendLoan),
+      options
     ),
 
-  getLoan: (id: number) =>
-    get<BackendLoan | null>(`/api/loans/${id}`, null, (value): value is BackendLoan | null =>
-      value === null || isBackendLoan(value)
+  getLoan: (id: number, options?: BackendRequestOptions | AbortSignal) =>
+    get<BackendLoan | null>(
+      `/api/loans/${id}`,
+      null,
+      (value): value is BackendLoan | null =>
+        value === null || isBackendLoan(value),
+      options
     ),
 
-  getNotifications: (address: string, limit = 50) =>
+  getNotifications: (address: string, limit = 50, options?: BackendRequestOptions | AbortSignal) =>
     get<BackendNotification[]>(
       `/api/notifications?address=${encodeURIComponent(address)}&limit=${limit}`,
       [],
-      arrayOf(isBackendNotification)
+      arrayOf(isBackendNotification),
+      options
     ),
 
-  getEvents: (limit = 50, symbol?: string) =>
+  getEvents: (limit = 50, symbol?: string, options?: BackendRequestOptions | AbortSignal) =>
     get<BackendEvent[]>(
       symbol
         ? `/api/events?symbol=${encodeURIComponent(symbol)}&limit=${limit}`
         : `/api/events?limit=${limit}`,
       [],
-      arrayOf(isBackendEvent)
+      arrayOf(isBackendEvent),
+      options
     ),
 
-  getAdminLog: (limit = 50) =>
-    get<BackendEvent[]>(`/api/admin/log?limit=${limit}`, [], arrayOf(isBackendEvent)),
+  getAdminLog: (limit = 50, options?: BackendRequestOptions | AbortSignal) =>
+    get<BackendEvent[]>(`/api/admin/log?limit=${limit}`, [], arrayOf(isBackendEvent), options),
 
-  getInterestDistributions: (options?: { before?: number; limit?: number }) => {
+  getInterestDistributions: (
+    opts?: { before?: number; limit?: number },
+    options?: BackendRequestOptions | AbortSignal
+  ) => {
     const params = new URLSearchParams()
-    if (options?.before !== undefined && options?.before !== null) {
-      params.set('before', String(options.before))
+    if (opts?.before !== undefined && opts?.before !== null) {
+      params.set('before', String(opts.before))
     }
-    if (options?.limit !== undefined && options?.limit !== null) {
-      params.set('limit', String(options.limit))
+    if (opts?.limit !== undefined && opts?.limit !== null) {
+      params.set('limit', String(opts.limit))
     }
     const qs = params.toString()
     return get<BackendInterestDistribution[]>(
       qs ? `/api/interest?${qs}` : '/api/interest',
       [],
-      arrayOf(isBackendInterestDistribution)
+      arrayOf(isBackendInterestDistribution),
+      options
     )
   },
 
-  markNotificationRead: (id: number, signer: AuthSigner) =>
-    patch(`/api/notifications/${id}/read`, signer),
+  markNotificationRead: (
+    id: number,
+    signer: AuthSigner,
+    options?: BackendRequestOptions | AbortSignal
+  ) => patch(`/api/notifications/${id}/read`, signer, options),
 
-  markAllNotificationsRead: (address: string, signer: AuthSigner) =>
-    patch(`/api/notifications/read-all?address=${encodeURIComponent(address)}`, signer),
+  markAllNotificationsRead: (
+    address: string,
+    signer: AuthSigner,
+    options?: BackendRequestOptions | AbortSignal
+  ) =>
+    patch(`/api/notifications/read-all?address=${encodeURIComponent(address)}`, signer, options),
 
-  getFailedEvents: () =>
-    get<BackendFailedEvent[]>('/api/admin/failed-events', [], arrayOf(isBackendFailedEvent)),
+  getFailedEvents: (options?: BackendRequestOptions | AbortSignal) =>
+    get<BackendFailedEvent[]>('/api/admin/failed-events', [], arrayOf(isBackendFailedEvent), options),
 
-  getDocumentHistory: (kind: string, proposalId: number) => {
+  getDocumentHistory: (
+    kind: string,
+    proposalId: number,
+    options?: BackendRequestOptions | AbortSignal
+  ) => {
     const params = new URLSearchParams({ kind, proposal_id: String(proposalId) })
     return get<BackendDocumentAttachment[]>(
       `/api/documents?${params.toString()}`,
       [],
-      arrayOf(isBackendDocumentAttachment)
+      arrayOf(isBackendDocumentAttachment),
+      options
     )
   },
 
-  getLoanTimeline: (id: number) =>
-    get<BackendTimelineEvent[]>(`/api/loans/${id}/timeline`, [], arrayOf(isBackendTimelineEvent)),
+  getLoanTimeline: (id: number, options?: BackendRequestOptions | AbortSignal) =>
+    get<BackendTimelineEvent[]>(`/api/loans/${id}/timeline`, [], arrayOf(isBackendTimelineEvent), options),
 
-  getTreasuryTimeline: (id: number) =>
+  getTreasuryTimeline: (id: number, options?: BackendRequestOptions | AbortSignal) =>
     get<BackendTimelineEvent[]>(
       `/api/proposals/treasury/${id}/timeline`,
       [],
-      arrayOf(isBackendTimelineEvent)
+      arrayOf(isBackendTimelineEvent),
+      options
     ),
 
-  getMemberSummary: (address: string) =>
+  getMemberSummary: (address: string, options?: BackendRequestOptions | AbortSignal) =>
     get<BackendMemberSummary | null>(
       `/api/members/${encodeURIComponent(address)}/summary`,
       null,
-      (value): value is BackendMemberSummary | null => value === null || isBackendMemberSummary(value)
+      (value): value is BackendMemberSummary | null => value === null || isBackendMemberSummary(value),
+      options
     ),
 
-  getMemberActivity: (address: string, limit = 50) =>
+  getMemberActivity: (address: string, limit = 50, options?: BackendRequestOptions | AbortSignal) =>
     get<BackendEvent[]>(
       `/api/members/${encodeURIComponent(address)}/activity?limit=${limit}`,
       [],
-      arrayOf(isBackendEvent)
+      arrayOf(isBackendEvent),
+      options
     ),
-
 }

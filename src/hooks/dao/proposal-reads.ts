@@ -26,7 +26,7 @@ export function useLoanProposals() {
   const { data: stats, isError: countError, refetch: refetchCount } = useQuery({
     queryKey: queryKeys.backendStats(),
     enabled: backendConfigured,
-    queryFn: () => backend.getStats(),
+    queryFn: ({ signal }) => backend.getStats({ signal }),
     refetchInterval: backendConfigured ? QUERY_REFRESH_INTERVAL_MS : false,
     refetchIntervalInBackground: false,
   })
@@ -134,7 +134,7 @@ export function useTreasuryProposals() {
   const { data: stats, isError: countError, refetch: refetchCount } = useQuery({
     queryKey: queryKeys.backendStats(),
     enabled: backendConfigured,
-    queryFn: () => backend.getStats(),
+    queryFn: ({ signal }) => backend.getStats({ signal }),
     refetchInterval: backendConfigured ? QUERY_REFRESH_INTERVAL_MS : false,
     refetchIntervalInBackground: false,
   })
@@ -244,7 +244,7 @@ export function useAdminLog(limit = 50) {
   const { data, isLoading, isError, refetch } = useQuery({
     queryKey: queryKeys.adminLog(limit),
     enabled: backendConfigured,
-    queryFn: () => backend.getAdminLog(limit),
+    queryFn: ({ signal }) => backend.getAdminLog(limit, { signal }),
     refetchInterval: backendConfigured ? QUERY_REFRESH_INTERVAL_MS : false,
     refetchIntervalInBackground: false,
   })
@@ -255,7 +255,7 @@ export function useAdminLog(limit = 50) {
 export function useFailedEvents() {
   const { data, isLoading, isError, refetch } = useQuery({
     queryKey: queryKeys.failedEvents(),
-    queryFn: () => backend.getFailedEvents(),
+    queryFn: ({ signal }) => backend.getFailedEvents({ signal }),
     refetchInterval: QUERY_REFRESH_INTERVAL_MS,
     refetchIntervalInBackground: false,
   })
@@ -270,7 +270,7 @@ export function useFailedEvents() {
 export function useDocumentHistory(kind: 'loan' | 'treasury' | string, proposalId: number) {
   const { data, isLoading, isError, refetch } = useQuery({
     queryKey: queryKeys.documentHistory(kind, proposalId),
-    queryFn: () => backend.getDocumentHistory(kind, proposalId),
+    queryFn: ({ signal }) => backend.getDocumentHistory(kind, proposalId, { signal }),
     enabled: proposalId > 0,
     refetchInterval: QUERY_REFRESH_INTERVAL_MS,
     refetchIntervalInBackground: false,
@@ -286,7 +286,7 @@ export function useDocumentHistory(kind: 'loan' | 'treasury' | string, proposalI
 export function useLoanTimeline(id: number) {
   const { data, isLoading, isError, refetch } = useQuery({
     queryKey: queryKeys.loanTimeline(id),
-    queryFn: () => backend.getLoanTimeline(id),
+    queryFn: ({ signal }) => backend.getLoanTimeline(id, { signal }),
     enabled: id > 0,
     refetchInterval: QUERY_REFRESH_INTERVAL_MS,
     refetchIntervalInBackground: false,
@@ -302,7 +302,7 @@ export function useLoanTimeline(id: number) {
 export function useTreasuryTimeline(id: number) {
   const { data, isLoading, isError, refetch } = useQuery({
     queryKey: queryKeys.treasuryTimeline(id),
-    queryFn: () => backend.getTreasuryTimeline(id),
+    queryFn: ({ signal }) => backend.getTreasuryTimeline(id, { signal }),
     enabled: id > 0,
     refetchInterval: QUERY_REFRESH_INTERVAL_MS,
     refetchIntervalInBackground: false,

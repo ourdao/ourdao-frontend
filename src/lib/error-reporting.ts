@@ -105,14 +105,36 @@ function extractCorrelationId(context?: Record<string, unknown>): string | undef
   return undefined
 }
 
+export interface ErrorReportPayload {
+  message: string
+  stack?: string
+  correlationId?: string
+  context?: Record<string, unknown>
+  timestamp: string
+}
+
+export type ErrorReportingTransport = (payload: ErrorReportPayload) => void | Promise<void>
+
+let currentTransport: ErrorReportingTransport | null = null
+
+/** Configure a pluggable error reporting transport (e.g. Sentry or custom sink). */
+export function setErrorReportingTransport(transport: ErrorReportingTransport | null): void {
+  currentTransport = transport
+}
+
 /**
- * Send the scrubbed report somewhere. This is the one function to replace
- * once a real error-reporting provider is chosen (e.g.
- * `Sentry.captureException(payload)`). Kept console-based for now to avoid
- * picking a third-party service unilaterally as part of this change — the
- * wiring everywhere else in the app is already provider-agnostic.
+ * Send the scrubbed report somewhere. Dispatches to customTransport if configured,
+ * otherwise logs via console.error.
  */
-function sendReport(payload: Record<string, unknown>): void {
+function sendReport(payload: ErrorReportPayload): void {
+  if (currentTransport) {
+    try {
+      currentTransport(payload)
+    } catch {
+      // Don't let transport failures crash the caller
+    }
+    return
+  }
   console.error('[error-report]', payload)
 }
 
@@ -141,3 +163,4 @@ export function reportError(error: unknown, context?: Record<string, unknown>): 
     timestamp: new Date().toISOString(),
   })
 }
+
