@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { screen, waitFor, fireEvent } from '@testing-library/react'
+import toast from 'react-hot-toast'
 import { renderWithProviders } from './test-utils'
 import AdminPage from '@/app/(app)/admin/page'
 
@@ -17,6 +18,8 @@ const mockIsPaused = vi.fn()
 const mockGetLoans = vi.fn()
 const mockGetAdminLog = vi.fn()
 const mockAddAdmin = vi.fn()
+const mockSetThreshold = vi.fn()
+const mockPause = vi.fn()
 
 vi.mock('next/navigation', () => ({
   usePathname: () => '/admin',
@@ -53,7 +56,19 @@ vi.mock('@/lib/dao-client', () => ({
     getLoanPolicy: (...a: unknown[]) => mockGetLoanPolicy(...a),
     isPaused: (...a: unknown[]) => mockIsPaused(...a),
   },
-  daoWrite: () => ({ pause: vi.fn(), unpause: vi.fn(), addAdmin: mockAddAdmin, removeAdmin: vi.fn() }),
+  daoWrite: () => ({
+    pause: mockPause,
+    unpause: vi.fn(),
+    addAdmin: mockAddAdmin,
+    removeAdmin: vi.fn(),
+    setConsensusThreshold: mockSetThreshold,
+  }),
+  // useWriteAction's failure path branches on these.
+  InvokeError: class InvokeError extends Error {
+    retryable = false
+  },
+  TransactionPendingError: class TransactionPendingError extends Error {},
+  watchTransaction: vi.fn(),
 }))
 
 vi.mock('@/lib/backend', () => ({
@@ -66,6 +81,16 @@ vi.mock('@/lib/backend', () => ({
     markNotificationRead: vi.fn(),
     markAllNotificationsRead: vi.fn(),
   },
+}))
+
+vi.mock('react-hot-toast', () => ({
+  default: Object.assign(vi.fn(), {
+    error: vi.fn(),
+    success: vi.fn(),
+    loading: vi.fn(() => 'toast-id'),
+    dismiss: vi.fn(),
+  }),
+  Toaster: () => null,
 }))
 
 describe('AdminPage', () => {
@@ -174,6 +199,92 @@ describe('AdminPage', () => {
         screen.queryByText('Enter a valid Stellar destination address (G… or C…)'),
       ).not.toBeInTheDocument()
       expect(screen.getByRole('button', { name: 'Add Admin' })).not.toBeDisabled()
+    })
+  })
+
+  // ── failed admin writes (#316) ────────────────────────────────────────
+  describe('failed admin writes', () => {
+    const VALID = 'GAHJJJKMOKYE4RVPZEWZTKH5FVI4PA3VL7GK2LFNUBSGBV3MQAXRWUDX'
+    const unhandled: unknown[] = []
+    const onUnhandled = (reason: unknown) => unhandled.push(reason)
+
+    beforeEach(() => {
+      unhandled.length = 0
+      process.on('unhandledRejection', onUnhandled)
+      vi.spyOn(window, 'confirm').mockReturnValue(true)
+    })
+    afterEach(() => {
+      process.off('unhandledRejection', onUnhandled)
+      vi.restoreAllMocks()
+    })
+
+    async function openGovernanceTab() {
+      mockIsMember.mockResolvedValue(true)
+      mockIsAdmin.mockResolvedValue(true)
+      renderWithProviders(<AdminPage />)
+      await waitFor(() => expect(screen.getByText('Admin Dashboard')).toBeInTheDocument())
+      fireEvent.click(screen.getByRole('button', { name: /Governance/ }))
+      await waitFor(() =>
+        expect(screen.getByPlaceholderText('G… address to add as admin')).toBeInTheDocument(),
+      )
+    }
+
+    // Lets any rejected promise the handler leaked reach the process hook.
+    const settle = () => new Promise((r) => setTimeout(r, 50))
+
+    it('a rejected addAdmin shows one error toast, keeps the input, and leaks no rejection', async () => {
+      mockAddAdmin.mockRejectedValue(new Error('User declined'))
+      await openGovernanceTab()
+
+      const input = screen.getByPlaceholderText('G… address to add as admin')
+      fireEvent.change(input, { target: { value: VALID } })
+      fireEvent.click(screen.getByRole('button', { name: 'Add Admin' }))
+
+      await waitFor(() => expect(mockAddAdmin).toHaveBeenCalledTimes(1))
+      await waitFor(() => expect(toast.error).toHaveBeenCalledTimes(1))
+      await settle()
+      expect(unhandled).toEqual([])
+      // Not cleared: the member can correct and retry.
+      expect(input).toHaveValue(VALID)
+    })
+
+    it('a rejected setThreshold shows one error toast and leaks no rejection', async () => {
+      mockSetThreshold.mockRejectedValue(new Error('User declined'))
+      await openGovernanceTab()
+
+      fireEvent.change(screen.getByPlaceholderText('e.g. 5100 for 51%'), { target: { value: '5100' } })
+      fireEvent.click(screen.getByRole('button', { name: 'Update Threshold' }))
+
+      await waitFor(() => expect(mockSetThreshold).toHaveBeenCalledWith(5100))
+      await waitFor(() => expect(toast.error).toHaveBeenCalledTimes(1))
+      await settle()
+      expect(unhandled).toEqual([])
+    })
+
+    it('rejects a non-integer threshold before any signing', async () => {
+      await openGovernanceTab()
+
+      fireEvent.change(screen.getByPlaceholderText('e.g. 5100 for 51%'), { target: { value: '5100.5' } })
+      fireEvent.click(screen.getByRole('button', { name: 'Update Threshold' }))
+      await settle()
+
+      expect(mockSetThreshold).not.toHaveBeenCalled()
+      expect(window.confirm).not.toHaveBeenCalled()
+    })
+
+    it('a rejected pause shows one error toast and leaks no rejection', async () => {
+      mockPause.mockRejectedValue(new Error('User declined'))
+      mockIsMember.mockResolvedValue(true)
+      mockIsAdmin.mockResolvedValue(true)
+      renderWithProviders(<AdminPage />)
+      await waitFor(() => expect(screen.getByText('Admin Dashboard')).toBeInTheDocument())
+
+      fireEvent.click(screen.getByRole('button', { name: /^Pause/ }))
+
+      await waitFor(() => expect(mockPause).toHaveBeenCalledTimes(1))
+      await waitFor(() => expect(toast.error).toHaveBeenCalledTimes(1))
+      await settle()
+      expect(unhandled).toEqual([])
     })
   })
 })

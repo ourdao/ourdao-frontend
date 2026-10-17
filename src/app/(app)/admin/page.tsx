@@ -171,10 +171,10 @@ function OverviewTab({ stats }: { stats: ReturnType<typeof useDAOStats> }) {
             onClick={() => {
               if (stats.isPaused) {
                 if (!window.confirm('Unpause the DAO? This will re-enable all state-changing operations for every member.')) return
-                unpause()
+                unpause().catch(() => {})
               } else {
                 if (!window.confirm('Pause the DAO? This will halt new loans, votes, and proposals for every member immediately.')) return
-                pause()
+                pause().catch(() => {})
               }
             }}
             disabled={isPending}
@@ -216,7 +216,13 @@ function GovernanceTab({ stats }: { stats: ReturnType<typeof useDAOStats> }) {
     e.preventDefault()
     if (!trimmedNewAdmin || !isStellarAddress(trimmedNewAdmin)) return
     if (!window.confirm(`Add ${formatStellarAddress(trimmedNewAdmin)} as an admin? This grants full admin privileges.`)) return
-    await addAdmin(trimmedNewAdmin)
+    // `run` already toasted the failure; it rethrows for callers that need to
+    // react, but a form handler has nothing to add, so swallow it here (#316).
+    try {
+      await addAdmin(trimmedNewAdmin)
+    } catch {
+      return
+    }
     setNewAdmin('')
     refetch()
   }
@@ -224,9 +230,13 @@ function GovernanceTab({ stats }: { stats: ReturnType<typeof useDAOStats> }) {
   const submitThreshold = async (e: FormEvent) => {
     e.preventDefault()
     const bps = Number(threshold)
-    if (!Number.isFinite(bps) || bps <= 0 || bps > 10_000) return
+    if (!Number.isInteger(bps) || bps <= 0 || bps > 10_000) return
     if (!window.confirm(`Update consensus threshold from ${formatThreshold(stats.consensusThreshold)} to ${formatThreshold(bps)}? This changes the approval bar for every open proposal.`)) return
-    await setThreshold(bps)
+    try {
+      await setThreshold(bps)
+    } catch {
+      return
+    }
     setThresholdInput('')
   }
 
@@ -245,7 +255,11 @@ function GovernanceTab({ stats }: { stats: ReturnType<typeof useDAOStats> }) {
               <button
                 onClick={async () => {
                   if (!window.confirm(`Remove admin ${formatStellarAddress(addr)}? This action requires a remaining admin to re-add them.`)) return
-                  await removeAdmin(addr)
+                  try {
+                    await removeAdmin(addr)
+                  } catch {
+                    return
+                  }
                   refetch()
                 }}
                 disabled={isPending || admins.length <= 1}
