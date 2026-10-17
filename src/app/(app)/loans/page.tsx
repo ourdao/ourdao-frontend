@@ -27,7 +27,7 @@ import { LoadError } from '@/components/LoadError'
 import { useAnnounceLoad } from '@/lib/useAnnounceLoad'
 import { useNow } from '@/hooks/useNow'
 import { formatToken, formatDate, calculatePercentage } from '@/lib/utils'
-import { formatStellarAddress } from '@/lib/stellar'
+import { AddressLink } from '@/components/AddressLink'
 import { PROPOSAL_STATUS_LABELS } from '@/constants'
 import { PageHeader } from '@/components/PageHeader'
 import type { UserData } from '@/types/dao'
@@ -123,7 +123,7 @@ function LoanProposalCard({
                 )}
               </div>
               <CardDescription>
-                By {formatStellarAddress(proposal.borrower)} • Created {formatDate(proposal.creationTime)}
+                By <AddressLink address={proposal.borrower} /> • Created {formatDate(proposal.creationTime)}
               </CardDescription>
             </div>
           </div>

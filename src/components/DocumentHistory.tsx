@@ -4,7 +4,7 @@ import { useDocumentHistory } from '@/hooks/useDAO'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { FileText, ExternalLink, Clock } from 'lucide-react'
 import { formatDate } from '@/lib/utils'
-import { formatStellarAddress } from '@/lib/stellar'
+import { AddressLink } from '@/components/AddressLink'
 
 interface DocumentHistoryProps {
   kind: 'loan' | 'treasury'
@@ -62,8 +62,8 @@ export function DocumentHistory({ kind, proposalId }: DocumentHistoryProps) {
             <tbody className="divide-y divide-border">
               {history.map((item, idx) => (
                 <tr key={`${item.cid}-${item.ledger}-${idx}`} className="hover:bg-muted/50">
-                  <td className="py-2.5 font-mono text-xs" title={item.attached_by}>
-                    {formatStellarAddress(item.attached_by)}
+                  <td className="py-2.5 text-xs">
+                    <AddressLink address={item.attached_by} />
                   </td>
                   <td className="py-2.5 font-mono text-xs truncate max-w-[200px]" title={item.cid}>
                     {item.cid}

@@ -18,6 +18,7 @@ import {
   useAdminLog,
   useFailedEvents,
 } from '@/hooks/useDAO'
+import { AddressLink } from '@/components/AddressLink'
 import { LoadError } from '@/components/LoadError'
 import { useAnnounceLoad } from '@/lib/useAnnounceLoad'
 import { formatToken, formatDate, formatThreshold } from '@/lib/utils'
@@ -240,7 +241,7 @@ function GovernanceTab({ stats }: { stats: ReturnType<typeof useDAOStats> }) {
           {adminsError && <LoadError what="the admin list" onRetry={() => void refetch()} className="m-4" />}
           {admins.map((addr) => (
             <div key={addr} className="px-6 py-3 flex items-center justify-between">
-              <span className="font-mono text-sm text-foreground">{formatStellarAddress(addr)}</span>
+              <AddressLink address={addr} className="text-sm text-foreground" />
               <button
                 onClick={async () => {
                   if (!window.confirm(`Remove admin ${formatStellarAddress(addr)}? This action requires a remaining admin to re-add them.`)) return

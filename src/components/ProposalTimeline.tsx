@@ -18,7 +18,7 @@ interface ProposalTimelineProps {
 }
 
 import { useMemo } from 'react'
-import { formatStellarAddress } from '@/lib/stellar'
+import { AddressLink } from '@/components/AddressLink'
 
 export function ProposalTimeline({ kind, id, isPrivate = false, fallbackDates }: ProposalTimelineProps) {
   const loanTimeline = useLoanTimeline(kind === 'loan' ? id : 0)
@@ -171,7 +171,7 @@ export function ProposalTimeline({ kind, id, isPrivate = false, fallbackDates }:
                   key={`${v.voter}-${i}`}
                   className="flex items-center justify-between rounded-lg bg-muted/40 p-2 text-xs"
                 >
-                  <span className="font-mono text-foreground">{formatStellarAddress(v.voter)}</span>
+                  <AddressLink address={v.voter} className="text-foreground" />
                   <div className="flex items-center gap-2">
                     {v.weight !== undefined && (
                       <span className="text-muted-foreground">weight: {v.weight}</span>
