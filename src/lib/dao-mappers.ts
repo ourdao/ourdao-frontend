@@ -10,6 +10,14 @@ import {
   LOAN_POLICY_FALLBACKS,
   PROPOSAL_STATUS_AWAITING_FUNDS,
 } from '@/constants'
+import {
+  loanSchema,
+  loanProposalSchema,
+  treasuryProposalSchema,
+  loanTermsSchema,
+  loanPolicySchema,
+  parseContract,
+} from '@/lib/contract-schemas'
 
 export const asBigInt = (v: unknown): bigint => {
   try {
@@ -66,24 +74,32 @@ export interface UILoanPolicy {
   fromChain: boolean
 }
 
-const numOr = (v: unknown, fallback: number): number => {
-  if (v == null) return fallback
-  const n = Number(v)
-  return Number.isFinite(n) ? n : fallback
-}
-
 /** Resolve the effective loan policy: the chain's value wherever it was read,
  *  the labelled fallback only for what is still missing. */
 export function resolveLoanPolicy(
   rawPolicy: Record<string, unknown> | null | undefined,
   consensusThreshold?: number | null
 ): UILoanPolicy {
-  const fromChain = rawPolicy != null && consensusThreshold != null
+  if (rawPolicy == null) {
+    return {
+      ...LOAN_POLICY_FALLBACKS,
+      fromChain: false,
+    }
+  }
+  const parsed = parseContract(loanPolicySchema, rawPolicy, 'LoanPolicy')
+  if (!parsed.ok) {
+    return {
+      ...LOAN_POLICY_FALLBACKS,
+      fromChain: false,
+    }
+  }
+  const v = parsed.data
+  const fromChain = consensusThreshold != null
   return {
-    minInterestRate: numOr(rawPolicy?.min_interest_rate, LOAN_POLICY_FALLBACKS.minInterestRate),
-    maxInterestRate: numOr(rawPolicy?.max_interest_rate, LOAN_POLICY_FALLBACKS.maxInterestRate),
-    maxLoanDuration: numOr(rawPolicy?.max_loan_duration, LOAN_POLICY_FALLBACKS.maxLoanDuration),
-    consensusThreshold: numOr(consensusThreshold, LOAN_POLICY_FALLBACKS.consensusThreshold),
+    minInterestRate: v.min_interest_rate,
+    maxInterestRate: v.max_interest_rate,
+    maxLoanDuration: v.max_loan_duration,
+    consensusThreshold: consensusThreshold ?? LOAN_POLICY_FALLBACKS.consensusThreshold,
     fromChain,
   }
 }
@@ -99,10 +115,14 @@ export interface UILoanTerms {
 }
 
 export function mapLoanTerms(raw: Record<string, unknown>): UILoanTerms {
+  const parsed = parseContract(loanTermsSchema, raw, 'LoanTerms')
+  if (!parsed.ok) {
+    return { interestRate: 0, totalRepayment: BigInt(0), duration: 0 }
+  }
   return {
-    interestRate: Number(raw.interest_rate ?? 0),
-    totalRepayment: asBigInt(raw.total_repayment),
-    duration: Number(raw.duration ?? 0),
+    interestRate: parsed.data.interest_rate,
+    totalRepayment: parsed.data.total_repayment,
+    duration: parsed.data.duration,
   }
 }
 
@@ -141,17 +161,37 @@ export interface UILoanProposal {
  *  a connected address). Pass the real value — from `useHasVoted` — wherever
  *  it's actually known for the connected wallet. */
 export function mapLoanProposal(raw: Record<string, unknown>, hasVoted = false): UILoanProposal {
-  const editingEnd = Number(raw.editing_period_end ?? 0)
+  const parsed = parseContract(loanProposalSchema, raw, 'LoanProposal')
+  if (!parsed.ok) {
+    return {
+      id: 0,
+      borrower: '',
+      amount: BigInt(0),
+      purpose: '',
+      interestRate: 0,
+      status: 0,
+      votesFor: 0,
+      votesAgainst: 0,
+      creationTime: 0,
+      votingStartTime: 0,
+      votingEndTime: 0,
+      isPrivate: false,
+      documentHash: '',
+      hasVoted,
+    }
+  }
+  const v = parsed.data
+  const editingEnd = v.editing_period_end
   return {
-    id: Number(raw.id ?? 0),
-    borrower: String(raw.borrower ?? ''),
-    amount: asBigInt(raw.amount),
+    id: v.id,
+    borrower: v.borrower,
+    amount: v.amount,
     purpose: '', // not stored on-chain; attach a document hash instead
-    interestRate: Number(raw.interest_rate ?? 0),
-    status: loanStatusCode(raw),
-    votesFor: Number(raw.for_votes ?? 0),
-    votesAgainst: Number(raw.against_votes ?? 0),
-    creationTime: Number(raw.created_at ?? 0),
+    interestRate: v.interest_rate,
+    status: loanStatusCode(v),
+    votesFor: v.for_votes,
+    votesAgainst: v.against_votes,
+    creationTime: v.created_at,
     votingStartTime: editingEnd,
     votingEndTime: editingEnd ? editingEnd + GOVERNANCE_PERIOD_FALLBACKS.votingPeriod : 0,
     isPrivate: false, // loan proposals are public; treasury proposals can be private
@@ -178,21 +218,47 @@ export interface UILoan {
   totalRepayment: bigint
   startTime: number
   dueTime: number
-  status: 'Active' | 'Repaid' | 'Defaulted'
+  status: 'Active' | 'Repaid' | 'Defaulted' | 'unknown'
   amountRepaid: bigint
 }
 
+const LOAN_STATUSES = ['Active', 'Repaid', 'Defaulted'] as const
+type LoanStatus = (typeof LOAN_STATUSES)[number]
+
+/** Type guard: a status the contract actually emits, as opposed to any string
+ *  a future contract version might introduce (which map to 'unknown'). */
+const isLoanStatus = (value: string): value is LoanStatus =>
+  (LOAN_STATUSES as readonly string[]).includes(value)
+
 export function mapLoan(raw: Record<string, unknown>): UILoan {
+  const parsed = parseContract(loanSchema, raw, 'Loan')
+  if (!parsed.ok) {
+    // Return a safe default rather than throwing — the UI can render an
+    // 'unknown' status, but a crash helps no one.
+    return {
+      id: 0,
+      borrower: '',
+      principal: BigInt(0),
+      interestRate: 0,
+      totalRepayment: BigInt(0),
+      startTime: 0,
+      dueTime: 0,
+      status: 'unknown',
+      amountRepaid: BigInt(0),
+    }
+  }
+  const v = parsed.data
+  const status = isLoanStatus(v.status) ? v.status : 'unknown'
   return {
-    id: Number(raw.id ?? 0),
-    borrower: String(raw.borrower ?? ''),
-    principal: asBigInt(raw.principal),
-    interestRate: Number(raw.interest_rate ?? 0),
-    totalRepayment: asBigInt(raw.total_repayment),
-    startTime: Number(raw.start_time ?? 0),
-    dueTime: Number(raw.due_time ?? 0),
-    status: tag(raw.status) as UILoan['status'],
-    amountRepaid: asBigInt(raw.amount_repaid),
+    id: v.id,
+    borrower: v.borrower,
+    principal: v.principal,
+    interestRate: v.interest_rate,
+    totalRepayment: v.total_repayment,
+    startTime: v.start_time,
+    dueTime: v.due_time,
+    status,
+    amountRepaid: v.amount_repaid,
   }
 }
 
@@ -218,28 +284,45 @@ export interface UITreasuryProposal {
  *  passes that same single boolean through rather than inventing a
  *  distinction the contract doesn't expose. */
 export function mapTreasuryProposal(raw: Record<string, unknown>, hasVoted = false): UITreasuryProposal {
-  const status = tag(raw.status)
+  const parsed = parseContract(treasuryProposalSchema, raw, 'TreasuryProposal')
+  if (!parsed.ok) {
+    return {
+      id: 0,
+      proposer: '',
+      title: 'Unknown proposal',
+      description: '',
+      amount: BigInt(0),
+      recipient: '',
+      status: 0,
+      votesFor: 0,
+      votesAgainst: 0,
+      creationTime: 0,
+      isPrivate: false,
+      hasVoted,
+    }
+  }
+  const v = parsed.data
   const code =
-    status === 'Executed'
+    v.status === 'Executed'
       ? 5
-      : status === 'Rejected'
+      : v.status === 'Rejected'
         ? 4
-        : status === 'ApprovedPendingDisbursement'
+        : v.status === 'ApprovedPendingDisbursement'
           ? PROPOSAL_STATUS_AWAITING_FUNDS
           : 2
-  const reason = String(raw.reason ?? '')
+  const reason = v.reason
   return {
-    id: Number(raw.id ?? 0),
-    proposer: String(raw.proposer ?? ''),
-    title: reason || `Treasury withdrawal #${Number(raw.id ?? 0)}`,
+    id: v.id,
+    proposer: v.proposer,
+    title: reason || `Treasury withdrawal #${v.id}`,
     description: reason,
-    amount: asBigInt(raw.amount),
-    recipient: String(raw.destination ?? ''),
+    amount: v.amount,
+    recipient: v.destination,
     status: code,
-    votesFor: Number(raw.for_votes ?? 0),
-    votesAgainst: Number(raw.against_votes ?? 0),
-    creationTime: Number(raw.created_at ?? 0),
-    isPrivate: !!raw.private,
+    votesFor: v.for_votes,
+    votesAgainst: v.against_votes,
+    creationTime: v.created_at,
+    isPrivate: v.private,
     hasVoted,
   }
 }

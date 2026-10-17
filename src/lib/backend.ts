@@ -384,7 +384,19 @@ async function get<T>(
     cleanup()
   }
   if (!res.ok) throw new BackendError(`Backend responded ${res.status}`, res.status)
-  const body: unknown = await res.json()
+  let body: unknown
+  try {
+    body = await res.json()
+  } catch (cause) {
+    // A proxy error page or an HTML 200 is not JSON; surfacing it as a
+    // BackendError keeps "the indexer changed shape" and "the indexer is
+    // broken" on the same code path instead of a raw SyntaxError (#363).
+    throw new BackendError(
+      `Backend response for ${path} was not valid JSON: ${
+        cause instanceof Error ? cause.message : String(cause)
+      }`
+    )
+  }
   // Every call site passes a validator; it was previously accepted as a third
   // argument and then dropped on the floor, so a drifted response shape was
   // cast straight into the caller's type (#306). Rejecting it here means the

@@ -57,6 +57,20 @@ describe('backend fetch wrappers', () => {
     await expect(backend.getStats()).rejects.toBeInstanceOf(BackendError)
   })
 
+  it('getStats rejects with a BackendError when the body is not valid JSON (#363)', async () => {
+    // A proxy error page can answer HTTP 200 with HTML; that must surface as a
+    // BackendError rather than a raw SyntaxError, so the consumer's error state
+    // stands in for "the indexer changed shape".
+    vi.mocked(fetch).mockResolvedValueOnce({
+      ok: true,
+      json: () => Promise.reject(new SyntaxError('Unexpected token < in JSON')),
+    } as unknown as Response)
+    await expect(backend.getStats()).rejects.toMatchObject({
+      name: 'BackendError',
+      status: null,
+    })
+  })
+
   it('aborts request when external signal is aborted', async () => {
     const controller = new AbortController()
     controller.abort(new Error('User aborted'))
