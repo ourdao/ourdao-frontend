@@ -262,6 +262,7 @@ OurDAO Frontend requires a Node.js server runtime for full functionality (API ro
 - Security headers configuration
 - Docker and Vercel deployment recipes
 - Build-time vs runtime variable differences
+- A step-by-step [mainnet deployment checklist](docs/DEPLOYMENT.md#mainnet-deployment-checklist) (testnet→mainnet switch, RPC provider choice, backend CORS pairing, version matching, and a post-deploy smoke test)
 
 Two runbooks cover what happens *around* a deploy:
 

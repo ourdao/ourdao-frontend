@@ -115,6 +115,88 @@ The app will be available at `http://localhost:3000` by default.
 
 **Important**: Changing `NEXT_PUBLIC_*` values requires a full rebuild and redeployment.
 
+## Mainnet deployment checklist
+
+The defaults in `.env.example` target public **testnet**. Going to production on
+**mainnet** means changing network config, pairing with the backend's CORS, and
+verifying everything matches before you announce it. Work top to bottom.
+
+### 1. Switch the network (testnet → mainnet)
+
+All three values change together — a mainnet contract id with a testnet passphrase
+signs against the wrong network. Because these are `NEXT_PUBLIC_*`, each change
+requires a **full rebuild** (see "Build-time vs Runtime Variables" above).
+
+| Variable | Testnet (default) | Mainnet |
+|----------|-------------------|---------|
+| `NEXT_PUBLIC_CONTRACT_ID` | _(empty / testnet `C…`)_ | the **mainnet** contract id (`C…`) |
+| `NEXT_PUBLIC_NETWORK_PASSPHRASE` | `Test SDF Network ; September 2015` | `Public Global Stellar Network ; September 2015` |
+| `NEXT_PUBLIC_SOROBAN_RPC_URL` | `https://soroban-testnet.stellar.org` | your mainnet RPC (see below) |
+
+### 2. Choose a mainnet RPC provider
+
+The public `https://soroban-rpc.mainnet.stellar.gateway.fm` / SDF endpoints are
+rate-limited and **not meant for production traffic**. For mainnet use a dedicated
+provider (e.g. Validation Cloud, Blockdaemon, QuickNode, or self-hosted Soroban RPC):
+
+- Pick a provider with an SLA and request quota that covers your expected read volume —
+  the app polls contract state, so budget for sustained reads, not just writes.
+- Must be served over **HTTPS**. Plain HTTP is rejected in production builds unless it
+  is loopback or `NEXT_PUBLIC_ALLOW_INSECURE_RPC=true` is set (see
+  `validateRpcEndpoint` in `src/lib/stellar.ts`) — do **not** set that in production.
+- If you hit rate limits you will see failing simulations/reads; scale the plan or add
+  a caching RPC proxy rather than lowering the app's poll frequency blindly.
+
+### 3. Pair CORS with the backend
+
+The frontend calls the OurDAO backend (`NEXT_PUBLIC_BACKEND_URL`) for loan history,
+aggregates, notifications and the event feed. The backend must allow the frontend's
+origin:
+
+- Set the backend's `CORS_ORIGIN` to the **exact** frontend origin you deploy to —
+  the same value as `NEXT_PUBLIC_SITE_URL` (scheme + host, no trailing slash),
+  e.g. `https://app.ourdao.io`.
+- A mismatch shows up as browser CORS errors and backend-derived data silently
+  degrading to empty (the UI fails soft — see `src/lib/backend.ts`), so verify this
+  explicitly rather than trusting the page to error.
+
+### 4. Confirm security headers
+
+The CSP, HSTS, `X-Frame-Options`, etc. are emitted by the Next.js server (see
+"Security Headers" above and `next.config.ts`). If you deploy behind a proxy or CDN,
+confirm it does not strip or override them, and that HSTS is served only over HTTPS.
+
+### 5. Match versions across frontend, contract and backend
+
+A contract redeploy that renames a variant or reorders arguments silently breaks the
+frontend. Before going live, confirm the three move together:
+
+- The **frontend** build points at the intended **contract id** for this release.
+- The **backend** indexes that same contract id / network.
+- If the contract surface changed, follow
+  [CONTRACT-REDPLOYMENT.md](CONTRACT-REDPLOYMENT.md) for what to update here and in
+  what order.
+
+### 6. Smoke test after deploy
+
+With the production build live, verify end to end:
+
+- [ ] The header network badge reads **Mainnet** and no wrong-network banner shows.
+- [ ] A read path renders real data (e.g. proposals/loans load, not the "not
+      configured" state).
+- [ ] Connect Freighter on mainnet and confirm no wrong-network warning.
+- [ ] One low-risk write (e.g. a vote or a small action) simulates and submits, and
+      the success toast links to the transaction on the explorer.
+- [ ] Backend-derived data (loan history, notifications) is present — if empty, re-check
+      `CORS_ORIGIN` (step 3) and `NEXT_PUBLIC_BACKEND_URL`.
+- [ ] Response headers include the CSP/HSTS from step 4 (`curl -sI https://your-domain`).
+
+### 7. Know your rollback path before you need it
+
+If the deploy is wrong, see [ROLLBACK.md](ROLLBACK.md) for turning a feature flag off,
+reverting to the last good build, or rolling forward — and what **cannot** be rolled
+back (on-chain state).
+
 ## After a deploy
 
 - **Something is wrong and you need to undo it:** see
