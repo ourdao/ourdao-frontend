@@ -187,6 +187,43 @@ export const isBackendMemberSummary = (value: unknown): value is BackendMemberSu
   )
 }
 
+// A row from GET /api/members — the raw `members` table (ourdao-backend). The
+// summary endpoint above is a per-member projection; this is the directory row,
+// so it carries the join/exit ledgers and the staked/contributed amounts rather
+// than the derived share and notification counts.
+export interface BackendMember {
+  address: string
+  joined_ledger: number | null
+  contribution: string
+  exited: boolean
+  exit_share: string | null
+  exited_ledger: number | null
+  pending_claimed: string
+  stake: string
+  has_active_loan: boolean
+  name: string | null
+  defaults_count: number
+  updated_at: string
+}
+
+export const isBackendMember = (value: unknown): value is BackendMember => {
+  if (!isRecord(value)) return false
+  return (
+    isString(value.address) &&
+    isNullableNumber(value.joined_ledger) &&
+    isString(value.contribution) &&
+    isBoolean(value.exited) &&
+    (value.exit_share === undefined || isNullableString(value.exit_share)) &&
+    isNullableNumber(value.exited_ledger) &&
+    isString(value.pending_claimed) &&
+    isString(value.stake) &&
+    isBoolean(value.has_active_loan) &&
+    (value.name === undefined || isNullableString(value.name)) &&
+    isNumber(value.defaults_count) &&
+    isString(value.updated_at)
+  )
+}
+
 export interface BackendEvent {
   id: string
   ledger: number
@@ -680,6 +717,16 @@ export const backend = {
       `/api/proposals/treasury/${id}/timeline`,
       [],
       arrayOf(isBackendTimelineEvent),
+      options
+    ),
+
+  // The active member directory. The contract keeps no queryable member list,
+  // so this is the only way to show who is in the DAO.
+  getMembers: (limit = 50, options?: BackendRequestOptions | AbortSignal) =>
+    get<BackendMember[]>(
+      `/api/members?limit=${limit}`,
+      [],
+      arrayOf(isBackendMember),
       options
     ),
 

@@ -446,3 +446,22 @@ export function useMemberActivity(address?: string | null, limit = 50) {
     refetch,
   }
 }
+
+/** The active member directory from the off-chain indexer. The contract keeps
+ *  no queryable member list, so this is the only source for a members page. */
+export function useMembers(limit = 50) {
+  const backendConfigured = isBackendConfigured()
+  const { data, isLoading, isError, refetch } = useQuery({
+    queryKey: queryKeys.members(limit),
+    enabled: backendConfigured,
+    queryFn: ({ signal }) => backend.getMembers(limit, { signal }),
+    refetchInterval: backendConfigured ? QUERY_REFRESH_INTERVAL_MS : false,
+    refetchIntervalInBackground: false,
+  })
+  return {
+    members: data ?? [],
+    isLoading,
+    isError,
+    refetch,
+  }
+}

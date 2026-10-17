@@ -71,6 +71,34 @@ describe('backend fetch wrappers', () => {
     })
   })
 
+  it('getMembers returns the active member directory (#395)', async () => {
+    const row = {
+      address: 'GAAA',
+      joined_ledger: 42,
+      contribution: '0',
+      exited: false,
+      exit_share: null,
+      exited_ledger: null,
+      pending_claimed: '0',
+      stake: '10000000000',
+      has_active_loan: false,
+      name: 'Alice',
+      defaults_count: 0,
+      updated_at: '2026-01-01T00:00:00Z',
+    }
+    vi.mocked(fetch).mockResolvedValueOnce(jsonResponse([row]))
+    await expect(backend.getMembers(10)).resolves.toEqual([row])
+    expect(fetch).toHaveBeenCalledWith(
+      `${CONFIGURED_URL}/api/members?limit=10`,
+      expect.objectContaining({ cache: 'no-store' })
+    )
+  })
+
+  it('getMembers rejects a row with a missing required field (#395)', async () => {
+    vi.mocked(fetch).mockResolvedValueOnce(jsonResponse([{ address: 'GAAA' }]))
+    await expect(backend.getMembers()).rejects.toBeInstanceOf(BackendError)
+  })
+
   it('aborts request when external signal is aborted', async () => {
     const controller = new AbortController()
     controller.abort(new Error('User aborted'))
