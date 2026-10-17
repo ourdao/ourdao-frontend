@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Report a security vulnerability
+    url: https://github.com/ourdao/ourdao-frontend/security/advisories/new
+    about: Do NOT open a public issue for security vulnerabilities. Use GitHub's private vulnerability reporting instead. See SECURITY.md.
+  - name: Question or usage help
+    url: https://github.com/ourdao/ourdao-frontend/blob/main/README.md
+    about: Setup, configuration, and usage questions are answered in the README and CONTRIBUTING guide before you open an issue.
