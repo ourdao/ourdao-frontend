@@ -5,17 +5,22 @@
 **Config:** `vitest.config.mts` (`provider: 'v8'`, reporters `text` +
 `json-summary` + `html`, excludes for tests / generated files / config).
 **CI:** `.github/workflows/ci.yml` `coverage` job installs
-`@vitest/coverage-v8@4.1.11` with `--no-save`, runs `npm run coverage`
+`@vitest/coverage-v8@5.0.5` with `--no-save`, runs `npm run coverage`
 (enforces the thresholds), publishes `coverage/coverage-summary.json` to the
 job output (`$GITHUB_STEP_SUMMARY`) and uploads `coverage/` as an artifact.
 **Thresholds:** `lines/functions/branches/statements: 40` — intentionally at
 initial-adoption level so the job ratchets rather than failing on adoption.
 Raise after the first green summary lands.
+**Per-module floors (#327):** `src/lib/dao-client.ts` (statements/branches 80)
+and `src/lib/wallet.tsx` (statements 80, branches 75) — the code that moves
+funds and gates every signature. Measured at the time of setting: dao-client
+86.9% / 85.4%, wallet 95.6% / 83.1%. The provider version must track the
+installed `vitest` version (a 4.x provider against vitest 5 crashes the run).
 
 ## How to read the report
 
 - `npm run coverage` locally (after `npm install --no-save
-  @vitest/coverage-v8@4.1.11`) prints a per-file table and writes
+  @vitest/coverage-v8@5.0.5`) prints a per-file table and writes
   `coverage/coverage-summary.json` + `coverage/index.html`.
 - In CI, the same summary is appended to the job output under
   “Coverage summary” with a per-file `<details>` block.

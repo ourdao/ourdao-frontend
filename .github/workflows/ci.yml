@@ -88,7 +88,7 @@ jobs:
           cache: npm
       - run: npm ci --ignore-scripts
       - name: Install V8 coverage provider (pinned to vitest version)
-        run: npm install --no-save @vitest/coverage-v8@4.1.11
+        run: npm install --no-save @vitest/coverage-v8@5.0.5
       - name: Run coverage (enforces thresholds in vitest.config.mts)
         run: npm run coverage
       - name: Publish coverage summary to job output

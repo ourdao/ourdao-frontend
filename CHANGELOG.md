@@ -20,6 +20,7 @@ report can name the entry below it came from. See
 ## [Unreleased]
 
 ### Added
+- Per-module coverage floors for `dao-client.ts` and `wallet.tsx`, tests for every `daoWrite` entrypoint and the wallet connect/restore/sign flows, and a coverage provider pin matching the installed vitest (#327, #328, #329).
 - Playwright end-to-end smoke test suite against mocked Soroban RPC and backend covering load, connect, register, request loan, and vote flows (#374).
 - Automated accessibility checks with documented known-issues allow-list for the shell, forms, and main pages at rest (#375).
 - Security vulnerability reporting policy in `SECURITY.md` linked from `CONTRIBUTING.md` (#376).
@@ -34,6 +35,7 @@ report can name the entry below it came from. See
 - Upgraded `@stellar/stellar-sdk` to `^17.1.0` and added migration plan and testnet smoke verification checklist (#383).
 
 ### Fixed
+- Admin add/remove/threshold/pause failures no longer surface as unhandled promise rejections, and the consensus threshold rejects non-integers before signing (#330).
 - Disabled misleading loan document encryption and access-permission controls,
   clarified that loan and IPFS data are public, and show the submitted amount
   in the loan review summary (#313).

@@ -54,6 +54,11 @@ export default defineConfig({
         functions: 40,
         branches: 40,
         statements: 40,
+        // Per-module floors for the code that moves funds and gates every
+        // signature (#327): a global figure invites gaming, so these modules
+        // are protected individually. Raise as coverage grows; never lower.
+        'src/lib/dao-client.ts': { statements: 80, branches: 80 },
+        'src/lib/wallet.tsx': { statements: 80, branches: 75 },
       },
     },
   },
