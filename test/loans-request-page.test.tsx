@@ -10,6 +10,13 @@ const mockToastError = vi.fn()
 let mockStats: Record<string, unknown> = { features: { documentStorage: true } }
 const mockUseLoanTerms = vi.fn()
 const NO_TERMS = { terms: null, isLoading: false, isError: false }
+// #392 — the page asks the contract whether the member may borrow before
+// showing the wizard. Mutable so a test can report an ineligible member.
+let mockEligibility: {
+  eligibility: { eligible: boolean; reason?: string; eligibleAt?: number | null }
+  isLoading: boolean
+  isError: boolean
+} = { eligibility: { eligible: true }, isLoading: false, isError: false }
 
 // Mutable so a test can put the wallet back into its pre-restore state, which
 // is what a hard refresh looks like for the first few renders (#307).
@@ -41,6 +48,9 @@ vi.mock('@/hooks/useDAO', () => ({
     isSuccess: false,
   }),
   useLoanTerms: (...args: unknown[]) => mockUseLoanTerms(...args),
+  useLoanEligibility: () => mockEligibility,
+  describeLoanIneligibility: (e: { eligible: boolean }) =>
+    e.eligible ? '' : 'Not eligible right now',
   useAttachDocument: () => ({
     attach: (...args: unknown[]) => mockAttach(...args),
     isPending: false,
@@ -76,6 +86,7 @@ describe('RequestLoanPage', () => {
     mockRequestLoan.mockResolvedValue(42)
     mockAttach.mockResolvedValue({ hash: 'txhash' })
     mockUseLoanTerms.mockReturnValue(NO_TERMS)
+    mockEligibility = { eligibility: { eligible: true }, isLoading: false, isError: false }
   })
   afterEach(() => vi.useRealTimers())
 
@@ -293,5 +304,61 @@ describe('RequestLoanPage', () => {
     // The loan itself still succeeded — the page still reports success and
     // schedules the redirect rather than treating the whole submission as failed.
     await waitFor(() => expect(mockToastSuccess).toHaveBeenCalledWith('Loan request submitted successfully!'))
+  })
+
+  // #392 — the wizard used to check only `hasActiveLoan`, so a member who did
+  // not qualify completed every step and failed on-chain at submit.
+  describe('loan eligibility pre-check (#392)', () => {
+    it('blocks the wizard with an explanatory card when the contract says the member is not eligible', () => {
+      mockEligibility = {
+        eligibility: { eligible: false, reason: 'too-new', eligibleAt: null },
+        isLoading: false,
+        isError: false,
+      }
+      render(<RequestLoanPage />)
+
+      expect(screen.getByText('Not eligible to request a loan yet')).toBeInTheDocument()
+      expect(screen.queryByLabelText(/Loan Amount/)).not.toBeInTheDocument()
+      expect(screen.queryByRole('button', { name: /Submit Request/ })).not.toBeInTheDocument()
+    })
+
+    it('says when the member becomes eligible for a waiting-period blocker', () => {
+      mockEligibility = {
+        eligibility: { eligible: false, reason: 'cooling-down', eligibleAt: Math.floor(Date.now() / 1000) + 3600 },
+        isLoading: false,
+        isError: false,
+      }
+      render(<RequestLoanPage />)
+
+      expect(screen.getByText(/You can request a loan after/)).toBeInTheDocument()
+    })
+
+    it('proceeds to the wizard for an eligible member', async () => {
+      render(<RequestLoanPage />)
+
+      expect(await screen.findByLabelText(/Loan Amount/)).toBeInTheDocument()
+    })
+
+    it('shows a skeleton while eligibility is still being read', () => {
+      mockEligibility = {
+        eligibility: { eligible: true },
+        isLoading: true,
+        isError: false,
+      }
+      render(<RequestLoanPage />)
+
+      expect(screen.queryByLabelText(/Loan Amount/)).not.toBeInTheDocument()
+    })
+
+    it('does not block the wizard when the eligibility read fails', async () => {
+      mockEligibility = {
+        eligibility: { eligible: true },
+        isLoading: false,
+        isError: true,
+      }
+      render(<RequestLoanPage />)
+
+      expect(await screen.findByLabelText(/Loan Amount/)).toBeInTheDocument()
+    })
   })
 })

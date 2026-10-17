@@ -12,7 +12,7 @@ export function calculateVotingWeight(stakeStroops: bigint, decimals: number = 7
 }
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { useWallet } from '@/lib/wallet'
 import { CONTRACT_ID, isContractConfigured } from '@/lib/stellar'
@@ -202,6 +202,105 @@ export function useLoanTerms(amount: bigint | null): {
     isLoading: amount !== null && amount > BigInt(0) && (!settled || (enabled && isLoading)),
     isError: settled && enabled && isError,
   }
+}
+
+// --- Loan eligibility ---------------------------------------------------------
+
+/** Why the contract's `is_eligible_for_loan` said no. `unknown` covers the
+ *  cases the view's boolean can't explain (a member who isn't active, or a
+ *  treasury ratio the caller has to check against its own amount). */
+export type LoanIneligibilityReason = 'active-loan' | 'too-new' | 'cooling-down' | 'unknown'
+
+export type LoanEligibility =
+  | { eligible: true }
+  | { eligible: false; reason: LoanIneligibilityReason; eligibleAt: number | null }
+
+interface EligibilityData {
+  eligible: boolean
+  policy: Record<string, unknown> | null
+  member: Record<string, unknown> | null
+}
+
+/**
+ * Derive *why* a member is not eligible, from the same fields the contract's
+ * `is_eligible_for_loan` checks (ourdao-contracts loans.rs):
+ *   - an active loan,
+ *   - `now - join_time < min_membership_duration`,
+ *   - `last_loan_time != 0 && now - last_loan_time < cooldown_period`.
+ * `eligibleAt` is the unix second the member becomes eligible, when the reason
+ * is a waiting period.
+ */
+export function deriveLoanEligibility(data: EligibilityData | undefined): LoanEligibility {
+  if (!data || data.eligible) return { eligible: true }
+  const now = Math.floor(Date.now() / 1000)
+  const policy = data.policy ?? {}
+  const member = data.member ?? {}
+
+  if (member.has_active_loan) return { eligible: false, reason: 'active-loan', eligibleAt: null }
+
+  const joinTime = Number(member.join_time ?? 0)
+  const minMembershipDuration = Number(policy.min_membership_duration ?? 0)
+  if (joinTime > 0 && minMembershipDuration > 0 && now - joinTime < minMembershipDuration) {
+    return { eligible: false, reason: 'too-new', eligibleAt: joinTime + minMembershipDuration }
+  }
+
+  const lastLoanTime = Number(member.last_loan_time ?? 0)
+  const cooldownPeriod = Number(policy.cooldown_period ?? 0)
+  if (lastLoanTime > 0 && cooldownPeriod > 0 && now - lastLoanTime < cooldownPeriod) {
+    return { eligible: false, reason: 'cooling-down', eligibleAt: lastLoanTime + cooldownPeriod }
+  }
+
+  return { eligible: false, reason: 'unknown', eligibleAt: null }
+}
+
+/** One-line explanation for the wizard's blocking card. */
+export function describeLoanIneligibility(eligibility: LoanEligibility): string {
+  if (eligibility.eligible) return ''
+  switch (eligibility.reason) {
+    case 'active-loan':
+      return 'You already have an active loan. Repay it before requesting another.'
+    case 'too-new':
+      return 'New members must be part of the DAO for a minimum period before they can request a loan.'
+    case 'cooling-down':
+      return 'There is a cooldown between loans. You can request again once it has passed.'
+    default:
+      return 'The contract does not consider you eligible to request a loan right now.'
+  }
+}
+
+/**
+ * Whether the connected member may request a loan *right now*, checked against
+ * the contract's own `is_eligible_for_loan` instead of the page's single
+ * `hasActiveLoan` flag. The wizard used to let a member fill in all four steps,
+ * upload documents and sign, then fail on-chain with a generic error (#392).
+ *
+ * While the read is in flight `eligibility` is `{ eligible: true }`, so the
+ * caller must gate on `isLoading` rather than on the value alone.
+ */
+export function useLoanEligibility(): {
+  eligibility: LoanEligibility
+  isLoading: boolean
+  isError: boolean
+} {
+  const { address } = useWallet()
+  const enabled = !!address && isContractConfigured()
+  const { data, isLoading, isError } = useQuery({
+    queryKey: address ? queryKeys.loanEligibility(address) : queryKeys.loanEligibilityDisabled(),
+    enabled,
+    queryFn: async (): Promise<EligibilityData> => {
+      const [eligible, policy, member] = await Promise.all([
+        daoRead.isEligibleForLoan(address!),
+        daoRead.getLoanPolicy().catch(() => null),
+        daoRead.getMember(address!).catch(() => null),
+      ])
+      // `read` resolves to null when no contract is configured; that is not a
+      // "no" from the contract, so don't block on it.
+      return { eligible: eligible ?? true, policy, member }
+    },
+  })
+
+  const eligibility = useMemo(() => deriveLoanEligibility(data), [data])
+  return { eligibility, isLoading: enabled && isLoading, isError }
 }
 
 export function useDAOStats(): ExtendedStats {

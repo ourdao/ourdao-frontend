@@ -11,8 +11,16 @@ import {
   ExclamationTriangleIcon,
   DocumentIcon
 } from '@/lib/icons'
-import { useDAOStats, useUserData, useLoanRequest, useAttachDocument, useLoanTerms } from '@/hooks/useDAO'
-import { parseToken, formatToken, computeMaxLoan, formatThreshold, formatDuration } from '@/lib/utils'
+import {
+  useDAOStats,
+  useUserData,
+  useLoanRequest,
+  useAttachDocument,
+  useLoanTerms,
+  useLoanEligibility,
+  describeLoanIneligibility,
+} from '@/hooks/useDAO'
+import { parseToken, formatToken, computeMaxLoan, formatThreshold, formatDuration, formatDate } from '@/lib/utils'
 import dynamic from 'next/dynamic'
 
 // Dynamic import to avoid SSR issues with IPFS
@@ -47,6 +55,8 @@ export default function RequestLoanPage() {
   // anything, so a hard refresh no longer bounces a connected member to `/`
   // while `isConnected` is still its temporary initial `false`.
   const { isResolving } = useRequireMember({ userData })
+  // The contract's own eligibility gate, checked before the wizard starts (#392).
+  const { eligibility, isLoading: eligibilityLoading } = useLoanEligibility()
   const { requestLoan, isPending: isRequestPending } = useLoanRequest()
   const { attach, isPending: isAttachPending } = useAttachDocument()
 
@@ -473,6 +483,53 @@ export default function RequestLoanPage() {
           </CardContent>
         </Card>
       </div>
+    )
+  }
+
+  // While the eligibility read is in flight we don't yet know whether this
+  // member may borrow, so show the form's shape rather than guessing (#392).
+  if (eligibilityLoading) {
+    return (
+      <>
+        <PageHeader title="Request a Loan" subtitle="Tell the DAO what you need" />
+        <div className="max-w-2xl mx-auto">
+          <Card>
+            <CardContent className="p-8">
+              <FormSkeleton fields={2} showSubmit={false} />
+            </CardContent>
+          </Card>
+        </div>
+      </>
+    )
+  }
+
+  // Block the wizard early with the reason and, where the blocker is a waiting
+  // period, when the member becomes eligible. Without this a member who does
+  // not qualify completes every step, uploads documents and signs, then fails
+  // on-chain with a generic error.
+  if (!eligibility.eligible) {
+    return (
+      <>
+        <PageHeader title="Request a Loan" subtitle="Tell the DAO what you need" />
+        <div className="max-w-2xl mx-auto">
+          <Card className="border border-amber-200 bg-amber-50 dark:border-amber-900 dark:bg-amber-950/30">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <ExclamationTriangleIcon className="h-5 w-5 text-amber-600 dark:text-amber-400" />
+                Not eligible to request a loan yet
+              </CardTitle>
+              <CardDescription>{describeLoanIneligibility(eligibility)}</CardDescription>
+            </CardHeader>
+            {eligibility.eligibleAt != null && (
+              <CardContent>
+                <p className="text-sm text-amber-800 dark:text-amber-300">
+                  You can request a loan after {formatDate(eligibility.eligibleAt)}.
+                </p>
+              </CardContent>
+            )}
+          </Card>
+        </div>
+      </>
     )
   }
 
