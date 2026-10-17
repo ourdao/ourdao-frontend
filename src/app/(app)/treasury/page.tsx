@@ -38,7 +38,7 @@ import { LoadError } from '@/components/LoadError'
 import { useAnnounceLoad } from '@/lib/useAnnounceLoad'
 import { asBigInt } from '@/lib/dao-mappers'
 import { formatToken, parseToken } from '@/lib/utils'
-import { formatStellarAddress } from '@/lib/stellar'
+import { AddressLink } from '@/components/AddressLink'
 import { PROPOSAL_STATUS_LABELS, PROPOSAL_STATUS_AWAITING_FUNDS } from '@/constants'
 import { VirtualizedList } from '@/components/ui/virtualized-list'
 
@@ -71,7 +71,7 @@ function TreasuryProposalRow({
             )}
           </div>
           <p className="mt-0.5 text-sm text-muted-foreground">
-            {token.format(p.amount)} → {formatStellarAddress(p.recipient)}
+            {token.format(p.amount)} → <AddressLink address={p.recipient} />
           </p>
           <p className="mt-1 text-xs text-muted-foreground">
             For {p.votesFor} · Against {p.votesAgainst}
@@ -327,7 +327,7 @@ export default function TreasuryPage() {
             <div className="flex gap-2">
               <Button
                 onClick={handleStake}
-                disabled={!userData.isMember || staking || !amount || hasInsufficientStakeBalance}
+                disabled={!userData.isMember || staking || !amount || hasInsufficientStakeBalance || stats.isPaused}
                 className="flex-1"
               >
                 <Upload className="mr-2 h-4 w-4" />
@@ -336,7 +336,7 @@ export default function TreasuryPage() {
               <Button
                 variant="outline"
                 onClick={handleUnstake}
-                disabled={!userData.isMember || staking || !amount}
+                disabled={!userData.isMember || staking || !amount || stats.isPaused}
                 className="flex-1"
               >
                 <Download className="mr-2 h-4 w-4" />
@@ -430,7 +430,7 @@ export default function TreasuryPage() {
                   <TreasuryProposalRow
                     proposal={p}
                     canVote={canVote}
-                    voting={voting}
+                    voting={voting || stats.isPaused}
                     onVote={voteOnTreasury}
                   />
                 )}

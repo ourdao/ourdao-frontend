@@ -13,12 +13,12 @@ import {
   InformationCircleIcon,
   CheckCircleIcon,
 } from '@/lib/icons'
-import { useUserData, useExitDao, useStake } from '@/hooks/useDAO'
+import { useUserData, useExitDao, useStake, useDAOStats } from '@/hooks/useDAO'
 import { useRequireMember } from '@/hooks/useRequireMember'
 import { LoadError } from '@/components/LoadError'
 import { useAnnounceLoad } from '@/lib/useAnnounceLoad'
 import { formatToken } from '@/lib/utils'
-import { formatStellarAddress } from '@/lib/stellar'
+import { AddressLink } from '@/components/AddressLink'
 import { MEMBER_STATUS_LABELS } from '@/constants'
 import { LoadingSpinner } from '@/components/ui/skeleton'
 
@@ -26,6 +26,7 @@ export default function ExitPage() {
   const userData = useUserData()
   const myStake = useStake()
   const { exitDao, isPending, isSuccess } = useExitDao()
+  const { isPaused } = useDAOStats()
   const { isResolving } = useRequireMember({ userData })
   useAnnounceLoad('Exit DAO', userData.isLoading, !!userData.isError)
 
@@ -189,9 +190,9 @@ export default function ExitPage() {
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-sm text-muted-foreground">Member</p>
-                  <p className="font-medium text-foreground">
-                    {formatStellarAddress(userData.address || '')}
-                  </p>
+                  <div className="font-medium text-foreground">
+                    <AddressLink address={userData.address || ''} />
+                  </div>
                 </div>
                 <Badge variant={userData.member?.status === 1 ? 'default' : 'secondary'}>
                   {userData.member
@@ -295,7 +296,7 @@ export default function ExitPage() {
 
               <Button
                 onClick={handleExit}
-                disabled={!confirmed || isPending || hasActiveLoan}
+                disabled={!confirmed || isPending || hasActiveLoan || isPaused}
                 variant="destructive"
                 size="lg"
                 className="w-full"

@@ -34,7 +34,7 @@ import {
 import { LoadError } from '@/components/LoadError'
 import { useAnnounceLoad } from '@/lib/useAnnounceLoad'
 import { formatToken, formatThreshold } from '@/lib/utils'
-import { formatStellarAddress } from '@/lib/stellar'
+import { AddressLink } from '@/components/AddressLink'
 import { PROPOSAL_STATUS_LABELS, PROPOSAL_STATUS_AWAITING_FUNDS } from '@/constants'
 import { VirtualizedList } from '@/components/ui/virtualized-list'
 
@@ -115,7 +115,7 @@ function LoanProposalRow({
         </Link>
         <p className="mt-0.5 text-sm text-muted-foreground">
           {formatToken(p.amount)} · {(p.interestRate / 100).toFixed(1)}% ·{' '}
-          {formatStellarAddress(p.borrower)}
+          <AddressLink address={p.borrower} />
         </p>
         <p className="mt-1 text-xs text-muted-foreground">
           For {p.votesFor} · Against {p.votesAgainst}
@@ -163,7 +163,7 @@ function TreasuryProposalRow({
           )}
         </div>
         <p className="mt-0.5 text-sm text-muted-foreground">
-          {formatToken(p.amount)} → {formatStellarAddress(p.recipient)}
+          {formatToken(p.amount)} → <AddressLink address={p.recipient} />
         </p>
         <p className="mt-1 text-xs text-muted-foreground">
           For {p.votesFor} · Against {p.votesAgainst}
@@ -335,7 +335,7 @@ export default function GovernancePage() {
                     <LoanProposalRow
                       proposal={p}
                       canVote={userData.isMember}
-                      votingLoan={votingLoan}
+                      votingLoan={votingLoan || stats.isPaused}
                       onVote={voteOnProposal}
                     />
                   )}
@@ -385,7 +385,7 @@ export default function GovernancePage() {
                     <TreasuryProposalRow
                       proposal={p}
                       canVote={userData.isMember}
-                      votingTreasury={votingTreasury}
+                      votingTreasury={votingTreasury || stats.isPaused}
                       onVote={voteOnTreasury}
                     />
                   )}

@@ -15,6 +15,7 @@ import {
   CheckCircle,
 } from 'lucide-react'
 import { PageHeader } from '@/components/PageHeader'
+import { AddressLink } from '@/components/AddressLink'
 import { DocumentHistory } from '@/components/DocumentHistory'
 import { ProposalTimeline } from '@/components/ProposalTimeline'
 import {
@@ -23,6 +24,7 @@ import {
   useTreasuryVoting,
   useProposalDocument,
   useToken,
+  useDAOStats,
 } from '@/hooks/useDAO'
 import { formatToken } from '@/lib/utils'
 import { PROPOSAL_STATUS_LABELS, PROPOSAL_STATUS_AWAITING_FUNDS } from '@/constants'
@@ -36,6 +38,7 @@ export default function TreasuryProposalDetailPage() {
   const token = useToken()
   const { proposal, isLoading, isError, hasVoted, refetch } = useTreasuryProposal(proposalId)
   const { voteOnTreasury, isPending: isVoting } = useTreasuryVoting()
+  const { isPaused } = useDAOStats()
   const { cid: documentCid } = useProposalDocument('Treasury', proposalId)
 
   if (isLoading) {
@@ -142,9 +145,9 @@ export default function TreasuryProposalDetailPage() {
                   <p className="text-sm font-mono text-foreground mt-1 break-all" title={proposal.recipient}>
                     {proposal.recipient}
                   </p>
-                  <p className="text-xs text-muted-foreground mt-1">
-                    Short: {formatStellarAddress(proposal.recipient)}
-                  </p>
+                  <div className="text-xs text-muted-foreground mt-1">
+                    <AddressLink address={proposal.recipient} />
+                  </div>
                 </div>
               </div>
 
@@ -255,7 +258,7 @@ export default function TreasuryProposalDetailPage() {
                     <div className="flex gap-2">
                       <Button
                         className="flex-1 gap-2"
-                        disabled={isVoting}
+                        disabled={isVoting || isPaused}
                         onClick={async () => {
                           await voteOnTreasury(proposal.id, true)
                           refetch()
@@ -267,7 +270,7 @@ export default function TreasuryProposalDetailPage() {
                       <Button
                         variant="outline"
                         className="flex-1 gap-2 text-destructive border-destructive/30 hover:bg-destructive/10"
-                        disabled={isVoting}
+                        disabled={isVoting || isPaused}
                         onClick={async () => {
                           await voteOnTreasury(proposal.id, false)
                           refetch()

@@ -32,7 +32,7 @@ import {
 } from '@/hooks/useDAO'
 import { useNow } from '@/hooks/useNow'
 import { formatToken, formatDate, calculatePercentage, parseToken } from '@/lib/utils'
-import { formatStellarAddress } from '@/lib/stellar'
+import { AddressLink } from '@/components/AddressLink'
 import { PROPOSAL_STATUS_LABELS, PROPOSAL_STATUS_AWAITING_FUNDS, IPFS_GATEWAY } from '@/constants'
 import toast from 'react-hot-toast'
 import { PageHeader } from '@/components/PageHeader'
@@ -43,7 +43,7 @@ export default function LoanDetailsPage() {
   const params = useParams()
   const router = useRouter()
   const userData = useUserData()
-  const { activeMembers } = useDAOStats()
+  const { activeMembers, isPaused } = useDAOStats()
   const { voteOnProposal, isPending: isVoting } = useVoting()
   const { repayLoan, repayLoanPartial, isPending: isRepaying } = useLoanRepayment()
   const { markLoanDefaulted, isPending: isMarkingDefaulted } = useMarkLoanDefaulted()
@@ -292,7 +292,7 @@ export default function LoanDetailsPage() {
 
                 <div className="flex justify-between text-sm">
                   <span className="text-muted-foreground">Borrower</span>
-                  <span className="font-medium text-foreground">{formatStellarAddress(proposal.borrower)}</span>
+                  <AddressLink address={proposal.borrower} className="font-medium text-foreground" />
                 </div>
 
                 {/* Voting Progress */}
@@ -364,7 +364,7 @@ export default function LoanDetailsPage() {
                   <div className="flex space-x-4">
                     <Button
                       onClick={() => handleVote(true)}
-                      disabled={isVoting}
+                      disabled={isVoting || isPaused}
                       className="flex-1 bg-green-600 hover:bg-green-700"
                     >
                       <HandThumbUpIcon className="h-4 w-4 mr-2" />
@@ -372,7 +372,7 @@ export default function LoanDetailsPage() {
                     </Button>
                     <Button
                       onClick={() => handleVote(false)}
-                      disabled={isVoting}
+                      disabled={isVoting || isPaused}
                       variant="outline"
                       className="flex-1 text-red-600 border-red-300 hover:bg-red-50 dark:text-red-400 dark:border-red-800 dark:hover:bg-red-950/30"
                     >
@@ -469,7 +469,7 @@ export default function LoanDetailsPage() {
                           </div>
                           <Button
                             onClick={handleMarkDefaulted}
-                            disabled={isMarkingDefaulted}
+                            disabled={isMarkingDefaulted || isPaused}
                             variant="outline"
                             className="w-full text-red-600 border-red-300 hover:bg-red-50 dark:text-red-400 dark:border-red-800 dark:hover:bg-red-950/30"
                           >
@@ -609,7 +609,7 @@ export default function LoanDetailsPage() {
                         />
                         <Button
                           size="sm"
-                          disabled={attaching || !cidInput.trim()}
+                          disabled={attaching || !cidInput.trim() || isPaused}
                           onClick={async () => {
                             try {
                               await attach('Loan', loanId, cidInput)

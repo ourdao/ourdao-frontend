@@ -20,7 +20,7 @@ import { useRequireMember } from '@/hooks/useRequireMember'
 import { LoadError } from '@/components/LoadError'
 import { useAnnounceLoad } from '@/lib/useAnnounceLoad'
 import { formatToken, formatDate } from '@/lib/utils'
-import { formatStellarAddress } from '@/lib/stellar'
+import { AddressLink } from '@/components/AddressLink'
 import { MEMBER_STATUS_LABELS, NON_MEMBER_LABEL } from '@/constants'
 import toast from 'react-hot-toast'
 import { useIsMobile, useResponsiveCardLayout } from '@/lib/responsive'
@@ -203,7 +203,7 @@ export default function DashboardPage() {
                   </div>
                   <div>
                     <h3 className="text-lg font-semibold text-foreground">
-                      {formatStellarAddress(userData.address || '')}
+                      <AddressLink address={userData.address || ''} />
                     </h3>
                     <p className="text-sm text-muted-foreground">
                       Status: {userData.member ? MEMBER_STATUS_LABELS[userData.member.status] : NON_MEMBER_LABEL}
@@ -313,7 +313,7 @@ export default function DashboardPage() {
                     </div>
                     <Button 
                       onClick={handleClaimRewards} 
-                      disabled={userData.pendingRewards === BigInt(0) || isPending}
+                      disabled={userData.pendingRewards === BigInt(0) || isPending || stats.isPaused}
                       size="sm"
                     >
                       {isPending ? 'Claiming...' : 'Claim'}
@@ -327,7 +327,7 @@ export default function DashboardPage() {
                     </div>
                     <Button 
                       onClick={handleClaimYield} 
-                      disabled={userData.pendingYield === BigInt(0) || isPending}
+                      disabled={userData.pendingYield === BigInt(0) || isPending || stats.isPaused}
                       variant="outline"
                       size="sm"
                     >
