@@ -510,7 +510,7 @@ export default function RequestLoanPage() {
                   <Button
                     type="submit"
                     loading={isPending}
-                    disabled={userData.hasActiveLoan || !formData.amount}
+                    disabled={userData.hasActiveLoan || !formData.amount || stats.isPaused}
                     className="min-w-[120px]"
                   >
                     {isPending ? 'Submitting...' : 'Submit Request'}

@@ -18,7 +18,7 @@ import {
   InformationCircleIcon,
   ExclamationTriangleIcon,
 } from '@/lib/icons'
-import { useUserData, useProposeTreasury } from '@/hooks/useDAO'
+import { useUserData, useProposeTreasury, useDAOStats } from '@/hooks/useDAO'
 import { parseToken } from '@/lib/utils'
 import { compactErrors, positiveTokenAmount, required, stellarAddress, type FieldError } from '@/lib/form-validation'
 import { FormErrorSummary } from '@/components/FormErrorSummary'
@@ -28,6 +28,7 @@ export default function CreateProposalPage() {
   const router = useRouter()
   const userData = useUserData()
   const { propose, isPending } = useProposeTreasury()
+  const { isPaused } = useDAOStats()
 
   const [form, setForm] = useState({
     amount: '',
@@ -199,7 +200,7 @@ export default function CreateProposalPage() {
                 >
                   Cancel
                 </Button>
-                <Button type="submit" disabled={isPending}>
+                <Button type="submit" disabled={isPending || isPaused}>
                   {isPending ? 'Submitting…' : 'Create Proposal'}
                 </Button>
               </div>

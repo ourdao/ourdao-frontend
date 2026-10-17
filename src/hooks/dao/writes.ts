@@ -10,6 +10,14 @@ import { daoWrite, InvokeError, TransactionPendingError, watchTransaction, type 
 import { queryKeys } from '@/lib/query-keys'
 import { announce } from '@/lib/announce'
 import { reportError } from '@/lib/error-reporting'
+import { useDAOStats } from './reads'
+
+// Issue #393: while the DAO is paused the contract rejects every state-changing
+// call except loan repayment. Blocking those writes here — before the Freighter
+// prompt — means a member gets this plain message instead of signing and then
+// hitting a raw `Paused` simulation error.
+const PAUSED_WRITE_MESSAGE =
+  'The DAO is paused — only loan repayments are allowed right now. Try again once it is unpaused.'
 
 // Write-status toasts are visual only. Status is announced by <LiveAnnouncer>
 // (src/lib/announce.ts): a toast is inserted with its content already in it,
@@ -30,6 +38,7 @@ type OptimisticUpdate = {
  */
 export function useWriteAction() {
   const { address, signXDR, isConnected, networkMismatch } = useWallet()
+  const { isPaused } = useDAOStats()
   const queryClient = useQueryClient()
   const [isPending, setPending] = useState(false)
   const [isSuccess, setSuccess] = useState(false)
@@ -60,12 +69,21 @@ export function useWriteAction() {
       label: string,
       fn: (w: ReturnType<typeof daoWrite>) => Promise<InvokeResult>,
       invalidates: QueryKey[] = [],
-      optimisticUpdates: OptimisticUpdate[] = []
+      optimisticUpdates: OptimisticUpdate[] = [],
+      options: { allowWhenPaused?: boolean } = {}
     ) => {
       if (!isConnected || !address) {
         toast.error('Connect your wallet first')
         announce('Connect your wallet first.', 'assertive')
         throw new Error('Wallet not connected')
+      }
+      // Issue #393: the contract blocks every write except loan repayment while
+      // paused. Stop non-repayment writes here, before the signer prompt, so the
+      // member sees a friendly message rather than a raw simulation failure.
+      if (isPaused && !options.allowWhenPaused) {
+        toast.error(PAUSED_WRITE_MESSAGE)
+        announce(PAUSED_WRITE_MESSAGE, 'assertive')
+        throw new Error(PAUSED_WRITE_MESSAGE)
       }
       // Issue #241: block writes while the wallet is on the wrong network,
       // before any optimistic update or signer call, so a mismatched member
@@ -237,10 +255,10 @@ export function useWriteAction() {
         toastIdRef.current = null
       }
     },
-    [address, isConnected, networkMismatch, signXDR, queryClient]
+    [address, isConnected, networkMismatch, isPaused, signXDR, queryClient]
   )
 
-  return { run, isPending, isSuccess, error, isRetryable, address, cancelSignature, networkMismatch }
+  return { run, isPending, isSuccess, error, isRetryable, address, cancelSignature, networkMismatch, isPaused }
 }
 
 export function useMemberRegistration() {
@@ -290,6 +308,9 @@ export function useVoting() {
 
 export function useLoanRepayment() {
   const { run, isPending, isSuccess, error, address, cancelSignature } = useWriteAction()
+  // Repayment stays available while the DAO is paused — the contract allows it,
+  // so each run() opts past the paused guard (#393).
+  const REPAY_WHEN_PAUSED = { allowWhenPaused: true } as const
   // A repayment changes the loan on-chain, the member's derived share/yield in
   // `userData`, and the indexer-backed `userLoans` history that both the loans
   // page and the "you already have an active loan" guard read — so all three
@@ -306,9 +327,9 @@ export function useLoanRepayment() {
   const repayLoan = (loanId: number, amount?: bigint) => {
     if (amount !== undefined) {
       if (amount <= BigInt(0)) throw new Error('Repayment amount must be greater than zero')
-      return run('Repaying loan', (w) => w.repayLoanPartial(loanId, amount), repayInvalidates(loanId))
+      return run('Repaying loan', (w) => w.repayLoanPartial(loanId, amount), repayInvalidates(loanId), [], REPAY_WHEN_PAUSED)
     }
-    return run('Repaying loan', (w) => w.repayLoan(loanId), repayInvalidates(loanId))
+    return run('Repaying loan', (w) => w.repayLoan(loanId), repayInvalidates(loanId), [], REPAY_WHEN_PAUSED)
   }
   const repayLoanPartial = (loanId: number, amount: bigint) => {
     if (amount <= BigInt(0)) throw new Error('Repayment amount must be greater than zero')
@@ -317,7 +338,7 @@ export function useLoanRepayment() {
     // visibly broke — but a future edit to the factory would have silently
     // desynced this hook from the reads that use it, and repayment would stop
     // refreshing the loan. The factory is the single source of truth (#308).
-    return run('Repaying loan', (w) => w.repayLoanPartial(loanId, amount), repayInvalidates(loanId))
+    return run('Repaying loan', (w) => w.repayLoanPartial(loanId, amount), repayInvalidates(loanId), [], REPAY_WHEN_PAUSED)
   }
   return { repayLoan, repayLoanPartial, isPending, error, isSuccess, cancelSignature }
 }

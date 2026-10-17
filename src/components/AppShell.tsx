@@ -192,6 +192,15 @@ export function AppShell({ children }: AppShellProps) {
         </div>
       )}
 
+      {stats.isPaused && (
+        <div data-testid="dao-paused-banner" role="status" className="flex items-center gap-2 border-b border-red-200 bg-red-50 px-4 py-2.5 text-sm text-red-800 dark:border-red-900 dark:bg-red-950/30 dark:text-red-300 sm:px-6">
+          <TriangleAlert className="h-5 w-5 shrink-0 text-red-600 dark:text-red-400" />
+          <span>
+            The DAO is currently <strong>paused</strong>. All actions are blocked except loan repayments until an admin unpauses it.
+          </span>
+        </div>
+      )}
+
       {stats.indexerStale && (
         <div data-testid="indexer-stale-banner" className="flex items-center gap-2 border-b border-amber-200 bg-amber-50 px-4 py-2.5 text-sm text-amber-800 dark:border-amber-900 dark:bg-amber-950/30 dark:text-amber-300 sm:px-6">
           <TriangleAlert className="h-5 w-5 shrink-0 text-amber-600 dark:text-amber-400" />
