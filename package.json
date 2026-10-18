@@ -23,7 +23,8 @@
     "lhci": "lhci autorun",
     "knip": "knip --no-exit-code",
     "knip:baseline": "node scripts/knip-baseline.mjs",
-    "knip:check": "knip --reporter json | node scripts/knip-check.mjs knip-baseline.json"
+    "knip:check": "knip --reporter json | node scripts/knip-check.mjs knip-baseline.json",
+    "format:check": "prettier --check ."
   },
   "dependencies": {
     "@radix-ui/react-avatar": "^1.2.6",
@@ -51,6 +52,8 @@
   },
   "devDependencies": {
     "@lhci/cli": "^0.14.0",
+    "prettier": "^3.4.2",
+    "prettier-plugin-tailwindcss": "^0.6.11",
     "@playwright/test": "^1.63.0",
     "@tailwindcss/postcss": "^4.3.3",
     "@testing-library/dom": "^10.4.2",
