@@ -97,8 +97,8 @@ The following are **not** in scope for this repository:
 
 This repository implements several security controls:
 
-- **Content Security Policy (CSP):** Enforced via middleware with per-request nonces for `script-src`, blocking inline script injection. See `src/middleware.ts`.
-- **HTTP Security Headers:** `Strict-Transport-Security`, `X-Content-Type-Options`, `Referrer-Policy`, `X-Frame-Options`, `Permissions-Policy`, `Cross-Origin-Opener-Policy` — see `src/middleware.ts`.
+- **Content Security Policy (CSP):** Enforced via the Next.js proxy with per-request nonces for `script-src`, blocking inline script injection. See `src/proxy.ts`.
+- **HTTP Security Headers:** `Strict-Transport-Security`, `X-Content-Type-Options`, `Referrer-Policy`, `X-Frame-Options`, `Permissions-Policy`, `Cross-Origin-Opener-Policy` — see `src/proxy.ts`.
 - **No custody:** The app never holds private keys. Signing happens in Freighter.
 - **Server-only secrets:** API credentials (`PINATA_JWT`) never appear in client bundles.
 - **Dependency auditing:** Automated `audit-ci` runs on every PR at moderate-and-above threshold — see `.github/workflows/ci.yml` and `audit-ci.jsonc`.

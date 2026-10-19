@@ -27,7 +27,7 @@ number:
 | Error codes | `CONTRACT_ERROR_MESSAGES` in `src/lib/contract-errors.ts` | A member signs a transaction that fails and sees "An unexpected contract error occurred" instead of what actually went wrong |
 | Event symbols | `EVENT_LABELS` in `src/lib/dao-mappers.ts` (the activity feed) | Real events show as their raw symbol instead of a readable label |
 | Token / decimals assumptions | `formatToken` / `parseToken` in `src/lib/utils.ts` (7 decimals, the Stellar asset default), `get_token` in `src/lib/dao-client.ts` | A different token or precision changes every amount on screen — the worst kind of bug here, because nothing errors |
-| Network | `NEXT_PUBLIC_SOROBAN_RPC_URL`, `NEXT_PUBLIC_NETWORK_PASSPHRASE`, and the CSP `connect-src` derived from them in `src/middleware.ts` | Every call fails; also, a mainnet-passphrase change must be reflected in the wallet-network check or writes are blocked as a network mismatch |
+| Network | `NEXT_PUBLIC_SOROBAN_RPC_URL`, `NEXT_PUBLIC_NETWORK_PASSPHRASE`, and the CSP `connect-src` derived from them in `src/proxy.ts` | Every call fails; also, a mainnet-passphrase change must be reflected in the wallet-network check or writes are blocked as a network mismatch |
 
 `contract/interface.json` records the read/write surface and the
 `ourdao-contracts` commit it was verified against (`_last_verified`) — it's the

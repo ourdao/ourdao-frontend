@@ -1,13 +1,13 @@
 /**
- * Tests for CSP nonce-based policy (middleware implementation).
+ * Tests for CSP nonce-based policy (proxy implementation).
  * 
- * Verifies that the middleware generates per-request nonces and emits
+ * Verifies that the proxy generates per-request nonces and emits
  * a CSP header with 'nonce-*' and 'strict-dynamic' instead of 'unsafe-inline'
  * for script-src, providing protection against XSS attacks.
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { NextRequest } from 'next/server'
-import { middleware } from '@/middleware'
+import { proxy } from '@/proxy'
 
 describe('CSP nonce-based policy', () => {
   beforeEach(() => {
@@ -16,7 +16,7 @@ describe('CSP nonce-based policy', () => {
 
   it('generates a nonce and includes it in the CSP header', () => {
     const request = new NextRequest(new URL('http://localhost:3000/'))
-    const response = middleware(request)
+    const response = proxy(request)
 
     const csp = response.headers.get('Content-Security-Policy')
     expect(csp).toBeTruthy()
@@ -27,7 +27,7 @@ describe('CSP nonce-based policy', () => {
 
   it('does not include unsafe-inline in script-src', () => {
     const request = new NextRequest(new URL('http://localhost:3000/'))
-    const response = middleware(request)
+    const response = proxy(request)
 
     const csp = response.headers.get('Content-Security-Policy')
     expect(csp).toBeTruthy()
@@ -42,7 +42,7 @@ describe('CSP nonce-based policy', () => {
 
   it('includes strict-dynamic in script-src', () => {
     const request = new NextRequest(new URL('http://localhost:3000/'))
-    const response = middleware(request)
+    const response = proxy(request)
 
     const csp = response.headers.get('Content-Security-Policy')
     expect(csp).toBeTruthy()
@@ -53,8 +53,8 @@ describe('CSP nonce-based policy', () => {
     const request1 = new NextRequest(new URL('http://localhost:3000/page1'))
     const request2 = new NextRequest(new URL('http://localhost:3000/page2'))
 
-    const response1 = middleware(request1)
-    const response2 = middleware(request2)
+    const response1 = proxy(request1)
+    const response2 = proxy(request2)
 
     const csp1 = response1.headers.get('Content-Security-Policy')
     const csp2 = response2.headers.get('Content-Security-Policy')
@@ -78,7 +78,7 @@ describe('CSP nonce-based policy', () => {
 
   it('still allows unsafe-inline for style-src (Next.js requirement)', () => {
     const request = new NextRequest(new URL('http://localhost:3000/'))
-    const response = middleware(request)
+    const response = proxy(request)
 
     const csp = response.headers.get('Content-Security-Policy')
     expect(csp).toBeTruthy()
@@ -93,9 +93,9 @@ describe('CSP nonce-based policy', () => {
 
   it('sets x-nonce header in the request for Next.js to use', () => {
     const request = new NextRequest(new URL('http://localhost:3000/'))
-    const response = middleware(request)
+    const response = proxy(request)
 
-    // The middleware should have set x-nonce in the request headers
+    // The proxy should have set x-nonce in the request headers
     // We can verify the nonce is consistent between CSP and request
     const csp = response.headers.get('Content-Security-Policy')
     expect(csp).toBeTruthy()
@@ -107,7 +107,7 @@ describe('CSP nonce-based policy', () => {
 
   it('includes all required security headers', () => {
     const request = new NextRequest(new URL('http://localhost:3000/'))
-    const response = middleware(request)
+    const response = proxy(request)
 
     expect(response.headers.get('Content-Security-Policy')).toBeTruthy()
     expect(response.headers.get('Strict-Transport-Security')).toBe(
@@ -130,7 +130,7 @@ describe('CSP nonce-based policy', () => {
 
     try {
       const request = new NextRequest(new URL('http://localhost:3000/'))
-      const response = middleware(request)
+      const response = proxy(request)
 
       const csp = response.headers.get('Content-Security-Policy')
       expect(csp).toBeTruthy()
@@ -160,7 +160,7 @@ describe('CSP nonce-based policy', () => {
 
   it('includes websocket origins in connect-src for HMR and WS endpoints', () => {
     const request = new NextRequest(new URL('http://localhost:3000/'))
-    const response = middleware(request)
+    const response = proxy(request)
 
     const csp = response.headers.get('Content-Security-Policy')
     expect(csp).toBeTruthy()
@@ -181,9 +181,9 @@ describe('CSP nonce-based policy', () => {
       const request = new NextRequest(new URL('http://localhost:3000/'))
       
       // Should not throw
-      expect(() => middleware(request)).not.toThrow()
+      expect(() => proxy(request)).not.toThrow()
       
-      const response = middleware(request)
+      const response = proxy(request)
       const csp = response.headers.get('Content-Security-Policy')
       expect(csp).toBeTruthy()
     } finally {
@@ -197,7 +197,7 @@ describe('CSP nonce-based policy', () => {
 
   it('restricts img-src to specific origins, not bare https:', () => {
     const request = new NextRequest(new URL('http://localhost:3000/'))
-    const response = middleware(request)
+    const response = proxy(request)
 
     const csp = response.headers.get('Content-Security-Policy')
     expect(csp).toBeTruthy()
@@ -224,7 +224,7 @@ describe('CSP nonce-based policy', () => {
 
     try {
       const request = new NextRequest(new URL('http://localhost:3000/'))
-      const response = middleware(request)
+      const response = proxy(request)
 
       const csp = response.headers.get('Content-Security-Policy')
       expect(csp).toBeTruthy()
@@ -246,7 +246,7 @@ describe('CSP nonce-based policy', () => {
 
   it('img-src contains only named origins, no wildcard https:', () => {
     const request = new NextRequest(new URL('http://localhost:3000/'))
-    const response = middleware(request)
+    const response = proxy(request)
 
     const csp = response.headers.get('Content-Security-Policy')
     expect(csp).toBeTruthy()
