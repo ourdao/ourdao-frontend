@@ -1,6 +1,5 @@
 import { useProposalFilters, type ProposalSortOrder } from '@/hooks/useProposalFilters'
 import { calculateVotingWeight } from '@/hooks/dao/reads'
-import { Search } from 'lucide-react'
 'use client'
 
 import { useState } from 'react'

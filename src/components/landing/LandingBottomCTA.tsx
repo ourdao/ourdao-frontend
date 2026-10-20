@@ -6,9 +6,9 @@ import { Button } from '@/components/ui/button'
 import { ConnectButton } from '@/components/ConnectButton'
 import { useUserData } from '@/hooks/useDAO'
 
-/* eslint-disable ourdao/no-raw-gray-classes -- Intentional: white buttons on the brand
-    gradient stay white in both themes (no semantic token is theme-stable
-    against the gradient), so bg-white / hover:bg-gray-50 are kept raw. */
+/* Intentional: white buttons on the brand gradient stay white in both themes
+   (no semantic token is theme-stable against the gradient),
+   so bg-white / hover:bg-gray-50 are kept raw. */
 export function LandingBottomCTA() {
   const userData = useUserData()
 
@@ -56,4 +56,3 @@ export function LandingBottomCTA() {
     </div>
   )
 }
-/* eslint-enable ourdao/no-raw-gray-classes */

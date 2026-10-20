@@ -9,14 +9,11 @@ import {
   ArrowLeft,
   Check,
   X,
-  Lock,
   FileText,
-  AlertCircle,
   CheckCircle,
 } from 'lucide-react'
 import { PageHeader } from '@/components/PageHeader'
 import { AddressLink } from '@/components/AddressLink'
-import { DocumentHistory } from '@/components/DocumentHistory'
 import { ProposalTimeline } from '@/components/ProposalTimeline'
 import {
   useUserData,

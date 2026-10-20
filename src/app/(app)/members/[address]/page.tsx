@@ -9,7 +9,6 @@ import { formatToken, formatDate } from '@/lib/utils'
 import { formatStellarAddress } from '@/lib/stellar'
 import {
   User,
-  ShieldCheck,
   Coins,
   Layers,
   Clock,
@@ -23,7 +22,7 @@ export default function MemberProfilePage() {
   const rawAddress = (params.address as string) || ''
   const address = decodeURIComponent(rawAddress)
 
-  const { summary, isLoading: isSummaryLoading } = useMemberSummary(address)
+  const { summary } = useMemberSummary(address)
   const { activity, isLoading: isActivityLoading } = useMemberActivity(address, 50)
 
   return (
