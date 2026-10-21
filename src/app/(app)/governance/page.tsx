@@ -1,6 +1,6 @@
-import { useProposalFilters, type ProposalSortOrder } from '@/hooks/useProposalFilters'
 'use client'
 
+import { useProposalFilters, type ProposalSortOrder } from '@/hooks/useProposalFilters'
 import Link from 'next/link'
 import { PageHeader } from '@/components/PageHeader'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'

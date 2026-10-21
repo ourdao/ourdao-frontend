@@ -1,3 +1,4 @@
+import { Suspense } from 'react'
 import type { Metadata } from 'next'
 
 export const metadata: Metadata = {
@@ -8,5 +9,7 @@ export const metadata: Metadata = {
 }
 
 export default function GovernanceLayout({ children }: { children: React.ReactNode }) {
-  return children
+  // The page reads its filters via useSearchParams(), which must sit under a
+  // Suspense boundary or static prerendering of this route fails.
+  return <Suspense>{children}</Suspense>
 }

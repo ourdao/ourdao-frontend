@@ -1,15 +1,3 @@
-
-/**
- * Calculates member voting weight based on documented staking formula:
- * 1 base vote + 1 bonus vote per 100 token units (100 * 10^decimals stroops) staked,
- * capped at a maximum of 6 votes (1 base + 5 bonus).
- */
-export function calculateVotingWeight(stakeStroops: bigint, decimals: number = 7): number {
-  const STROOPS_PER_BONUS = BigInt(100) * (BigInt(10) ** BigInt(decimals))
-  if (stakeStroops <= BigInt(0)) return 1
-  const bonus = Number(stakeStroops / STROOPS_PER_BONUS)
-  return 1 + Math.min(5, Math.max(0, bonus))
-}
 'use client'
 
 import { useEffect, useMemo, useState } from 'react'
@@ -23,6 +11,18 @@ import { asBigInt, mapLoanTerms, resolveLoanPolicy, toLoan, toMemberStatus } fro
 import type { UILoanPolicy, UILoanTerms } from '@/lib/dao-mappers'
 import { queryKeys } from '@/lib/query-keys'
 import { QUERY_REFRESH_INTERVAL_MS } from '@/constants'
+
+/**
+ * Calculates member voting weight based on documented staking formula:
+ * 1 base vote + 1 bonus vote per 100 token units (100 * 10^decimals stroops) staked,
+ * capped at a maximum of 6 votes (1 base + 5 bonus).
+ */
+export function calculateVotingWeight(stakeStroops: bigint, decimals: number = 7): number {
+  const STROOPS_PER_BONUS = BigInt(100) * (BigInt(10) ** BigInt(decimals))
+  if (stakeStroops <= BigInt(0)) return 1
+  const bonus = Number(stakeStroops / STROOPS_PER_BONUS)
+  return 1 + Math.min(5, Math.max(0, bonus))
+}
 
 function isBackendConfigured(): boolean {
   if (backend && typeof (backend as { isConfigured?: () => boolean }).isConfigured === 'function') {

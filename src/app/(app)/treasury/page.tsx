@@ -1,7 +1,7 @@
-import { useProposalFilters, type ProposalSortOrder } from '@/hooks/useProposalFilters'
-import { calculateVotingWeight } from '@/hooks/dao/reads'
 'use client'
 
+import { useProposalFilters, type ProposalSortOrder } from '@/hooks/useProposalFilters'
+import { calculateVotingWeight } from '@/hooks/dao/reads'
 import { useState } from 'react'
 import Link from 'next/link'
 import { PageHeader } from '@/components/PageHeader'
