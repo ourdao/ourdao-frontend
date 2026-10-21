@@ -153,6 +153,7 @@ export interface UILoanProposal {
   creationTime: number
   votingStartTime: number
   votingEndTime: number
+  editingPeriodEnd: number
   isPrivate: boolean
   documentHash: string
   hasVoted: boolean
@@ -177,6 +178,7 @@ export function mapLoanProposal(raw: Record<string, unknown>, hasVoted = false):
       creationTime: 0,
       votingStartTime: 0,
       votingEndTime: 0,
+      editingPeriodEnd: 0,
       isPrivate: false,
       documentHash: '',
       hasVoted,
@@ -199,7 +201,8 @@ export function mapLoanProposal(raw: Record<string, unknown>, hasVoted = false):
     votesAgainst: v.against_votes,
     creationTime: v.created_at,
     votingStartTime: editingEnd,
-    votingEndTime: editingEnd ? editingEnd + votingPeriod : 0,
+    votingEndTime: editingEnd ? editingEnd + GOVERNANCE_PERIOD_FALLBACKS.votingPeriod : 0,
+    editingPeriodEnd: editingEnd,
     isPrivate: false, // loan proposals are public; treasury proposals can be private
     // The contract stores the borrower's supporting-document pointer as
     // `metadata_cid` (`None` when there isn't one); the loans list gates its

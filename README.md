@@ -293,9 +293,19 @@ Run `gen:contract` whenever the contract is redeployed (the wasm is a release as
 
 ## Testing
 
-`npm run coverage` prints a per-file table and writes `coverage/coverage-summary.json` and `coverage/index.html` (install the provider first: `npm install --no-save @vitest/coverage-v8@5.0.5`, matching the vitest version). CI fails if coverage drops below the thresholds in `vitest.config.mts`, including per-module floors for `dao-client.ts` and `wallet.tsx` — see [docs/coverage.md](docs/coverage.md) for the baseline.
+**Framework:** Vitest + Testing Library, jsdom by default (pure-logic suites that don't need the DOM, like the Soroban ScVal builders, opt into the Node environment per-file via `// @vitest-environment node`).
 
-Vitest + Testing Library, jsdom by default (pure-logic suites that don't need the DOM, like the Soroban ScVal builders, opt into the Node environment per-file via `// @vitest-environment node`). Coverage: `dao-client.ts`'s ScVal builders and `policyToScVal`, `backend.ts`'s fetch wrappers (including its fail-soft-on-error behavior), `useDAO.ts`'s pure mapping helpers (including `mapLoan`, the real disbursed-loan mapper), `useNotifications.ts`'s hooks, and `useNow.ts`'s `useSyncExternalStore` contract (using fake timers, since the underlying bug it guards against — an infinite render loop — doesn't reproduce reliably just by rendering in jsdom). CI runs lint, typecheck, test, and build on every push/PR — see `.github/workflows/ci.yml`. Two more jobs run alongside, kept separate from those four so an unrelated advisory or a generous, PR-controllable size budget never blocks a PR that has nothing to do with either: a dependency `audit` (see [Dependency hygiene](#security-notes)) that never fails the run (warns instead), and a `bundle-size` check that compares the client JS/CSS shipped from `.next/static` against the latest `main` baseline, only failing on a >5%-and->10 KB gzip regression. The same job reports which packages those bytes belong to, with a per-package change against `main`, so a regression can be attributed without a local reproduction — see [docs/bundle-composition.md](docs/bundle-composition.md).
+**Coverage:** `npm run coverage` prints a per-file table and writes `coverage/coverage-summary.json` and `coverage/index.html` (install the provider first: `npm install --no-save @vitest/coverage-v8@5.0.5`, matching the vitest version). 
+
+**Current coverage state:**
+- **Overall baseline:** 40% threshold (lines/functions/branches/statements) enforced in CI
+- **Per-module floors:** `dao-client.ts` (80% statements/branches), `wallet.tsx` (80% statements, 75% branches)
+- **What's covered:** ScVal builders, `backend.ts` fetch wrappers (including fail-soft behavior), `useDAO.ts` mapping helpers, `useNotifications.ts` hooks, `useNow.ts` `useSyncExternalStore` contract
+- **Known gaps:** `src/app/api/documents/route.ts` has no test coverage; several pages need integration tests
+
+See [docs/coverage.md](docs/coverage.md) for the detailed baseline and per-file breakdown. See [docs/testing-strategy.md](docs/testing-strategy.md) for mocking conventions and the shared test harness.
+
+**CI Pipeline:** Lint, typecheck, test, build, coverage, visual regression, and audit run on every push/PR — see `.github/workflows/ci.yml`. A `bundle-size` check compares client JS/CSS shipped from `.next/static` against the latest `main` baseline, failing only on >5% + >10 KB gzip regression. Per-package attribution helps diagnose regressions without local reproduction — see [docs/bundle-composition.md](docs/bundle-composition.md).
 
 ## Architecture & Rendering Performance
 
@@ -360,9 +370,73 @@ update; direct role and name assertions for what `axe` cannot express; and
 from [#238](https://github.com/ourdao/ourdao-frontend/issues/238) is in
 [docs/a11y-audit.md](docs/a11y-audit.md).
 
-## What's real vs. not
+## Contract Entrypoint Status
 
-Most of the app is wired to the live contract + backend: registration, loan request/vote/repay, treasury propose/vote, staking, name registry, public voting, document content-hash attachment, notifications, admin actions (pause/unpause, add/remove admin, set consensus threshold), an admin/governance audit log, and loan defaults — `markLoanDefaulted` is exposed in `dao-client.ts`, and the dashboard's Recent Activity feed labels every real event (including `loan_dflt`) instead of a generic placeholder. Private treasury proposals remain unvotable until commit-reveal voting is implemented; the create form disables that option, and existing private proposals are marked accordingly. The loan detail page (`/loans/[id]`) reads the contract's real disbursed `Loan` (via `useLoan`) once a proposal is approved — actual status, due date, and outstanding balance, not proposal-status guesswork that never reflected repayment or default.
+The table below documents every contract entrypoint the client wraps and its current UI wiring status. This serves as both an accuracy statement and a roadmap.
+
+| Contract Method | UI Status | Used By | Notes |
+|---|---|---|---|
+| **Member Management** ||||
+| `register_member` | ✅ Wired | `/register` | Full registration flow |
+| `exit_dao` | ⚠️ Not wired | — | Wrapper exists, no UI (#TBD) |
+| `is_member` | ✅ Wired | All member-gated pages | Membership check |
+| `get_member` | ✅ Wired | `/dashboard`, user data hook | Member details |
+| **Loans** ||||
+| `request_loan` | ✅ Wired | `/loans/request` | Multi-step loan request form |
+| `edit_loan_proposal` | ⚠️ Partial | — | Wrapper exists, UI in progress (#341) |
+| `vote_on_loan_proposal` | ✅ Wired | `/loans`, `/loans/[id]` | Vote on loan proposals |
+| `get_loan_proposal` | ✅ Wired | `/loans`, `/loans/[id]` | Proposal detail |
+| `get_loan` | ✅ Wired | `/loans/[id]` | Disbursed loan status |
+| `calculate_loan_terms` | ⚠️ Not wired | — | Wrapper exists, no caller |
+| `is_eligible_for_loan` | ⚠️ Not wired | — | Wrapper exists, no caller |
+| `repay_loan` | ✅ Wired | `/loans/[id]` | Full repayment |
+| `repay_loan_partial` | ✅ Wired | `/loans/[id]` | Partial repayment |
+| `mark_loan_defaulted` | ✅ Wired | `/loans/[id]` | Permissionless default marking |
+| **Treasury** ||||
+| `get_treasury_balance` | ✅ Wired | `/treasury`, `/dashboard` | Treasury stats |
+| `propose_treasury_withdrawal` | ✅ Wired | `/governance/create` | Create treasury proposal |
+| `vote_on_treasury_proposal` | ✅ Wired | `/treasury`, `/governance` | Public voting only |
+| `commit_treasury_vote` | ⚠️ Partial | — | Wrapper exists, UI in progress (#339) |
+| `reveal_treasury_vote` | ⚠️ Partial | — | Wrapper exists, UI in progress (#339) |
+| `get_treasury_proposal` | ✅ Wired | `/treasury`, `/governance` | Proposal detail |
+| **Staking & Rewards** ||||
+| `stake` | ✅ Wired | `/treasury` | Stake tokens for voting weight |
+| `unstake` | ✅ Wired | `/treasury` | Unstake tokens |
+| `get_stake` | ✅ Wired | `/dashboard`, `/treasury` | Current stake |
+| `get_pending_yield` | ✅ Wired | `/dashboard`, `/treasury` | Claimable yield |
+| `claim_rewards` | ✅ Wired | `/treasury` | Claim pending yield |
+| **Name Registry** ||||
+| `register_name` | ⚠️ Not wired | — | Wrapper exists, no UI (#TBD) |
+| `resolve_name` | ⚠️ Not wired | — | Wrapper exists, no caller |
+| `name_of` | ⚠️ Not wired | — | Wrapper exists, no caller |
+| **Documents** ||||
+| `attach_document` | ✅ Wired | `/loans/[id]`, document forms | Attach IPFS CID |
+| `get_document` | ✅ Wired | `/loans/[id]`, document views | Read content hash |
+| **Admin** ||||
+| `pause` | ✅ Wired | `/admin` | Pause the DAO |
+| `unpause` | ✅ Wired | `/admin` | Unpause the DAO |
+| `is_paused` | ✅ Wired | All write actions | Paused state check |
+| `add_admin` | ✅ Wired | `/admin` | Add admin |
+| `remove_admin` | ✅ Wired | `/admin` | Remove admin |
+| `get_admins` | ✅ Wired | `/admin` | Admin list |
+| `is_admin` | ✅ Wired | `/admin` | Admin check |
+| `set_consensus_threshold` | ✅ Wired | `/admin` | Update voting threshold |
+| `set_loan_policy` | ⚠️ Not wired | — | Wrapper exists, no UI (#TBD) |
+| `get_consensus_threshold` | ✅ Wired | `/dashboard`, stats | Threshold display |
+| `get_loan_policy` | ✅ Wired | `/loans/request` | Loan policy display |
+| **Governance** ||||
+| `has_voted` | ✅ Wired | All proposal pages | Vote status check |
+| `calculate_exit_share` | ⚠️ Not wired | — | Wrapper exists, no caller |
+| `get_active_members` | ✅ Wired | `/dashboard` | Active member count |
+| `get_total_members` | ✅ Wired | `/dashboard` | Total member count |
+| `get_token` | ✅ Wired | Token formatting | DAO token address |
+
+**Legend:**
+- ✅ **Wired** — Full end-to-end flow from UI to contract
+- ⚠️ **Partial** — Wrapper exists, UI implementation in progress
+- ⚠️ **Not wired** — Wrapper exists, no UI or caller
+
+**Keeping this table current:** When adding UI for a wrapped entrypoint or adding a new wrapper, update this table in the same PR. The [PR template](.github/PULL_REQUEST_TEMPLATE.md) reminds reviewers to verify this.
 
 For the full matrix of what works, what degrades, and what a member sees in each configuration combination, see [docs/degradation-matrix.md](docs/degradation-matrix.md).
 

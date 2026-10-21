@@ -49,6 +49,12 @@ N/A
 
 None
 
+### Contract entrypoint table
+
+<!-- If this adds UI for a previously unwired entrypoint or adds a new wrapper, update the "Contract Entrypoint Status" table in README.md. Write "N/A" if this PR doesn't touch contract methods. -->
+
+N/A
+
 ## Anything reviewers should look at closely
 
 <!-- Optional. Point at the part you're least sure about. -->

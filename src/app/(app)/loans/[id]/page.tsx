@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
+import { Badge } from '@/components/ui/badge'
 import Link from 'next/link'
 import {
   ClockIcon,
@@ -23,6 +24,7 @@ import {
   useDAOStats,
   useVoting,
   useLoanRepayment,
+  useEditLoanProposal,
   useLoanProposal,
   useLoan,
   useMarkLoanDefaulted,
@@ -45,6 +47,7 @@ export default function LoanDetailsPage() {
   const userData = useUserData()
   const { activeMembers, isPaused } = useDAOStats()
   const { voteOnProposal, isPending: isVoting } = useVoting()
+  const { editLoanProposal, isPending: isEditing } = useEditLoanProposal()
   const { repayLoan, repayLoanPartial, isPending: isRepaying } = useLoanRepayment()
   const { markLoanDefaulted, isPending: isMarkingDefaulted } = useMarkLoanDefaulted()
   const now = useNow()
@@ -66,6 +69,11 @@ export default function LoanDetailsPage() {
   const isCidValid = CID_RE.test(cidInput.trim())
   const [repayAmount, setRepayAmount] = useState('')
   const [repayError, setRepayError] = useState<string | null>(null)
+  
+  // Edit state
+  const [isEditMode, setIsEditMode] = useState(false)
+  const [editAmount, setEditAmount] = useState('')
+  const [editError, setEditError] = useState<string | null>(null)
 
   useEffect(() => {
     if (!isLoading && !proposal) {
@@ -113,6 +121,33 @@ export default function LoanDetailsPage() {
   const handleVote = async (support: boolean) => {
     await voteOnProposal(loanId, support)
     refetchProposal()
+  }
+
+  const handleEditSubmit = async () => {
+    const trimmed = editAmount.trim()
+    if (!trimmed) {
+      setEditError('Enter an amount')
+      return
+    }
+    if (isNaN(Number(trimmed))) {
+      setEditError('Enter a valid number')
+      return
+    }
+    const parsed = parseToken(trimmed)
+    if (parsed <= BigInt(0)) {
+      setEditError('Amount must be greater than zero')
+      return
+    }
+    setEditError(null)
+    try {
+      await editLoanProposal(loanId, parsed)
+      setIsEditMode(false)
+      setEditAmount('')
+      await refetchProposal()
+      toast.success('Loan amount updated successfully')
+    } catch {
+      // toast handled in hook
+    }
   }
 
   const handleRepayment = async () => {
@@ -201,6 +236,28 @@ export default function LoanDetailsPage() {
 
   const isBorrower = () => {
     return userData.address?.toLowerCase() === proposal.borrower.toLowerCase()
+  }
+
+  const isInEditingPhase = () => {
+    if (!proposal || proposal.status !== 1) return false
+    if (!now || !proposal.editingPeriodEnd) return false
+    return Math.floor(now / 1000) < proposal.editingPeriodEnd
+  }
+
+  const getEditingTimeLeft = () => {
+    if (!now || !proposal?.editingPeriodEnd) return ''
+    const secondsLeft = proposal.editingPeriodEnd - Math.floor(now / 1000)
+    if (secondsLeft <= 0) return 'Editing period ended'
+    const hoursLeft = Math.floor(secondsLeft / 3600)
+    const minutesLeft = Math.floor((secondsLeft % 3600) / 60)
+    if (hoursLeft >= 24) {
+      const daysLeft = Math.ceil(hoursLeft / 24)
+      return `${daysLeft} ${daysLeft === 1 ? 'day' : 'days'} left`
+    }
+    if (hoursLeft > 0) {
+      return `${hoursLeft}h ${minutesLeft}m left`
+    }
+    return `${minutesLeft}m left`
   }
 
   const isOverdue =
@@ -340,6 +397,100 @@ export default function LoanDetailsPage() {
                 )}
               </CardContent>
             </Card>
+
+            {/* Edit Loan Proposal */}
+            {isBorrower() && isInEditingPhase() && (
+              <Card className="border-blue-200 dark:border-blue-900">
+                <CardHeader>
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <CardTitle className="flex items-center gap-2">
+                        Edit Loan Amount
+                        <Badge variant="secondary" className="text-xs">
+                          {getEditingTimeLeft()}
+                        </Badge>
+                      </CardTitle>
+                      <CardDescription>
+                        You can edit your loan amount during the editing period
+                      </CardDescription>
+                    </div>
+                  </div>
+                </CardHeader>
+                <CardContent>
+                  {!isEditMode ? (
+                    <div className="space-y-3">
+                      <div className="rounded-lg border p-4 bg-muted/40">
+                        <p className="text-sm text-muted-foreground mb-1">Current requested amount</p>
+                        <p className="text-2xl font-bold text-foreground">{formatToken(proposal.amount)}</p>
+                      </div>
+                      <Button
+                        onClick={() => {
+                          setIsEditMode(true)
+                          setEditAmount(formatToken(proposal.amount, { displayDecimals: 7 }))
+                        }}
+                        className="w-full"
+                        disabled={isPaused}
+                      >
+                        Edit Amount
+                      </Button>
+                    </div>
+                  ) : (
+                    <div className="space-y-4">
+                      <div className="space-y-2">
+                        <label htmlFor="edit-amount" className="block text-sm font-medium text-foreground">
+                          New loan amount
+                        </label>
+                        <input
+                          id="edit-amount"
+                          type="text"
+                          inputMode="decimal"
+                          placeholder="0.00"
+                          value={editAmount}
+                          onChange={(e) => {
+                            setEditAmount(e.target.value)
+                            if (editError) setEditError(null)
+                          }}
+                          className="w-full rounded-lg border border-input px-3 py-2 text-sm transition-colors focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-500/20"
+                        />
+                        {editError && (
+                          <p className="text-sm text-red-600 dark:text-red-400" role="alert">
+                            {editError}
+                          </p>
+                        )}
+                      </div>
+                      <div className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-800 dark:border-amber-900/40 dark:bg-amber-950/20 dark:text-amber-300">
+                        <p className="font-medium mb-1">Note</p>
+                        <p className="text-xs">
+                          Editing resets the proposal. You can only edit during the editing period. After the
+                          editing period ends, the proposal moves to voting.
+                        </p>
+                      </div>
+                      <div className="flex gap-2">
+                        <Button
+                          variant="outline"
+                          onClick={() => {
+                            setIsEditMode(false)
+                            setEditAmount('')
+                            setEditError(null)
+                          }}
+                          disabled={isEditing}
+                          className="flex-1"
+                        >
+                          Cancel
+                        </Button>
+                        <Button
+                          onClick={handleEditSubmit}
+                          disabled={isEditing || isPaused}
+                          className="flex-1"
+                        >
+                          {isEditing ? 'Updating...' : 'Update Amount'}
+                        </Button>
+                      </div>
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            )}
 
             <ProposalTimeline
               kind="loan"

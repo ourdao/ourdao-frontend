@@ -285,6 +285,17 @@ export function useLoanRequest() {
   return { requestLoan, isPending, error, isSuccess, cancelSignature }
 }
 
+export function useEditLoanProposal() {
+  const { run, isPending, isSuccess, error, address, cancelSignature } = useWriteAction()
+  const editLoanProposal = (proposalId: number, newAmount: bigint) =>
+    run('Editing loan proposal', (w) => w.editLoanProposal(proposalId, newAmount), [
+      queryKeys.loanProposal(proposalId),
+      queryKeys.loanProposalsAll(),
+      queryKeys.userData(address!),
+    ])
+  return { editLoanProposal, isPending, error, isSuccess, cancelSignature }
+}
+
 export function useVoting() {
   const { run, isPending, isSuccess, error, address, cancelSignature } = useWriteAction()
   const voteOnProposal = (proposalId: number, support: boolean) =>
@@ -387,6 +398,20 @@ export function useStaking() {
   const stake = (amount: bigint) => run('Staking', (w) => w.stake(amount), stakeInvalidates)
   const unstake = (amount: bigint) => run('Unstaking', (w) => w.unstake(amount), stakeInvalidates)
   return { stake, unstake, isPending, error, isSuccess, cancelSignature }
+}
+
+export function useCommitVote() {
+  const { run, isPending, error, cancelSignature } = useWriteAction()
+  const commitVote = (proposalId: number, commitment: Uint8Array) =>
+    run('Committing treasury vote', (w) => w.commitTreasuryVote(proposalId, commitment), [queryKeys.treasuryProposalsAll()])
+  return { commitVote, isPending, error, cancelSignature }
+}
+
+export function useRevealVote() {
+  const { run, isPending, error, cancelSignature } = useWriteAction()
+  const revealVote = (proposalId: number, support: boolean, salt: Uint8Array) =>
+    run('Revealing treasury vote', (w) => w.revealTreasuryVote(proposalId, support, salt), [queryKeys.treasuryProposalsAll()])
+  return { revealVote, isPending, error, cancelSignature }
 }
 
 export function useTreasuryVoting() {

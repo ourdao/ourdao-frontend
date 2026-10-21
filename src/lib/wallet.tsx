@@ -275,6 +275,8 @@ export function WalletProvider({
   //      in-app address state and invalidate all wallet-scoped React Query
   //      caches so no previous account's data lingers.
   //   3. Tab visibility (issue #218) — pause watcher when tab is hidden, resume on visibility.
+  //   4. Kit wallet re-check (issue #475) — Kit wallets also need to be polled for
+  //      account/network changes so switching inside xBull/LOBSTR/Albedo is detected.
   useEffect(() => {
     if (!isConnected) {
       // eslint-disable-next-line react-hooks/set-state-in-effect -- resetting derived wallet state on disconnect is a legitimate sync pattern
@@ -282,8 +284,97 @@ export function WalletProvider({
       setWalletNetwork(null)
       return
     }
-    // Freighter's change watcher doesn't apply to other wallets.
-    if (usingKit) return
+    // For Kit wallets, poll the kit adapter itself instead of Freighter's watcher
+    if (usingKit) {
+      let isPaused = typeof document !== 'undefined' && document.hidden
+      let intervalId: NodeJS.Timeout | null = null
+
+      const startPoll = () => {
+        if (intervalId) return
+        intervalId = setInterval(async () => {
+          try {
+            // Poll for network changes
+            const net = await kit.getNetwork()
+            const nextPassphrase = net.networkPassphrase || null
+            if (nextPassphrase !== walletNetworkPassphraseRef.current) {
+              walletNetworkPassphraseRef.current = nextPassphrase
+              setWalletNetworkPassphrase(nextPassphrase)
+            }
+
+            const nextNetwork = net.network || null
+            if (nextNetwork !== walletNetworkRef.current) {
+              walletNetworkRef.current = nextNetwork
+              setWalletNetwork(nextNetwork)
+            }
+
+            // Poll for address changes
+            const newAddr = await kit.getAddress()
+            if (newAddr && newAddr !== addressRef.current) {
+              addressRef.current = newAddr
+              setAddress(newAddr)
+              for (const queryKey of allWalletScopedQueryKeys()) {
+                queryClient.invalidateQueries({ queryKey })
+              }
+            }
+          } catch {
+            /* ignore poll errors */
+          }
+        }, WALLET_WATCH_INTERVAL_MS)
+      }
+
+      const stopPoll = () => {
+        if (intervalId) {
+          clearInterval(intervalId)
+          intervalId = null
+        }
+      }
+
+      if (!isPaused) {
+        startPoll()
+      }
+
+      const handleVisibilityChange = async () => {
+        if (typeof document === 'undefined') return
+        if (document.hidden) {
+          isPaused = true
+          stopPoll()
+        } else {
+          isPaused = false
+          // Resume & immediate check on visibility
+          try {
+            const currentAddr = await kit.getAddress()
+            if (currentAddr && currentAddr !== addressRef.current) {
+              addressRef.current = currentAddr
+              setAddress(currentAddr)
+              for (const queryKey of allWalletScopedQueryKeys()) {
+                queryClient.invalidateQueries({ queryKey })
+              }
+            }
+            const net = await kit.getNetwork()
+            const nextPass = net.networkPassphrase || null
+            if (nextPass !== walletNetworkPassphraseRef.current) {
+              walletNetworkPassphraseRef.current = nextPass
+              setWalletNetworkPassphrase(nextPass)
+            }
+            const nextNet = net.network || null
+            if (nextNet !== walletNetworkRef.current) {
+              walletNetworkRef.current = nextNet
+              setWalletNetwork(nextNet)
+            }
+          } catch {
+            /* ignore */
+          }
+          startPoll()
+        }
+      }
+
+      document.addEventListener('visibilitychange', handleVisibilityChange)
+
+      return () => {
+        document.removeEventListener('visibilitychange', handleVisibilityChange)
+        stopPoll()
+      }
+    }
 
     let watcher: WatchWalletChanges | null = null
     let isPaused = typeof document !== 'undefined' && document.hidden

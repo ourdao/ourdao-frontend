@@ -1,34 +1,67 @@
+# Dependabot configuration for automated dependency updates
+# See https://docs.github.com/en/code-security/dependabot/dependabot-version-updates/configuration-options-for-the-dependabot.yml-file
+
 version: 2
 updates:
+  # npm dependencies (grouped weekly updates)
   - package-ecosystem: "npm"
     directory: "/"
     schedule:
       interval: "weekly"
+      day: "monday"
+      time: "09:00"
+      timezone: "UTC"
     open-pull-requests-limit: 10
-    labels:
-      - "dependencies"
-    # Security-update PRs (one per advisory, opened automatically once
-    # Dependabot security updates are enabled on the repo) are NOT covered by
-    # this group -- they stay separate and ungrouped so a patched advisory is
-    # immediately visible and mergeable on its own, per CONTRIBUTING.md
-    # closing "unrelated dependency bumps bundled into a feature or fix".
-    # This only groups routine, non-security version updates so they don't
-    # flood the PR queue.
     groups:
-      routine-dependencies:
+      # Group all patch and minor updates together
+      non-breaking:
+        patterns:
+          - "*"
         update-types:
           - "minor"
           - "patch"
+      # Group all Radix UI updates together (they typically move in lockstep)
+      radix:
+        patterns:
+          - "@radix-ui/*"
+        update-types:
+          - "minor"
+          - "patch"
+          - "major"
+      # Group all dev dependencies together
+      dev-dependencies:
+        dependency-type: "development"
+        update-types:
+          - "minor"
+          - "patch"
+    # Major version upgrades stay separate for careful review
+    ignore:
+      # Track these as dedicated issues per the audit plan
+      - dependency-name: "@stellar/freighter-api"
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "@stellar/stellar-sdk"
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "eslint"
+        update-types: ["version-update:semver-major"]
+    labels:
+      - "dependencies"
+      - "automated"
+    commit-message:
+      prefix: "deps"
+      include: "scope"
 
+  # GitHub Actions (separate PRs, updated weekly)
   - package-ecosystem: "github-actions"
     directory: "/"
     schedule:
       interval: "weekly"
+      day: "monday"
+      time: "09:00"
+      timezone: "UTC"
     open-pull-requests-limit: 5
     labels:
       - "dependencies"
       - "github-actions"
-    groups:
-      github-actions:
-        patterns:
-          - "*"
+    commit-message:
+      prefix: "ci"
+      include: "scope"

@@ -7,6 +7,9 @@ on:
 permissions:
   contents: read
   deployments: write
+  pages: write
+  id-token: write
+  pull-requests: write
 
 concurrency:
   group: preview-${{ github.head_ref || github.ref }}
@@ -33,15 +36,14 @@ jobs:
         run: npm run build
         env:
           # Testnet configuration - never use production secrets
-          NEXT_PUBLIC_STELLAR_NETWORK: testnet
-          NEXT_PUBLIC_STELLAR_RPC_URL: https://soroban-testnet.stellar.org
-          NEXT_PUBLIC_STELLAR_PASSPHRASE: "Test SDF Network ; September 2015"
+          NEXT_PUBLIC_SOROBAN_RPC_URL: https://soroban-testnet.stellar.org
+          NEXT_PUBLIC_NETWORK_PASSPHRASE: "Test SDF Network ; September 2015"
           # Do NOT set PINATA_JWT or other production secrets here
 
       - name: Create deployment
         uses: actions/upload-pages-artifact@fc324d3547104276b827a68afc52ff2a11cc49c9 # v5.0.0
         with:
-          path: out
+          path: .next/standalone
 
       - name: Deploy to GitHub Pages
         id: deployment
@@ -50,17 +52,18 @@ jobs:
           preview: true
 
       - name: Add preview comment
+        if: github.event_name == 'pull_request'
         uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
         with:
           script: |
-            const deploymentUrl = `${process.env.GITHUB_SERVER_URL}/${process.env.GITHUB_REPOSITORY}/actions/runs/${process.env.GITHUB_RUN_ID}`;
+            const deploymentUrl = steps.deployment.outputs.page_url;
             const body = `## 🔍 Preview Deployment
 
             A preview of this PR has been built with **testnet** configuration.
 
             ⚠️ **This is not production** — no production secrets are used.
 
-            [View Preview Build](${deploymentUrl})
+            [View Preview](${deploymentUrl})
 
             **Configuration:**
             - Network: Testnet
