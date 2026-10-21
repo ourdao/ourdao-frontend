@@ -10,7 +10,7 @@ release names the backend and contract builds it was written against:
 - **Backend** — the `ourdao-backend` release or commit whose response shapes
   `src/lib/backend.ts` consumes.
 - **Contracts** — the `ourdao-contracts` commit recorded in
-  `contract/interface.json` (`_last_verified`). Update both together.
+  `src/lib/generated/dao-bindings.ts` (Source header). Regenerate bindings when updating the contract.
 
 The running build's version is shown at the foot of the app sidebar, so a bug
 report can name the entry below it came from. See
@@ -54,7 +54,7 @@ report can name the entry below it came from. See
   successful treasury vote in the current member's vote state (#311, #318).
 
 Backend: ourdao-backend unversioned (main; no tagged release to pin yet)
-Contracts: ourdao-contracts @ 00b0c62
+Contracts: ourdao-contracts @ 16e4222
 
 ## [0.1.0] - 2026-09-26
 

@@ -1,7 +1,7 @@
 {
-  "_comment": "OurDAO contract interface — derived from ourdao-contracts. Regenerate with: stellar contract inspect --wasm <path-to-contract.wasm>",
+  "_comment": "Historical contract summary, not exhaustive. Generated dao-bindings.ts is the authoritative ABI. Regenerate with: stellar contract inspect --wasm <path-to-contract.wasm>",
   "_contract_repo": "https://github.com/ourdao/ourdao-contracts",
-  "_last_verified": "origin/main @ 00b0c62",
+  "_last_verified": "ourdao-contracts @ 16e4222",
   "reads": {
     "get_total_members": { "returns": "u32" },
     "get_active_members": { "returns": "u32" },

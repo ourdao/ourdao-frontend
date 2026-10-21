@@ -402,12 +402,17 @@ export function WalletProvider({
             setUsingKit(true)
             addressRef.current = addr
             setAddress(addr)
-            await seedKitNetwork()
+            try {
+              await seedKitNetwork()
+            } finally {
+              if (!cancelled) setIsRestoring(false)
+            }
             return
           }
           writeKitSession(false)
-        } finally {
-          if (!cancelled) setIsRestoring(false)
+        } catch {
+          // An unavailable or locked Kit wallet must not suppress Freighter fallback.
+          writeKitSession(false)
         }
       }
       try {
@@ -534,7 +539,7 @@ export function WalletProvider({
           ? passphraseLabel(walletNetworkPassphraseRef.current || '')
           : 'unknown'
         throw new Error(
-          `Wallet network mismatch: Freighter is on ${walletLabel}, but this app expects ${passphraseLabel(NETWORK_PASSPHRASE)}. Switch Freighter to ${passphraseLabel(NETWORK_PASSPHRASE)} to continue.`
+          `Wallet network mismatch: your wallet is on ${walletLabel}, but this app expects ${passphraseLabel(NETWORK_PASSPHRASE)}. Switch your wallet to ${passphraseLabel(NETWORK_PASSPHRASE)} to continue.`
         )
       }
       const timeoutMs = options?.timeoutMs ?? DEFAULT_SIGN_TIMEOUT_MS
@@ -558,7 +563,7 @@ export function WalletProvider({
       ])
       const { signedTxXdr, error } = readSigned(result)
       if (error || !signedTxXdr) {
-        throw new Error(error || 'Freighter returned no signed transaction')
+        throw new Error(error || 'Your wallet returned no signed transaction')
       }
       return signedTxXdr
     },
@@ -568,7 +573,7 @@ export function WalletProvider({
   const signMessage = useCallback(async (message: string) => {
     if (isNetworkMismatch(addressRef.current, walletNetworkPassphraseRef.current, NETWORK_PASSPHRASE)) {
       throw new Error(
-        `Wallet network mismatch: switch Freighter to ${passphraseLabel(NETWORK_PASSPHRASE)} to continue.`
+        `Wallet network mismatch: switch your wallet to ${passphraseLabel(NETWORK_PASSPHRASE)} to continue.`
       )
     }
     if (usingKitRef.current) {
@@ -608,9 +613,9 @@ export function WalletProvider({
           className="flex items-center gap-2 border-b border-red-200 bg-red-50 px-4 py-2.5 text-sm text-red-800 dark:border-red-900 dark:bg-red-950/30 dark:text-red-300 sm:px-6"
         >
           <span>
-            Wallet network mismatch: Freighter is set to{' '}
+            Wallet network mismatch: your wallet is set to{' '}
             <strong>{walletNetwork || passphraseLabel(walletNetworkPassphrase || '')}</strong>, this app expects{' '}
-            <strong>{passphraseLabel(NETWORK_PASSPHRASE)}</strong>. Switch Freighter&apos;s network — transactions are blocked until it matches.
+            <strong>{passphraseLabel(NETWORK_PASSPHRASE)}</strong>. Switch your wallet&apos;s network — transactions are blocked until it matches.
           </span>
         </div>
       )}

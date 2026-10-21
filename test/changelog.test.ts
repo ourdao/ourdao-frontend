@@ -3,6 +3,8 @@ import { resolve } from 'node:path'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import pkg from '../package.json'
 import contractInterface from '../contract/interface.json'
+const bindings = readFileSync(resolve(__dirname, '../src/lib/generated/dao-bindings.ts'), 'utf8')
+const bindingCommit = bindings.match(/^\/\/ Source: ourdao-contracts @ ([a-f0-9]+)/m)?.[1]
 
 const changelog = readFileSync(resolve(__dirname, '../CHANGELOG.md'), 'utf8')
 // Each `## [x]` heading through to the next one.
@@ -23,8 +25,9 @@ describe('CHANGELOG.md (#250)', () => {
   })
 
   it('pins Unreleased to the contract commit in contract/interface.json', () => {
-    const pinned = contractInterface._last_verified.split('@')[1].trim()
-    expect(sections[0]).toContain(`Contracts: ourdao-contracts @ ${pinned}`)
+    expect(bindingCommit).toMatch(/^[a-f0-9]{7,40}$/)
+    expect(contractInterface._last_verified.split('@')[1].trim()).toBe(bindingCommit)
+    expect(sections[0]).toContain(`Contracts: ourdao-contracts @ ${bindingCommit}`)
   })
 })
 

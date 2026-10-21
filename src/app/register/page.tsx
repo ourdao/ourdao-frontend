@@ -14,7 +14,6 @@ import {
 } from '@/lib/icons'
 import { useDAOStats, useUserData, useMemberRegistration, useToken } from '@/hooks/useDAO'
 import { useRedirectIfMember } from '@/hooks/useRequireMember'
-import { formatToken } from '@/lib/utils'
 import { CardSkeleton } from '@/components/ui/skeleton'
 import toast from 'react-hot-toast'
 import { MAIN_CONTENT_ID } from '@/lib/a11y'

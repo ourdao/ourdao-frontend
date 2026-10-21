@@ -52,7 +52,7 @@ cp .env.example .env.local   # then edit values (all optional; testnet defaults)
 npm run dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000). Install the **Freighter** browser extension to connect a wallet.
+Open [http://localhost:3000](http://localhost:3000). Connect through Freighter, xBull, Albedo, LOBSTR, or a compatible hardware wallet.
 
 **Node.js:** 20.9+ (Next 16's floor), 22, and 24 are supported. CI runs `test` and `build` on all three; Node 20 (`.nvmrc`) is the required check and 22/24 are informational until Node 20 is dropped.
 
@@ -255,7 +255,7 @@ All colour decisions use semantic tokens defined in `src/app/globals.css`. Raw T
 
 ## Browser Support
 
-The app supports Chrome 100+, Firefox 100+, Safari 16+, and Edge 100+. The Freighter browser extension is required (minimum version 2.0.0). Document encryption requires `crypto.subtle` (secure context: HTTPS or localhost). See [docs/BROWSER_SUPPORT.md](docs/BROWSER_SUPPORT.md) for details.
+The app supports Chrome 100+, Firefox 100+, Safari 16+, and Edge 100+. Freighter is supported (minimum version 2.0.0), but alternative wallets such as Albedo also work. Document encryption requires `crypto.subtle` (secure context: HTTPS or localhost). See [docs/BROWSER_SUPPORT.md](docs/BROWSER_SUPPORT.md) for details.
 
 ## Deployment
 
@@ -378,7 +378,7 @@ Running on Next.js 16 (Turbopack by default) + React 19.2.
 
 This section covers security design decisions and controls currently in place:
 
-- **Wallet Requirements & Minimum Version.** The app requires the Freighter browser extension (minimum supported version: `2.0.0`). Extension versions are automatically detected on connection and diagnostics surface a warning if an outdated version is installed.
+- **Wallet Requirements & Minimum Version.** The app supports Freighter (minimum supported version: `2.0.0`), xBull, Albedo, LOBSTR, and compatible hardware wallets. Freighter is not mandatory. Extension versions are automatically detected on connection and diagnostics surface a warning if an outdated version is installed.
 - **No custody.** The frontend never holds a private key — every signature happens inside the Freighter extension, in the user's own browser context. `src/lib/wallet.tsx` only ever receives a signed transaction XDR back, never a key.
 - **Read-only degradation, not silent failure.** Without a configured contract id or a reachable backend, the UI runs in an explicit "not configured" / empty state rather than throwing — see [Configuration](#configuration).
 - **Error boundaries.** `error.tsx` (route-segment) and `global-error.tsx` (root-layout-level) catch uncaught render errors and offer a retry instead of the previous behavior, where any single uncaught error anywhere in the tree would take down the entire client-side app with no recovery short of a hard reload.

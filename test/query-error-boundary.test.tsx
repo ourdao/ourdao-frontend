@@ -62,7 +62,7 @@ describe('central throwOnError policy', () => {
 
   it('renders a reference ID and hides raw error details like RPC URLs in production', async () => {
     const originalEnv = process.env.NODE_ENV
-    process.env.NODE_ENV = 'production'
+    vi.stubEnv('NODE_ENV', 'production')
     try {
       renderWithClient(
         <Primary fn={() => Promise.reject(new Error('Simulation failed against https://soroban-testnet.stellar.org: tx 123'))} />
@@ -71,7 +71,7 @@ describe('central throwOnError policy', () => {
       expect(screen.getByTestId('error-reference-id')).toHaveTextContent(/Reference: ERR_/)
       expect(screen.queryByText(/https:\/\/soroban-testnet\.stellar\.org/)).not.toBeInTheDocument()
     } finally {
-      process.env.NODE_ENV = originalEnv
+      vi.stubEnv('NODE_ENV', originalEnv)
     }
   })
 

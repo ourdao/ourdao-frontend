@@ -11,6 +11,8 @@ import {
   X,
   FileText,
   CheckCircle,
+  AlertCircle,
+  Lock,
 } from 'lucide-react'
 import { PageHeader } from '@/components/PageHeader'
 import { AddressLink } from '@/components/AddressLink'
@@ -23,7 +25,6 @@ import {
   useToken,
   useDAOStats,
 } from '@/hooks/useDAO'
-import { formatToken } from '@/lib/utils'
 import { PROPOSAL_STATUS_LABELS, PROPOSAL_STATUS_AWAITING_FUNDS } from '@/constants'
 
 export default function TreasuryProposalDetailPage() {

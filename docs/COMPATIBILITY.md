@@ -63,3 +63,7 @@ Each frontend release records which backend and contract versions it targets: se
 - **Backend drift:** Integration tests validate response shapes in CI
 - **Contract drift:** Planned CI job to detect ABI changes (#143)
 - **Runtime errors:** Frontend gracefully handles unexpected responses
+
+## Wallet and browser compatibility
+
+Freighter is optional. The connected wallet may be Freighter, xBull, Albedo, LOBSTR, or compatible hardware wallets. Safari users can select a compatible web-based wallet (for example Albedo). Signed transactions remain wallet-controlled; compatibility and message signing are wallet dependent.

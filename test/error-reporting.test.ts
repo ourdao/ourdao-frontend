@@ -4,7 +4,6 @@ import {
   setErrorReportingOptIn,
   setErrorReportingTransport,
   isErrorReportingOptedIn,
-  ERROR_REPORTING_OPT_IN_KEY,
   type ErrorReportPayload,
 } from '@/lib/error-reporting'
 

@@ -164,7 +164,7 @@ npm run build
 
 If your change is something a member would notice (a new or removed feature, a changed number, label, or flow, a fixed bug they could hit), add a line under `## [Unreleased]` in [CHANGELOG.md](CHANGELOG.md) in the same PR. See [docs/RELEASE_PROCESS.md](docs/RELEASE_PROCESS.md) for the release checklist and versioning guidelines. Refactors, tests, CI, and docs don't need one.
 
-If your change targets a different `ourdao-backend` or `ourdao-contracts` build, also update the `Backend:` / `Contracts:` lines under Unreleased. The contracts line must match `_last_verified` in `contract/interface.json`, and a test enforces that. These lines are what let a bug report, which names the version shown in the app sidebar, be traced to a combination of versions.
+If your change targets a different `ourdao-backend` or `ourdao-contracts` build, also update the `Backend:` / `Contracts:` lines under Unreleased. The contracts line must match the `Source: ourdao-contracts @ ...` header in `src/lib/generated/dao-bindings.ts`, and a test enforces that. These lines are what let a bug report, which names the version shown in the app sidebar, be traced to a combination of versions.
 
 ## What a good pull request looks like
 
