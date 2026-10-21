@@ -127,6 +127,8 @@ export type ExtendedStats = DAOStats & {
   indexerStale: boolean
   lastIndexedLedger: number | null
   indexerError: boolean
+  /** Events the indexer's handlers failed on and set aside; 0 when unknown. */
+  quarantinedEvents: number
   /** A stats read failed, so the figures below are defaults, not the DAO's real numbers. */
   isError: boolean
   refetch: () => void
@@ -355,6 +357,7 @@ export function useDAOStats(): ExtendedStats & { isLoading: boolean } {
     indexerStale: agg?.indexerStale ?? false,
     lastIndexedLedger: agg?.lastIndexedLedger ?? null,
     indexerError,
+    quarantinedEvents: agg?.quarantinedEvents ?? 0,
     isLoading: contractLoading,
     isError: contractError || indexerError,
     refetch: () => {

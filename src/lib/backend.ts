@@ -155,6 +155,8 @@ export interface BackendTimelineEvent {
   tx_hash: string | null
   created_at: string
   description?: string
+  /** Raw event topics, as on `BackendEvent`; for votes, topics[2] is the voter. */
+  topics?: unknown
   data?: unknown
 }
 

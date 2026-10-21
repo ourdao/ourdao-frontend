@@ -88,11 +88,11 @@ export default function AdminPage() {
   return (
     <>
       <PageHeader title="Admin Dashboard" subtitle="Real-time DAO governance and system state." />
-      {stats.stats?.quarantinedEvents && stats.stats.quarantinedEvents > 0 ? (
+      {stats.quarantinedEvents > 0 ? (
         <div className="max-w-7xl mx-auto mb-6 p-4 rounded-lg bg-amber-500/10 border border-amber-500/30 flex items-center gap-3 text-amber-600 dark:text-amber-400">
           <ExclamationTriangleIcon className="h-5 w-5 shrink-0" />
           <div className="text-sm">
-            <span className="font-semibold">Warning:</span> {stats.stats.quarantinedEvents} quarantined event(s) detected. Handlers failed to process these events; some indexer data may be delayed or incomplete. Check the <strong>Quarantined Events</strong> tab for details.
+            <span className="font-semibold">Warning:</span> {stats.quarantinedEvents} quarantined event(s) detected. Handlers failed to process these events; some indexer data may be delayed or incomplete. Check the <strong>Quarantined Events</strong> tab for details.
           </div>
         </div>
       ) : null}
