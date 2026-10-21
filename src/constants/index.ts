@@ -41,11 +41,17 @@ export const PROPOSAL_STATUS_LABELS = {
   4: 'Rejected',
   5: 'Executed',
   7: 'Awaiting Funds',
+  8: 'Expired',
+  9: 'Cancelled',
 } as const
 
 /** Approved by vote, but the treasury was too small to pay out; the contract
  *  keeps the proposal as `ApprovedPendingDisbursement` until it is funded. */
 export const PROPOSAL_STATUS_AWAITING_FUNDS = 7
+
+/** Closed without a decision: the voting period lapsed, or it was cancelled. */
+export const PROPOSAL_STATUS_EXPIRED = 8
+export const PROPOSAL_STATUS_CANCELLED = 9
 
 /** Parse a comma-separated gateway list, dropping blanks and adding a trailing
  *  slash so `${gateway}${cid}` is always well-formed. No gateway is assumed:

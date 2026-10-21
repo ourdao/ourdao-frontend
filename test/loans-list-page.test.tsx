@@ -135,6 +135,18 @@ describe('LoansPage', () => {
     expect(screen.queryByText('Supporting document attached')).not.toBeInTheDocument()
   })
 
+  it('shows the document indicator for a proposal that carries a metadata CID (#476)', async () => {
+    mockGetStats.mockResolvedValue({ totalLoanProposals: 1 })
+    mockGetLoanProposal.mockResolvedValue(
+      rawProposal({ metadata_cid: 'bafybeigdyrzt5sfp7udm7hu76uh7y26nf3efuylqabf3oclgtqy55fbzdi' })
+    )
+    renderWithProviders(<LoansPage />)
+
+    await waitFor(() => expect(screen.getByText('Loan Proposal #1')).toBeInTheDocument())
+    expect(screen.getByText('Supporting document attached')).toBeInTheDocument()
+    expect(screen.getByTitle('Has Documents')).toBeInTheDocument()
+  })
+
   it('searches by borrower address and by proposal id (#346)', async () => {
     mockGetStats.mockResolvedValue({ totalLoanProposals: 2 })
     mockGetLoanProposal.mockImplementation(async (id: number) =>

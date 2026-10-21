@@ -169,6 +169,7 @@ If your change targets a different `ourdao-backend` or `ourdao-contracts` build,
 ## What a good pull request looks like
 
 - **It's scoped to one issue.** If you find a second problem while working, open a second issue. Don't bundle.
+- **`Closes #N` lists only the issues the diff actually fixes.** GitHub closes every issue named with `Closes`, `Fixes` or `Resolves` when the PR merges, so don't list other issues you're assigned to or plan to fix next. To mention a related issue without closing it, write `Refs #N`.
 - **It includes a test that would fail without your change**, where the change affects logic. Pure visual/layout changes are the reasonable exception — say so in the description, and include a before/after screenshot instead.
 - **It doesn't reformat code you didn't change.**
 - **Its description explains why, not just what.**
@@ -180,6 +181,7 @@ If your change targets a different `ourdao-backend` or `ourdao-contracts` build,
 - Pull requests against an unassigned or unclaimed issue.
 - Formatting-only, whitespace-only, or comment-typo-only changes.
 - Unrelated dependency bumps bundled into a feature or fix.
+- Descriptions that claim to close issues the diff doesn't fix.
 - Generated or AI-authored changes whose author can't explain the diff when asked in review. The policy is outcome-based, not tool-based — use whatever tools you like, but you're accountable for understanding and defending what you submit.
 - Logic changes with no accompanying test.
 - Anything that introduces placeholder, sample, or fabricated user-facing content (see above).

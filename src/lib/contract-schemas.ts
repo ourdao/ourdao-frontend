@@ -84,6 +84,13 @@ export const loanProposalSchema = z.object({
   against_votes: finiteNumber(0),
   created_at: finiteNumber(0),
   editing_period_end: finiteNumber(0),
+  // The period the contract recorded on *this* proposal (u64 seconds). An
+  // admin's policy change only affects proposals created afterwards, so this
+  // — not the constants fallback — is what the deadline is derived from (#477).
+  voting_period: finiteNumber(0),
+  // `Option<string>` on the contract: absent (`None`) until the borrower
+  // supplies a supporting document with the request (#476).
+  metadata_cid: stringValue(''),
 })
 
 export const treasuryProposalSchema = z.object({

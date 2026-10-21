@@ -1,8 +1,6 @@
-import { useState } from 'react'
-import { useProposalFilters, type ProposalSortOrder } from '@/hooks/useProposalFilters'
-import { Search } from 'lucide-react'
 'use client'
 
+import { useProposalFilters, type ProposalSortOrder } from '@/hooks/useProposalFilters'
 import Link from 'next/link'
 import { PageHeader } from '@/components/PageHeader'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -222,7 +220,6 @@ export default function GovernancePage() {
   } = useTreasuryProposals()
   useAnnounceLoad('Loan proposals', loadingLoans, loanFailed)
   useAnnounceLoad('Treasury proposals', loadingTreasury, treasuryFailed)
-  const [tab, setTab] = useState<'loans' | 'treasury'>('loans')
   const { voteOnProposal, isPending: votingLoan } = useVoting()
   const { voteOnTreasury, isPending: votingTreasury } = useTreasuryVoting()
 

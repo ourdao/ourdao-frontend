@@ -5,9 +5,129 @@
   "moderate": true,
   "report-type": "full",
 
-  // Every previous entry here was rooted entirely in ipfs-http-client's
+  // Every previous string entry here was rooted entirely in ipfs-http-client's
   // dependency tree, removed when the Infura/IPFS pinning provider was
   // replaced (see README "Dependency hygiene"). Add an entry back only for a
   // real, reviewed advisory with an `expiry` date, not as a default.
-  "allowlist": []
+  //
+  // Every entry below must say *why* the vulnerable code cannot be reached, and
+  // must expire: an entry that lapses fails the audit again, which is the point
+  // (it forces a re-check rather than becoming permanent noise).
+  "allowlist": [
+    // --- Production dependencies (#478) -------------------------------------
+    // Everything left is inside the optional HOT wallet module
+    // (@creit.tech/stellar-wallets-kit → @hot-wallet/sdk → @solana/web3.js and
+    // → @near-js/crypto → secp256k1 → elliptic), which `defaultModules()` never
+    // loads and which `node scripts/bundle-composition.mjs assert-absent`
+    // asserts is absent from client chunks (run by the bundle-size CI job).
+    //
+    // `uuid` could be pinned inside jayson (see package.json `overrides`);
+    // `stream-json` could not — jayson requires its `streamers/StreamValues`
+    // subpath, which stream-json >= 2 no longer exposes — so it is allowlisted
+    // until @solana/web3.js drops jayson or stellar-wallets-kit stops pulling
+    // HOT in.
+    {
+      "GHSA-848j-6mx2-7j84": {
+        "active": true,
+        "expiry": "2026-12-31",
+        "notes": "elliptic is only reachable from the unloaded HOT wallet module; not in the client bundle (bundle-composition assert-absent)."
+      }
+    },
+    {
+      "GHSA-528h-pc64-c93x": {
+        "active": true,
+        "expiry": "2026-12-31",
+        "notes": "stream-json is reached only through jayson in the unloaded HOT wallet module; no compatible fixed version exists, and it is not in the client bundle."
+      }
+    },
+    {
+      "GHSA-hqr4-qq8f-hg3x": {
+        "active": true,
+        "expiry": "2026-12-31",
+        "notes": "stream-json is reached only through jayson in the unloaded HOT wallet module; no compatible fixed version exists, and it is not in the client bundle."
+      }
+    },
+    {
+      "GHSA-mjw6-4jj6-33hc": {
+        "active": true,
+        "expiry": "2026-12-31",
+        "notes": "stream-json is reached only through jayson in the unloaded HOT wallet module; no compatible fixed version exists, and it is not in the client bundle."
+      }
+    },
+
+    // --- Dev tooling (#455) -------------------------------------------------
+    // @lhci/cli, depcheck, eslint-config-next and their transitive parsers run
+    // in CI and locally only; none of them is bundled for a browser and none
+    // processes untrusted input from a member. Tracked separately in #455.
+    {
+      "GHSA-ph9p-34f9-6g65": {
+        "active": true,
+        "expiry": "2026-12-31",
+        "notes": "tmp is a dev-only dependency of the CI/Lighthouse tooling; not shipped to the browser (#455)."
+      }
+    },
+    {
+      "GHSA-7pqw-9j4j-h8q3": {
+        "active": true,
+        "expiry": "2026-12-31",
+        "notes": "extract-zip is only used by dev tooling to unpack CI artifacts; no untrusted archive is extracted (#455)."
+      }
+    },
+    {
+      "GHSA-jmr9-qjv8-65gv": {
+        "active": true,
+        "expiry": "2026-12-31",
+        "notes": "extract-zip is only used by dev tooling to unpack CI artifacts; no untrusted archive is extracted (#455)."
+      }
+    },
+    {
+      "GHSA-c475-qrg2-pj4r": {
+        "active": true,
+        "expiry": "2026-12-31",
+        "notes": "basic-ftp is reachable only from the dev-only Lighthouse CI uploader; not shipped to the browser (#455)."
+      }
+    },
+    {
+      "GHSA-hp3w-g68c-fv3c": {
+        "active": true,
+        "expiry": "2026-12-31",
+        "notes": "sprintf-js is a dev-only transitive dependency (lint/test tooling); not shipped to the browser (#455)."
+      }
+    },
+    {
+      "GHSA-q2hr-2g5m-vwhr": {
+        "active": true,
+        "expiry": "2026-12-31",
+        "notes": "brace-expansion is dev-only (lint/test glob tooling) and never expands untrusted input at runtime (#455)."
+      }
+    },
+    {
+      "GHSA-qhr7-859c-m2p7": {
+        "active": true,
+        "expiry": "2026-12-31",
+        "notes": "brace-expansion is dev-only (lint/test glob tooling) and never expands untrusted input at runtime (#455)."
+      }
+    },
+    {
+      "GHSA-6j4f-fj2g-mc7p": {
+        "active": true,
+        "expiry": "2026-12-31",
+        "notes": "brace-expansion is dev-only (lint/test glob tooling) and never expands untrusted input at runtime (#455)."
+      }
+    },
+    {
+      "GHSA-vfj7-8cjw-p6xm": {
+        "active": true,
+        "expiry": "2026-12-31",
+        "notes": "braces is dev-only (lint/test glob tooling) and never parses untrusted patterns at runtime (#455)."
+      }
+    },
+    {
+      "GHSA-w5hq-g745-h8pq": {
+        "active": true,
+        "expiry": "2026-12-31",
+        "notes": "uuid@8 remains only under the dev-only @lhci/cli; the production jayson copy is pinned to uuid@11 by overrides (#455)."
+      }
+    }
+  ]
 }

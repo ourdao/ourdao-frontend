@@ -338,6 +338,11 @@ jobs:
         env:
           ANALYZE_BUNDLE: "1"
       - run: node scripts/bundle-size.mjs measure
+      # #478: the optional HOT wallet module must stay out of the client bundle.
+      # This is the evidence behind the `elliptic` audit allowlist entry — if the
+      # SDK ever starts shipping, that entry is no longer truthful and this fails.
+      - name: Assert the optional wallet SDK is not bundled
+        run: node scripts/bundle-composition.mjs assert-absent @solana/web3.js @hot-wallet/sdk @near-js/crypto elliptic
       - name: Restore baseline from main
         if: github.ref != 'refs/heads/main'
         uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0

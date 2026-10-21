@@ -219,7 +219,7 @@ export async function POST(req: NextRequest) {
   }
 
   // 8. Verify returned CID format & content match against uploaded bytes
-  if (!verifyIPFSHash(IpfsHash, bodyBytes)) {
+  if (!(await verifyIPFSHash(IpfsHash, bodyBytes))) {
     return NextResponse.json(
       { error: 'Pinning provider returned invalid or mismatched IPFS hash' },
       { status: 502 }

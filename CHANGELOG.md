@@ -34,10 +34,14 @@ report can name the entry below it came from. See
 - Connect with xBull, Albedo, LOBSTR, hardware wallets and more through Stellar Wallets Kit ("More wallets" next to Connect Wallet); Freighter stays the default (#344).
 
 ### Changed
+- Dependency audit: `uuid` is pinned via a `package.json` `overrides` entry inside `jayson`, clearing the `uuid` advisory that arrived with the optional HOT wallet SDK. The findings that remain — `stream-json` (no compatible fixed version; jayson needs its `streamers/StreamValues` subpath) and the rest of the HOT subtree — are allowlisted in `audit-ci.jsonc` with an expiry and a reachability note, and a bundle check asserts that subtree is absent from client chunks (#478).
 - Contract method names and argument shapes are now compile-checked against TypeScript bindings generated from the contract wasm (`npm run gen:contract`), and arguments are encoded from the contract spec instead of hand-built. This surfaced and fixes drift: the member join time field is `join_time`, not `join_ledger` (#343).
 - Upgraded `@stellar/stellar-sdk` to `^17.1.0` and added migration plan and testnet smoke verification checklist (#383).
 
 ### Fixed
+- The service worker now caches only the offline shell, icons and content-hashed build assets, in a cache named after the build. Member API responses, RSC payloads and cross-origin (IPFS/indexer) responses are no longer stored, so a shared device keeps no member data after disconnect and Cache Storage no longer grows on every navigation; each deploy starts from a fresh cache and deletes the previous one (#479).
+- Loan voting deadlines now come from the `voting_period` the contract stored on each proposal instead of a hard-coded fallback, so a proposal created under a different policy period no longer shows (or hides) its vote buttons and "days left" at the wrong time (#477).
+- Loan proposals now show their supporting-document indicator on /loans: the contract's `metadata_cid` is mapped to `documentHash` instead of being dropped, so a request created with a document is no longer indistinguishable from one without (#476).
 - The dashboard shows one claimable yield amount and one claim button instead of the same pending amount as both "rewards" and "yield" (#345).
 - Removed the loan list's Privacy filter, Private stat and purpose search, which could never match anything because loan proposals are public and store no purpose; search now matches borrower address and proposal id, and proposal cards no longer render an empty description (#346).
 - Admin add/remove/threshold/pause failures no longer surface as unhandled promise rejections, and the consensus threshold rejects non-integers before signing (#330).

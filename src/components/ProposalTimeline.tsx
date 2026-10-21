@@ -2,7 +2,7 @@
 
 import { useLoanTimeline, useTreasuryTimeline, eventLabel } from '@/hooks/useDAO'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
-import { CalendarIcon, Clock, CheckCircle, ExternalLink } from 'lucide-react'
+import { CalendarIcon, ExternalLink } from 'lucide-react'
 import { formatDate } from '@/lib/utils'
 
 interface ProposalTimelineProps {

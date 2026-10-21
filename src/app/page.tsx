@@ -2,7 +2,6 @@ import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import Link from 'next/link'
-import { getContractUrl } from '@/lib/stellar'
 import {
   Users,
   FileText,
@@ -18,6 +17,7 @@ import { LandingHeaderActions } from '@/components/landing/LandingHeaderActions'
 import { LandingHeroCTA } from '@/components/landing/LandingHeroCTA'
 import { LandingStats } from '@/components/landing/LandingStats'
 import { LandingBottomCTA } from '@/components/landing/LandingBottomCTA'
+import { LandingContractLink } from '@/components/landing/LandingContractLink'
 
 // lucide-react dropped brand/logo icons (including Github) in v1 — inlined here instead.
 function GithubMark(props: React.SVGProps<SVGSVGElement>) {
@@ -312,7 +312,7 @@ export default function Home() {
                 <ul className="space-y-3">
                   <li><span className="text-gray-400 text-sm">Documentation</span></li>
                   <li><a href="https://github.com/ourdao" target="_blank" rel="noopener noreferrer" className="text-gray-400 hover:text-white text-sm transition-colors">GitHub</a></li>
-                  <li><a href={getContractUrl() ?? undefined} target="_blank" rel="noopener noreferrer" className="text-gray-400 hover:text-white text-sm transition-colors">View Contract</a></li>
+                  <li><LandingContractLink /></li>
                   <li><span className="text-gray-400 text-sm">Support</span></li>
                 </ul>
               </div>

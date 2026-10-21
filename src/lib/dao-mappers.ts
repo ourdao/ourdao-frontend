@@ -9,6 +9,8 @@ import {
   GOVERNANCE_PERIOD_FALLBACKS,
   LOAN_POLICY_FALLBACKS,
   PROPOSAL_STATUS_AWAITING_FUNDS,
+  PROPOSAL_STATUS_CANCELLED,
+  PROPOSAL_STATUS_EXPIRED,
 } from '@/constants'
 import {
   loanSchema,
@@ -184,6 +186,10 @@ export function mapLoanProposal(raw: Record<string, unknown>, hasVoted = false):
   }
   const v = parsed.data
   const editingEnd = v.editing_period_end
+  // Prefer the period the contract stored on the proposal itself; the fallback
+  // is only for a record that predates it or arrives without it (#185, #477).
+  const votingPeriod =
+    v.voting_period > 0 ? v.voting_period : GOVERNANCE_PERIOD_FALLBACKS.votingPeriod
   return {
     id: v.id,
     borrower: v.borrower,
@@ -198,7 +204,10 @@ export function mapLoanProposal(raw: Record<string, unknown>, hasVoted = false):
     votingEndTime: editingEnd ? editingEnd + GOVERNANCE_PERIOD_FALLBACKS.votingPeriod : 0,
     editingPeriodEnd: editingEnd,
     isPrivate: false, // loan proposals are public; treasury proposals can be private
-    documentHash: '',
+    // The contract stores the borrower's supporting-document pointer as
+    // `metadata_cid` (`None` when there isn't one); the loans list gates its
+    // document indicator on this being non-empty (#476).
+    documentHash: v.metadata_cid,
     hasVoted,
   }
 }
@@ -280,6 +289,18 @@ export interface UITreasuryProposal {
   hasVoted: boolean
 }
 
+/** Every contract `ProposalStatus` variant, explicitly. An unrecognised tag is
+ *  deliberately absent so it maps to 0 (unknown) rather than an open vote. */
+export const TREASURY_STATUS_CODES: Record<string, number> = {
+  Pending: 2,
+  Approved: 3,
+  Rejected: 4,
+  Executed: 5,
+  ApprovedPendingDisbursement: PROPOSAL_STATUS_AWAITING_FUNDS,
+  Expired: PROPOSAL_STATUS_EXPIRED,
+  Cancelled: PROPOSAL_STATUS_CANCELLED,
+}
+
 /** See mapLoanProposal's note on `hasVoted` — same default/override contract.
  *  For a private (commit-reveal) proposal the contract's `has_voted` view
  *  reports true as soon as the voter has committed, without distinguishing
@@ -305,14 +326,7 @@ export function mapTreasuryProposal(raw: Record<string, unknown>, hasVoted = fal
     }
   }
   const v = parsed.data
-  const code =
-    v.status === 'Executed'
-      ? 5
-      : v.status === 'Rejected'
-        ? 4
-        : v.status === 'ApprovedPendingDisbursement'
-          ? PROPOSAL_STATUS_AWAITING_FUNDS
-          : 2
+  const code = TREASURY_STATUS_CODES[v.status] ?? 0
   const reason = v.reason
   return {
     id: v.id,

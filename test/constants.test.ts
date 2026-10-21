@@ -8,8 +8,9 @@ import {
 } from '@/constants'
 
 describe('PROPOSAL_STATUS_LABELS', () => {
-  it('has no label for a cancelled state the contract cannot produce', () => {
-    expect(Object.values(PROPOSAL_STATUS_LABELS)).not.toContain('Cancelled')
+  it('labels the closed states the contract can produce', () => {
+    expect(PROPOSAL_STATUS_LABELS[8]).toBe('Expired')
+    expect(PROPOSAL_STATUS_LABELS[9]).toBe('Cancelled')
   })
   it('labels the pending-disbursement state', () => {
     expect(PROPOSAL_STATUS_LABELS[7]).toBe('Awaiting Funds')

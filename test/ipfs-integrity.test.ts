@@ -5,14 +5,14 @@ import { computeIPFSCIDs } from '@/lib/ipfs-cid'
 describe('IPFS content integrity', () => {
   it('accepts bytes whose UnixFS CID matches', async () => {
     const content = new TextEncoder().encode('verified document bytes')
-    const cid = computeIPFSCIDs(content).cidV0
+    const cid = (await computeIPFSCIDs(content)).cidV0
 
     await expect(verifyDownloadedContent(cid, content)).resolves.toBe(true)
   })
 
   it('rejects bytes that do not match the requested CID', async () => {
     const content = new TextEncoder().encode('original document')
-    const cid = computeIPFSCIDs(content).cidV0
+    const cid = (await computeIPFSCIDs(content)).cidV0
 
     await expect(verifyDownloadedContent(cid, new TextEncoder().encode('tampered document'))).resolves.toBe(false)
   })

@@ -2,7 +2,7 @@
 
 import { useDocumentHistory } from '@/hooks/useDAO'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
-import { FileText, ExternalLink, Clock } from 'lucide-react'
+import { FileText, ExternalLink } from 'lucide-react'
 import { formatDate } from '@/lib/utils'
 import { AddressLink } from '@/components/AddressLink'
 

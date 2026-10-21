@@ -18,9 +18,11 @@ Next.js embeds environment variables prefixed with `NEXT_PUBLIC_` into client-si
 | --- | --- | --- |
 | `NEXT_PUBLIC_SOROBAN_RPC_URL` | Soroban RPC endpoint | `https://soroban-testnet.stellar.org` |
 | `NEXT_PUBLIC_NETWORK_PASSPHRASE` | Stellar network passphrase | `Test SDF Network ; September 2015` |
-| `NEXT_PUBLIC_BACKEND_URL` | OurDAO backend API URL | `http://localhost:4000` |
+| `NEXT_PUBLIC_BACKEND_URL` | OurDAO backend API URL (empty = preview mode; do not use `localhost`, it is baked into the browser bundle) | `""` |
 | `NEXT_PUBLIC_IPFS_GATEWAY` | IPFS gateway(s) for document retrieval | `https://gateway.pinata.cloud/ipfs/` |
-| `NEXT_PUBLIC_CONTRACT_ADDRESS` | Deployed DAO contract ID | `""` |
+| `NEXT_PUBLIC_CONTRACT_ID` | Deployed DAO contract ID | `""` |
+| `NEXT_PUBLIC_SITE_URL` | Public URL of the site (metadata, sitemap, robots) | `http://localhost:3000` |
+| `NEXT_PUBLIC_APP_ORIGIN` | Origin allowed to call `/api/documents` | `http://localhost:3000` |
 | `NEXT_PUBLIC_APP_VERSION` | Application version | from `package.json` |
 | `NEXT_PUBLIC_GIT_SHA` | Git commit SHA for build tracking | `""` |
 
@@ -44,6 +46,7 @@ docker build \
   --build-arg NEXT_PUBLIC_NETWORK_PASSPHRASE="Test SDF Network ; September 2015" \
   --build-arg NEXT_PUBLIC_BACKEND_URL="https://api.yourdao.org" \
   --build-arg NEXT_PUBLIC_IPFS_GATEWAY="https://gateway.pinata.cloud/ipfs/" \
+  --build-arg NEXT_PUBLIC_CONTRACT_ID="C..." \
   -t ourdao-frontend:latest .
 ```
 
@@ -65,7 +68,8 @@ A pre-configured `docker-compose.yml` is provided in the repository root.
    ```env
    NEXT_PUBLIC_SOROBAN_RPC_URL=https://soroban-testnet.stellar.org
    NEXT_PUBLIC_NETWORK_PASSPHRASE=Test SDF Network ; September 2015
-   NEXT_PUBLIC_BACKEND_URL=http://localhost:4000
+   NEXT_PUBLIC_BACKEND_URL=https://api.yourdao.org
+   NEXT_PUBLIC_CONTRACT_ID=C...
    NEXT_PUBLIC_IPFS_GATEWAY=https://gateway.pinata.cloud/ipfs/
    PINATA_JWT=your-pinata-jwt
    ```

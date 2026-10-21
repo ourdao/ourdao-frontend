@@ -30,7 +30,7 @@ function chunkedStream(chunks: Uint8Array[]) {
 
 // Generate valid test payload (>= MIN_UPLOAD_BYTES) and compute its CID
 const validBytes = new Uint8Array(MIN_UPLOAD_BYTES).fill(65)
-const validCID = computeIPFSCIDs(validBytes).cidV0
+const validCID = (await computeIPFSCIDs(validBytes)).cidV0
 
 describe('POST /api/documents', () => {
   const fetchMock = vi.fn()
@@ -124,7 +124,7 @@ describe('POST /api/documents', () => {
     for (let i = 0; i < 16; i++) {
       maxBytes.set(chunk, i * 1024 * 1024)
     }
-    const maxCID = computeIPFSCIDs(maxBytes).cidV0
+    const maxCID = (await computeIPFSCIDs(maxBytes)).cidV0
     fetchMock.mockResolvedValue(new Response(JSON.stringify({ IpfsHash: maxCID }), { status: 200 }))
 
     const res = await POST(upload(chunkedStream(Array.from({ length: 16 }, () => chunk))))
@@ -176,7 +176,7 @@ describe('POST /api/documents', () => {
   it('returns 502 when provider returned CID does not match the uploaded bytes', async () => {
     // Valid CID format for DIFFERENT bytes
     const otherBytes = new Uint8Array(MIN_UPLOAD_BYTES).fill(99)
-    const mismatchedCID = computeIPFSCIDs(otherBytes).cidV0
+    const mismatchedCID = (await computeIPFSCIDs(otherBytes)).cidV0
     fetchMock.mockResolvedValue(new Response(JSON.stringify({ IpfsHash: mismatchedCID }), { status: 200 }))
 
     const res = await POST(upload(validBytes))

@@ -496,7 +496,7 @@ export default function LoanDetailsPage() {
               id={loanId}
               isPrivate={proposal.isPrivate}
               fallbackDates={{
-                created: proposal.createdAt,
+                created: proposal.creationTime,
                 votingStart: proposal.votingStartTime,
                 votingEnd: proposal.votingEndTime,
               }}
@@ -797,7 +797,7 @@ export default function LoanDetailsPage() {
               id={loanId}
               isPrivate={proposal.isPrivate}
               fallbackDates={{
-                created: proposal.createdAt,
+                created: proposal.creationTime,
                 votingStart: proposal.votingStartTime,
                 votingEnd: proposal.votingEndTime,
               }}

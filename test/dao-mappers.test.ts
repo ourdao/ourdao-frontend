@@ -195,6 +195,38 @@ describe('mapLoanProposal', () => {
     expect(p.votesFor).toBe(2)
   })
 
+  it.each([
+    ['Pending', 2],
+    ['Approved', 3],
+    ['Rejected', 4],
+    ['Executed', 5],
+    ['ApprovedPendingDisbursement', 7],
+    ['Expired', 8],
+    ['Cancelled', 9],
+  ])('maps the %s variant to code %i', (status, code) => {
+    expect(mapTreasuryProposal({ id: 1, amount: BigInt(1), destination: 'GD', status }).status).toBe(code)
+  })
+
+  it('does not map an unrecognised status to an open vote', () => {
+    expect(mapTreasuryProposal({ id: 1, amount: BigInt(1), destination: 'GD', status: 'Mystery' }).status).toBe(0)
+    expect(mapTreasuryProposal({ id: 1, amount: BigInt(1), destination: 'GD' }).status).toBe(0)
+  })
+
+  it('maps the proposal\'s metadata_cid to documentHash (#476)', () => {
+    const cid = 'bafybeigdyrzt5sfp7udm7hu76uh7y26nf3efuylqabf3oclgtqy55fbzdi'
+    expect(mapLoanProposal({ id: 1, metadata_cid: cid }).documentHash).toBe(cid)
+    expect(mapLoanProposal({ id: 1, metadata_cid: 'QmYwAPJzv5CZsnAzt8auVZRnDaBcE7WtAipUjXk5rL8gTX' }).documentHash).toBe(
+      'QmYwAPJzv5CZsnAzt8auVZRnDaBcE7WtAipUjXk5rL8gTX'
+    )
+  })
+
+  it('leaves documentHash empty when the proposal has no metadata_cid (#476)', () => {
+    // `Option<string>` is `None` on-chain for a request without a document.
+    expect(mapLoanProposal({ id: 1 }).documentHash).toBe('')
+    expect(mapLoanProposal({ id: 1, metadata_cid: null }).documentHash).toBe('')
+    expect(mapLoanProposal({ id: 1, metadata_cid: undefined }).documentHash).toBe('')
+  })
+
   it('defaults hasVoted to false when no voter context is supplied', () => {
     expect(mapLoanProposal({ id: 1 }).hasVoted).toBe(false)
   })
@@ -318,8 +350,31 @@ describe('resolveLoanPolicy', () => {
 })
 
 describe('mapLoanProposal voting end', () => {
-  it('ends voting one governance voting period after editing ends', () => {
+  it("uses the proposal's own voting_period, not the constants fallback (#477)", () => {
+    // A policy whose period differs from GOVERNANCE_PERIOD_FALLBACKS is the
+    // case the fallback got wrong: the contract stores the period per
+    // proposal, so the deadline must come from the record.
+    const twoDays = 2 * 24 * 60 * 60
+    expect(twoDays).not.toBe(GOVERNANCE_PERIOD_FALLBACKS.votingPeriod)
+    const p = mapLoanProposal({ editing_period_end: 1000, voting_period: twoDays })
+    expect(p.votingEndTime).toBe(1000 + twoDays)
+  })
+
+  it('ends voting one governance voting period after editing ends when the field is missing', () => {
     const p = mapLoanProposal({ editing_period_end: 1000 })
     expect(p.votingEndTime).toBe(1000 + GOVERNANCE_PERIOD_FALLBACKS.votingPeriod)
+  })
+
+  it('falls back for an unusable voting_period rather than ending voting immediately', () => {
+    expect(mapLoanProposal({ editing_period_end: 1000, voting_period: 0 }).votingEndTime).toBe(
+      1000 + GOVERNANCE_PERIOD_FALLBACKS.votingPeriod
+    )
+    expect(mapLoanProposal({ editing_period_end: 1000, voting_period: 'x' }).votingEndTime).toBe(
+      1000 + GOVERNANCE_PERIOD_FALLBACKS.votingPeriod
+    )
+  })
+
+  it('leaves the deadline at 0 when editing never ended', () => {
+    expect(mapLoanProposal({ voting_period: 60 }).votingEndTime).toBe(0)
   })
 })

@@ -7,11 +7,20 @@ import {
   attributeBytes,
   decodeVlq,
   findDuplicateVersions,
+  findShippedPackages,
   packageOfSource,
   parseMappings,
   resolveMapPath,
   rollUp,
 } from '../scripts/bundle-composition.mjs'
+
+function writeChunk(dir: string, name: string, sources: string[]) {
+  writeFileSync(join(dir, name), `console.log(1);\n//# sourceMappingURL=${name}.map\n`)
+  writeFileSync(
+    join(dir, `${name}.map`),
+    JSON.stringify({ version: 3, sources, mappings: '' })
+  )
+}
 
 // Base64-VLQ vectors from the Source Map v3 spec: a single digit carries the
 // value in bits 1..5 with bit 0 as the sign, and a set continuation bit defers
@@ -177,5 +186,63 @@ describe('findDuplicateVersions', () => {
     const lockfile = join(dir, 'package-lock.json')
     writeFileSync(lockfile, JSON.stringify({ packages: { '': { name: 'app' } } }))
     expect(findDuplicateVersions(lockfile)).toEqual([])
+  })
+})
+
+// The evidence behind #478's allowlist entry: the optional HOT wallet SDK must
+// not reach a browser chunk, so its vulnerable `elliptic` copy is unreachable.
+describe('findShippedPackages', () => {
+  it('reports a forbidden package that appears in a chunk source map', () => {
+    const dir = mkdtempSync(join(tmpdir(), 'composition-'))
+    writeChunk(dir, 'a.js', [
+      'webpack://_N_E/./node_modules/@solana/web3.js/lib/index.js',
+      'webpack://_N_E/./src/app/page.tsx',
+    ])
+
+    expect(findShippedPackages(dir, ['@solana/web3.js', '@hot-wallet/sdk'])).toEqual({
+      found: ['@solana/web3.js'],
+      mappedChunks: 1,
+    })
+  })
+
+  it('reports nothing when the package is absent from every chunk', () => {
+    const dir = mkdtempSync(join(tmpdir(), 'composition-'))
+    writeChunk(dir, 'a.js', [
+      'webpack://_N_E/./node_modules/@tanstack/react-query/build/modern/index.js',
+      'webpack://_N_E/./src/app/page.tsx',
+      'webpack://_N_E/./public/logo.png',
+    ])
+
+    expect(findShippedPackages(dir, ['@solana/web3.js', '@hot-wallet/sdk'])).toEqual({
+      found: [],
+      mappedChunks: 1,
+    })
+  })
+
+  it('scans every chunk, not just the first one', () => {
+    const dir = mkdtempSync(join(tmpdir(), 'composition-'))
+    writeChunk(dir, 'a.js', ['webpack://_N_E/./src/app/page.tsx'])
+    writeChunk(dir, 'b.js', ['webpack://_N_E/./node_modules/@near-js/crypto/lib/index.js'])
+
+    expect(findShippedPackages(dir, ['@near-js/crypto'])).toEqual({
+      found: ['@near-js/crypto'],
+      mappedChunks: 2,
+    })
+  })
+
+  it('returns null when there is no build to inspect', () => {
+    expect(findShippedPackages(join(tmpdir(), 'composition-does-not-exist'), ['x'])).toBeNull()
+  })
+
+  it('reports zero mapped chunks rather than claiming absence from an unanalysable build', () => {
+    // A plain `next build` emits no source maps, so "no package found" would be
+    // meaningless -- the caller must treat this as "cannot verify".
+    const dir = mkdtempSync(join(tmpdir(), 'composition-'))
+    writeFileSync(join(dir, 'a.js'), 'console.log(1);\n')
+
+    expect(findShippedPackages(dir, ['@solana/web3.js'])).toEqual({
+      found: [],
+      mappedChunks: 0,
+    })
   })
 })

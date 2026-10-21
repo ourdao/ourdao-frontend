@@ -269,7 +269,7 @@ describe('downloadFromIPFS', () => {
 
   it('fetches from the public gateway and returns the raw bytes when not encrypted', async () => {
     const bytes = new TextEncoder().encode('plain content')
-    const cid = computeIPFSCIDs(bytes).cidV0
+    const cid = (await computeIPFSCIDs(bytes)).cidV0
     vi.mocked(fetch).mockResolvedValueOnce(bytesResponse(bytes))
 
     const result = await downloadFromIPFS(cid, false)
@@ -282,7 +282,7 @@ describe('downloadFromIPFS', () => {
   it('decrypts the fetched bytes when encrypted and a password is given', async () => {
     const encrypted = await encryptData('secret contents', 'pw')
     const bytes = new TextEncoder().encode(encrypted)
-    const cid = computeIPFSCIDs(bytes).cidV0
+    const cid = (await computeIPFSCIDs(bytes)).cidV0
     vi.mocked(fetch).mockResolvedValueOnce(bytesResponse(bytes))
 
     const result = await downloadFromIPFS(cid, true, 'pw')
@@ -294,7 +294,7 @@ describe('downloadFromIPFS', () => {
   it('decrypts a binary envelope fetched from the gateway', async () => {
     const original = new Uint8Array([0xff, 0x00, 0x80, 0xfe, 0x25])
     const bytes = await encryptBytes(original, 'pw')
-    const cid = computeIPFSCIDs(bytes).cidV0
+    const cid = (await computeIPFSCIDs(bytes)).cidV0
     vi.mocked(fetch).mockResolvedValueOnce(bytesResponse(bytes))
 
     const result = await downloadFromIPFS(cid, true, 'pw')
@@ -304,15 +304,15 @@ describe('downloadFromIPFS', () => {
   })
 
   it('throws a visible error when the gateway request fails, not a mock fallback', async () => {
-    const cid = computeIPFSCIDs(new Uint8Array([1, 2, 3])).cidV0
+    const cid = (await computeIPFSCIDs(new Uint8Array([1, 2, 3]))).cidV0
     vi.mocked(fetch).mockResolvedValueOnce(bytesResponse(new Uint8Array(), false, 404))
     await expect(downloadFromIPFS(cid)).rejects.toThrow(/404/)
   })
 })
 
 describe('getIPFSUrl', () => {
-  it('builds a URL against the configured gateway', () => {
-    const cid = computeIPFSCIDs(new Uint8Array([1])).cidV0
+  it('builds a URL against the configured gateway', async () => {
+    const cid = (await computeIPFSCIDs(new Uint8Array([1]))).cidV0
     expect(getIPFSUrl(cid)).toContain(cid)
   })
 })
@@ -340,7 +340,7 @@ describe('IPFS end-to-end binary round-trip', () => {
       if (String(url).includes('/api/documents')) {
         const body = init?.body as Blob
         uploadedBytes = new Uint8Array(await body.arrayBuffer())
-        const cid = computeIPFSCIDs(uploadedBytes).cidV0
+        const cid = (await computeIPFSCIDs(uploadedBytes)).cidV0
         return jsonResponse({ hash: cid })
       }
       if (uploadedBytes) {

@@ -71,7 +71,7 @@ describe('TreasuryProposalDetailPage (/treasury/[id])', () => {
       destination: 'GBBD47IF6LWK7P7MDEVSCWR7DPUWV3NY3DTQEVFL4NAT4AQH3ZLLFLA5',
       reason: 'Treasury Proposal #42',
       amount: '50000000',
-      status: 2, // In Voting
+      status: 'Pending', // In Voting
       votesFor: '10',
       votesAgainst: '2',
       isPrivate: false,
@@ -96,7 +96,7 @@ describe('TreasuryProposalDetailPage (/treasury/[id])', () => {
       destination: 'GBBD47IF6LWK7P7MDEVSCWR7DPUWV3NY3DTQEVFL4NAT4AQH3ZLLFLA5',
       reason: 'Treasury Proposal #42',
       amount: '50000000',
-      status: 2,
+      status: 'Pending',
       votesFor: '10',
       votesAgainst: '2',
       isPrivate: false,

@@ -275,6 +275,40 @@ export function analyse(staticDir) {
 }
 
 /**
+ * Packages that appear in the built client assets.
+ *
+ * Reads the source maps' `sources` lists rather than the minified chunks: a
+ * chunk never names the package it came from, and a package listed in a map is
+ * present in the graph (conservatively, even if it was tree-shaken to nothing).
+ * Answers #478's "is the optional wallet SDK actually shipped?" without a
+ * hand-written allowlist of module paths.
+ */
+export function findShippedPackages(staticDir, forbidden = []) {
+  if (!existsSync(staticDir)) return null;
+  const present = new Set();
+  let mappedChunks = 0;
+  for (const file of walk(staticDir)) {
+    const text = readFileSync(file, "utf8");
+    const mapPath = resolveMapPath(file, text);
+    if (!mapPath) continue;
+    let map;
+    try {
+      map = JSON.parse(readFileSync(mapPath, "utf8"));
+    } catch {
+      continue;
+    }
+    mappedChunks += 1;
+    for (const source of map.sources ?? []) {
+      const name = packageOfSource(source);
+      if (name) present.add(name);
+    }
+  }
+  // `mappedChunks` is reported so a build without source maps (the default;
+  // ANALYZE_BUNDLE=1 enables them) cannot be mistaken for "nothing shipped".
+  return { found: forbidden.filter((name) => present.has(name)), mappedChunks };
+}
+
+/**
  * Packages present at more than one version in the lockfile.
  *
  * Answers #266's "flag any dependency appearing more than once at different
@@ -297,4 +331,43 @@ export function findDuplicateVersions(lockfilePath = "package-lock.json") {
     .filter(([, set]) => set.size > 1)
     .map(([name, set]) => ({ name, versions: [...set].sort() }))
     .sort((a, b) => a.name.localeCompare(b.name));
+}
+
+// --- CLI ---------------------------------------------------------------------
+//
+// `node scripts/bundle-composition.mjs assert-absent <pkg...>` fails if any
+// named package reached the client bundle. Used by the bundle-size CI job after
+// a source-mapped build, and the evidence behind the audit allowlist entry that
+// says the optional HOT wallet SDK is unreachable (#478).
+const invokedDirectly =
+  process.argv[1] &&
+  new URL(import.meta.url).pathname === new URL(`file://${process.argv[1]}`).pathname;
+
+if (invokedDirectly) {
+  const [command, ...packages] = process.argv.slice(2);
+  const staticDir = process.env.STATIC_DIR ?? ".next/static";
+
+  if (command !== "assert-absent" || packages.length === 0) {
+    console.error("usage: node scripts/bundle-composition.mjs assert-absent <pkg...>");
+    process.exit(2);
+  }
+
+  const result = findShippedPackages(staticDir, packages);
+  if (result === null) {
+    console.error(`${staticDir} not found -- run \`npm run build\` first.`);
+    process.exit(2);
+  }
+  if (result.mappedChunks === 0) {
+    console.error(
+      `no source maps under ${staticDir} -- rebuild with ANALYZE_BUNDLE=1 so chunks can be attributed.`
+    );
+    process.exit(2);
+  }
+  if (result.found.length > 0) {
+    console.error(`Forbidden packages shipped to the client: ${result.found.join(", ")}`);
+    process.exit(1);
+  }
+  console.log(
+    `None of ${packages.join(", ")} is in the client bundle (${result.mappedChunks} mapped chunks).`
+  );
 }

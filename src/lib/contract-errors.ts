@@ -60,6 +60,15 @@ export const CONTRACT_ERROR_MESSAGES: Record<number, string> = {
   71: 'The name is invalid.',
   72: 'You must reveal your vote before it can be counted.',
   73: 'Only the proposal owner can modify its attached document.',
+  74: 'The attached document is too large.',
+  75: 'The token address is not a valid token contract.',
+  76: 'The timelock has not expired yet — this change cannot be applied until the delay has passed.',
+  77: 'There is no pending policy update to apply.',
+  78: 'The document CID is invalid. Check the IPFS link and try again.',
+  79: 'Invalid delegation target — you cannot delegate to yourself.',
+  80: 'This proposal is invalid.',
+  81: 'This address is already a pauser.',
+  82: 'You must be a pauser to perform this action.',
 }
 
 const DEFAULT_ERROR_MESSAGE = 'An unexpected contract error occurred.'

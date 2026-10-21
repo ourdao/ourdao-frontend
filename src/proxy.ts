@@ -14,7 +14,7 @@ function generateNonce(): string {
 /**
  * Build CSP with a per-request nonce for script-src.
  * 
- * This middleware generates a unique nonce for each request and injects it
+ * The proxy generates a unique nonce for each request and injects it
  * into the CSP header. Next.js will automatically pick up the nonce and apply
  * it to inline scripts during hydration when using the App Router.
  * 
@@ -36,7 +36,7 @@ function generateNonce(): string {
  * This prevents arbitrary HTTPS origins from being used as image sources,
  * which would leak the viewer's IP and referer to external hosts.
  */
-function buildCspWithNonce(nonce: string): string {
+export function buildCspWithNonce(nonce: string): string {
   const rpcUrl = process.env.NEXT_PUBLIC_SOROBAN_RPC_URL || 'https://soroban-testnet.stellar.org'
   const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:4000'
   const ipfsGateways = (process.env.NEXT_PUBLIC_IPFS_GATEWAY || '')
@@ -104,7 +104,7 @@ function buildCspWithNonce(nonce: string): string {
   return directives.join('; ')
 }
 
-export function middleware(request: NextRequest) {
+export function proxy(request: NextRequest) {
   const nonce = generateNonce()
   const csp = buildCspWithNonce(nonce)
 
@@ -121,7 +121,8 @@ export function middleware(request: NextRequest) {
   // Set CSP header on response
   response.headers.set('Content-Security-Policy', csp)
 
-  // Set other security headers (previously in next.config.ts headers())
+  // Set other security headers. This proxy is the single source of all
+  // security headers; next.config.ts intentionally sends none.
   response.headers.set('Strict-Transport-Security', 'max-age=63072000; includeSubDomains; preload')
   response.headers.set('X-Content-Type-Options', 'nosniff')
   response.headers.set('Referrer-Policy', 'strict-origin-when-cross-origin')

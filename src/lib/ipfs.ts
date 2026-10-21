@@ -1,4 +1,7 @@
 import { IPFS_GATEWAY, IPFS_GATEWAYS, IPFS_GATEWAY_TIMEOUT_MS } from '@/constants'
+import { validateIPFSHash, verifyIPFSHash } from './ipfs-cid'
+
+export { validateIPFSHash }
 
 // PBKDF2-SHA256 iteration count for new encryptions, per current OWASP
 // guidance. The count is written into every envelope header, so raising it
@@ -356,88 +359,9 @@ export function getIPFSUrl(hash: string): string {
   return `${IPFS_GATEWAY}${hash}`
 }
 
-// Validate IPFS hash. Not yet called by getIPFSUrl or downloadFromIPFS, so a
-// malformed hash still flows straight into the gateway URL.
-export function validateIPFSHash(hash: string): boolean {
-  // Shape check only — validates format but not cryptographic integrity.
-  // CIDv0: Qm followed by 44 base58btc chars (46 total)
-  const cidV0Regex = /^Qm[1-9A-HJ-NP-Za-km-z]{44}$/
-
-  // CIDv1: multibase prefix + variable-length hash
-  // Supports common prefixes: b (base32), B (base32upper), f (base16), z (base58btc)
-  // Accepts 7-60 chars after prefix to cover common multihash lengths
-  const cidV1Regex = /^[bBfz][0-9A-Za-z]{7,60}$/
-
-  return cidV0Regex.test(hash) || cidV1Regex.test(hash)
-}
-
-const BASE58_ALPHABET = '123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz'
-const BASE32_ALPHABET = 'abcdefghijklmnopqrstuvwxyz234567'
-
-function cidVarint(value: number): Uint8Array {
-  const bytes: number[] = []
-  while (value >= 0x80) {
-    bytes.push((value & 0x7f) | 0x80)
-    value >>>= 7
-  }
-  bytes.push(value)
-  return new Uint8Array(bytes)
-}
-
-function concatBytes(...parts: Uint8Array[]): Uint8Array {
-  const output = new Uint8Array(parts.reduce((sum, part) => sum + part.length, 0))
-  let offset = 0
-  for (const part of parts) {
-    output.set(part, offset)
-    offset += part.length
-  }
-  return output
-}
-
-function encodeBase58(bytes: Uint8Array): string {
-  let value = BigInt(0)
-  for (const byte of bytes) value = (value << BigInt(8)) | BigInt(byte)
-  let result = ''
-  while (value > BigInt(0)) {
-    result = BASE58_ALPHABET[Number(value % BigInt(58))] + result
-    value /= BigInt(58)
-  }
-  for (const byte of bytes) {
-    if (byte !== 0) break
-    result = `1${result}`
-  }
-  return result
-}
-
-function encodeBase32(bytes: Uint8Array): string {
-  let bits = 0
-  let value = 0
-  let result = 'b'
-  for (const byte of bytes) {
-    value = (value << 8) | byte
-    bits += 8
-    while (bits >= 5) {
-      result += BASE32_ALPHABET[(value >>> (bits - 5)) & 31]
-      bits -= 5
-    }
-  }
-  if (bits > 0) result += BASE32_ALPHABET[(value << (5 - bits)) & 31]
-  return result
-}
-
-/** Verify the downloaded bytes against the supported single-block UnixFS CIDs. */
-export async function verifyDownloadedContent(cid: string, content: Uint8Array): Promise<boolean> {
-  if (!validateIPFSHash(cid)) return false
-  const length = cidVarint(content.length)
-  const unixFsData = concatBytes(new Uint8Array([0x08, 0x02, 0x12]), length, content, new Uint8Array([0x18]), length)
-  const encodedData = concatBytes(new Uint8Array([0x0a]), cidVarint(unixFsData.length), unixFsData)
-  const digest = new Uint8Array(await crypto.subtle.digest('SHA-256', encodedData as unknown as BufferSource))
-  const multihash = concatBytes(new Uint8Array([0x12, 0x20]), digest)
-  const cidV0 = encodeBase58(multihash)
-  const cidV1 = encodeBase32(concatBytes(new Uint8Array([0x01, 0x70]), multihash))
-  const rawDigest = new Uint8Array(await crypto.subtle.digest('SHA-256', content as unknown as BufferSource))
-  const cidV1Raw = encodeBase32(concatBytes(new Uint8Array([0x01, 0x55, 0x12, 0x20]), rawDigest))
-  return cid === cidV0 || cid.toLowerCase() === cidV1 || cid.toLowerCase() === cidV1Raw
+/** Verify downloaded bytes against their CID, including multi-chunk files. */
+export function verifyDownloadedContent(cid: string, content: Uint8Array): Promise<boolean> {
+  return verifyIPFSHash(cid, content)
 }
 
 // Generate document metadata

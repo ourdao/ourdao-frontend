@@ -110,19 +110,30 @@ let defaultAdapter: WalletAdapter | undefined
 
 /** Lazily builds the Stellar Wallets Kit adapter (browser-only dependencies). */
 export function getDefaultWalletAdapter(networkPassphrase: string): WalletAdapter {
-  defaultAdapter ??= createKitAdapter(async () => {
-    const [{ StellarWalletsKit }, { defaultModules }, { FREIGHTER_ID }] =
-      await Promise.all([
-        import('@creit.tech/stellar-wallets-kit/sdk'),
-        import('@creit.tech/stellar-wallets-kit/modules/utils'),
-        import('@creit.tech/stellar-wallets-kit/modules/freighter'),
-      ])
-    StellarWalletsKit.init({
-      modules: defaultModules(),
-      selectedWalletId: FREIGHTER_ID,
-      network: networkPassphrase as Networks,
+  defaultAdapter ??= createKitAdapter(() => {
+    // `init` resets the active module to `selectedWalletId`, so it must run
+    // once; re-running it per call would override the wallet the member picked.
+    kitPromise ??= loadDefaultKit(networkPassphrase).catch((err) => {
+      kitPromise = undefined
+      throw err
     })
-    return StellarWalletsKit
+    return kitPromise
   }, networkPassphrase)
   return defaultAdapter
+}
+
+let kitPromise: Promise<WalletKit> | undefined
+
+async function loadDefaultKit(networkPassphrase: string): Promise<WalletKit> {
+  const [{ StellarWalletsKit }, { defaultModules }, { FREIGHTER_ID }] = await Promise.all([
+    import('@creit.tech/stellar-wallets-kit/sdk'),
+    import('@creit.tech/stellar-wallets-kit/modules/utils'),
+    import('@creit.tech/stellar-wallets-kit/modules/freighter'),
+  ])
+  StellarWalletsKit.init({
+    modules: defaultModules(),
+    selectedWalletId: FREIGHTER_ID,
+    network: networkPassphrase as Networks,
+  })
+  return StellarWalletsKit
 }
