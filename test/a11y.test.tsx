@@ -148,7 +148,8 @@ describe('issue #238 — automated accessibility assertions', () => {
 
   describe('issue #375 — accessibility allow-list and main pages at rest', () => {
     it('documents the allow-list with each entry linking a valid issue URL', () => {
-      expect(KNOWN_A11Y_ALLOWLIST.length).toBeGreaterThan(0)
+      const urls = KNOWN_A11Y_ALLOWLIST.map((entry) => entry.issue)
+      expect(new Set(urls).size).toBe(urls.length)
       for (const entry of KNOWN_A11Y_ALLOWLIST) {
         expect(entry.ruleId).toBeTruthy()
         expect(entry.issue).toMatch(/^https:\/\/github\.com\/ourdao\/ourdao-frontend\/issues\/\d+$/)

@@ -7,32 +7,24 @@ export interface KnownA11yIssue {
   ruleId: string
   /** The GitHub issue tracking the fix */
   issue: string
+  /**
+   * Optional CSS selector scoping the exemption to matching nodes only.
+   * Required for any entry that is not a whole-suite exemption.
+   */
+  selector?: string
   /** Explanation of why this rule is allow-listed for this component/target */
   reason: string
 }
 
 /**
  * Documented allow-list for known accessibility issues (#375).
- * Each entry is tied to an open tracking issue and explains the gap.
- * As issues #231, #232, and #233 land, entries should be removed from this list.
+ *
+ * Entries must be scoped to a specific selector and tied to an OPEN tracking
+ * issue. Rule-wide, unscoped suppressions are not permitted. The allowlist is
+ * currently empty: the previously listed rules (label, aria-dialog-name,
+ * region) were suppressing nothing real and their justifying issues are closed.
  */
-export const KNOWN_A11Y_ALLOWLIST: KnownA11yIssue[] = [
-  {
-    ruleId: 'label',
-    issue: 'https://github.com/ourdao/ourdao-frontend/issues/231',
-    reason: 'Unlabelled form inputs and select triggers across forms awaiting explicit accessible labels',
-  },
-  {
-    ruleId: 'aria-dialog-name',
-    issue: 'https://github.com/ourdao/ourdao-frontend/issues/232',
-    reason: 'Modals and dialogs lacking explicit aria-label/aria-labelledby (#232)',
-  },
-  {
-    ruleId: 'region',
-    issue: 'https://github.com/ourdao/ourdao-frontend/issues/233',
-    reason: 'Page regions or landmarks missing explicit heading hierarchy or container roles (#233)',
-  },
-]
+export const KNOWN_A11Y_ALLOWLIST: KnownA11yIssue[] = []
 
 /**
  * Shared axe helper for issues #238 and #375.
@@ -47,16 +39,35 @@ export async function runAxe(container: HTMLElement) {
 }
 
 /**
- * Runs axe-core against a container, filtering out documented known issues in KNOWN_A11Y_ALLOWLIST.
- * Any unallowlisted violation will be returned and should fail the test.
+ * Runs axe-core against a container, filtering out documented known issues in
+ * KNOWN_A11Y_ALLOWLIST. Entries with a `selector` only suppress violations whose
+ * nodes all match that selector within the container. Any remaining violation
+ * will be returned and should fail the test.
  */
 export async function runAxeWithAllowlist(
   container: HTMLElement,
   allowlist: KnownA11yIssue[] = KNOWN_A11Y_ALLOWLIST
 ) {
   const violations = await runAxe(container)
-  const allowedRules = new Set(allowlist.map((item) => item.ruleId))
-  return violations.filter((v) => !allowedRules.has(v.id))
+  return violations
+    .map((v) => {
+      const scoped = allowlist.filter((item) => item.ruleId === v.id)
+      if (scoped.length === 0) return v
+      const remainingNodes = v.nodes.filter((node) => {
+        const target = node.target.join(' ')
+        const element = container.querySelector(
+          node.target.filter((t): t is string => typeof t === 'string').join(' ')
+        ) as HTMLElement | null
+        return !scoped.some((item) => {
+          if (!item.selector) return false
+          if (element && element.matches(item.selector)) return true
+          return target.includes(item.selector)
+        })
+      })
+      if (remainingNodes.length === 0) return null
+      return { ...v, nodes: remainingNodes }
+    })
+    .filter((v): v is NonNullable<typeof v> => v !== null)
 }
 
 export function formatViolations(
