@@ -18,6 +18,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { useWallet } from '@/lib/wallet'
 import { backend, type BackendEvent, type BackendNotification, type MutationFailure, type MutationResult } from '@/lib/backend'
+import { isBackendConfigured } from '@/lib/backend-config'
 import { serializePerAddress } from '@/lib/backend-auth'
 import { formatStellarAddress, isStellarAddress } from '@/lib/stellar'
 import type { ActivityItem, NotificationData } from '@/lib/pushNotifications'
@@ -26,15 +27,6 @@ import { queryKeys } from '@/lib/query-keys'
 import { QUERY_REFRESH_INTERVAL_MS } from '@/constants'
 import { announce } from '@/lib/announce'
 import toast from 'react-hot-toast'
-
-function isBackendConfigured(): boolean {
-  if (backend && typeof (backend as { isConfigured?: () => boolean }).isConfigured === 'function') {
-    return (backend as { isConfigured: () => boolean }).isConfigured()
-  }
-  if (process.env.NEXT_PUBLIC_BACKEND_URL === '') return false
-  if (process.env.NEXT_PUBLIC_BACKEND_URL) return true
-  return process.env.NODE_ENV === 'test' && !!backend
-}
 
 function toNotification(n: BackendNotification): NotificationData {
   return {
