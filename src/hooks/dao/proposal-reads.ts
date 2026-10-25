@@ -6,19 +6,11 @@ import { useWallet } from '@/lib/wallet'
 import { isContractConfigured } from '@/lib/stellar'
 import { daoRead } from '@/lib/dao-client'
 import { backend } from '@/lib/backend'
+import { isBackendConfigured } from '@/lib/backend-config'
 import { asBigInt, mapLoanProposal, mapLoan, mapTreasuryProposal, toAdminLogEntry, type UILoan } from '@/lib/dao-mappers'
 import { fetchProposalPage } from './enumeration'
 import { queryKeys } from '@/lib/query-keys'
 import { QUERY_REFRESH_INTERVAL_MS } from '@/constants'
-
-function isBackendConfigured(): boolean {
-  if (backend && typeof (backend as { isConfigured?: () => boolean }).isConfigured === 'function') {
-    return (backend as { isConfigured: () => boolean }).isConfigured()
-  }
-  if (process.env.NEXT_PUBLIC_BACKEND_URL === '') return false
-  if (process.env.NEXT_PUBLIC_BACKEND_URL) return true
-  return process.env.NODE_ENV === 'test' && !!backend
-}
 
 /** All loan proposals (newest first), read live from the contract, paginated. */
 export function useLoanProposals() {

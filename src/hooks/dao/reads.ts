@@ -5,7 +5,7 @@ import { useQuery } from '@tanstack/react-query'
 import { useWallet } from '@/lib/wallet'
 import { CONTRACT_ID, isContractConfigured } from '@/lib/stellar'
 import { daoRead } from '@/lib/dao-client'
-import { backend } from '@/lib/backend'
+import { backend, isBackendConfigured } from '@/lib/backend'
 import type { UserData, DAOStats } from '@/types/dao'
 import { asBigInt, mapLoanTerms, resolveLoanPolicy, toLoan, toMemberStatus } from '@/lib/dao-mappers'
 import type { UILoanPolicy, UILoanTerms } from '@/lib/dao-mappers'
@@ -22,15 +22,6 @@ export function calculateVotingWeight(stakeStroops: bigint, decimals: number = 7
   if (stakeStroops <= BigInt(0)) return 1
   const bonus = Number(stakeStroops / STROOPS_PER_BONUS)
   return 1 + Math.min(5, Math.max(0, bonus))
-}
-
-function isBackendConfigured(): boolean {
-  if (backend && typeof (backend as { isConfigured?: () => boolean }).isConfigured === 'function') {
-    return (backend as { isConfigured: () => boolean }).isConfigured()
-  }
-  if (process.env.NEXT_PUBLIC_BACKEND_URL === '') return false
-  if (process.env.NEXT_PUBLIC_BACKEND_URL) return true
-  return process.env.NODE_ENV === 'test' && !!backend
 }
 
 export function useDAOContract() {
