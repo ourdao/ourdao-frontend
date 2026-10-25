@@ -356,10 +356,12 @@ export default function DashboardPage() {
                   <span className="text-sm text-muted-foreground">Treasury Balance</span>
                   <span className="font-medium">{formatToken(stats.treasuryBalance)}</span>
                 </div>
-                <div className="flex justify-between">
-                  <span className="text-sm text-muted-foreground">Total Yield</span>
-                  <span className="font-medium">{formatToken(stats.totalYieldGenerated)}</span>
-                </div>
+                {stats.totalYieldGenerated > BigInt(0) && (
+                  <div className="flex justify-between">
+                    <span className="text-sm text-muted-foreground">Total Yield</span>
+                    <span className="font-medium">{formatToken(stats.totalYieldGenerated)}</span>
+                  </div>
+                )}
               </CardContent>
             </Card>
 

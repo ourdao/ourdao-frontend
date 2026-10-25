@@ -6,6 +6,7 @@ import { useQueryErrorResetBoundary } from '@tanstack/react-query'
 import { TriangleAlert } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { reportError } from '@/lib/error-reporting'
+import { logger } from '@/lib/logger'
 
 function getReferenceId(error: Error & { digest?: string }): string {
   if (error.digest) return error.digest
@@ -41,7 +42,7 @@ export default function AppError({
   const referenceId = getReferenceId(error)
 
   useEffect(() => {
-    console.error('App route error boundary caught:', error, { referenceId })
+    logger.error('App route error boundary caught', { error, referenceId })
     reportError(error, { boundary: 'app-route', digest: error.digest, referenceId })
   }, [error, referenceId])
 

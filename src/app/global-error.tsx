@@ -2,6 +2,7 @@
 
 import { useEffect } from 'react'
 import { reportError } from '@/lib/error-reporting'
+import { logger } from '@/lib/logger'
 
 /**
  * Catches errors thrown by the root layout itself (outside what error.tsx
@@ -22,7 +23,7 @@ export default function GlobalError({
   reset: () => void
 }) {
   useEffect(() => {
-    console.error('Global error boundary caught:', error)
+    logger.error('Global error boundary caught', { error })
     // Subject to the member's error-reporting opt-in (#247) — see
     // src/lib/error-reporting.ts.
     reportError(error, { boundary: 'global', digest: error.digest })

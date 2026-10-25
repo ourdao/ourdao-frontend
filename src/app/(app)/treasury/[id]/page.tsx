@@ -12,8 +12,6 @@ import {
   X,
   FileText,
   CheckCircle,
-  AlertCircle,
-  Lock,
   Eye,
   EyeOff,
   Download,
@@ -126,7 +124,7 @@ export default function TreasuryProposalDetailPage() {
       await commitVote(proposalId, commitment)
       storeCommitSalt(proposalId, salt)
       toast.success(
-        "Vote committed! Save your salt backup — you'll need it to reveal your vote.",
+        'Vote committed! Save your salt backup — you'll need it to reveal your vote.',
         { duration: 6000 }
       )
       setShowCommitDialog(false)

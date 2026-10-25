@@ -13,6 +13,13 @@ import { useSyncExternalStore } from 'react'
 let cachedNow = Date.now()
 
 function subscribe(callback: () => void) {
+  // Refresh cachedNow = Date.now() before starting the interval so a
+  // subscription made after a long gap gets the current time immediately,
+  // not a stale value that could be hours old (#483).
+  cachedNow = Date.now()
+  // Notify once immediately so the component gets the fresh value on mount.
+  callback()
+  
   const id = setInterval(() => {
     cachedNow = Date.now()
     callback()

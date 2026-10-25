@@ -9,6 +9,7 @@ import { QUERY_STALE_TIME_MS } from '@/constants'
 import { LiveAnnouncer } from '@/components/LiveAnnouncer'
 import { SkipLink } from '@/components/SkipLink'
 import { reportError } from '@/lib/error-reporting'
+import { logger } from '@/lib/logger'
 
 export function Providers({ children }: { children: React.ReactNode }) {
   const [queryClient] = useState(() => createQueryClient())
@@ -53,7 +54,7 @@ export function createQueryClient() {
   return new QueryClient({
     queryCache: new QueryCache({
       onError: (error, query) => {
-        console.error('Query failed', { queryKey: query.queryKey, error })
+        logger.error('Query failed', { queryKey: query.queryKey, error })
         // Subject to the member's error-reporting opt-in (#247) — see
         // src/lib/error-reporting.ts. `backend.ts`'s fetch helpers currently
         // swallow failed-response headers rather than surfacing them on the
