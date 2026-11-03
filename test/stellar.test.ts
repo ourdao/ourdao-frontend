@@ -6,17 +6,19 @@ import {
   isStellarAddress,
   validateStellarAddress,
 } from '@/lib/stellar'
-import { Networks } from '@stellar/stellar-sdk'
+import { Networks, StrKey } from '@stellar/stellar-sdk'
+
+// Real StrKey contract id (the old CA7QYNF… fixture failed isValidContract — #537).
+const validContractId = StrKey.encodeContract(Buffer.alloc(32, 7))
 
 // ── Regression #355: contractIdStatus / isContractConfigured validation ─────
 
 describe('contractIdStatus and isContractConfigured (#355)', () => {
-  // A canonical Soroban contract address (C + 55 base32 chars)
-  const validContractId = 'CA7QYNF7SOWQ3GLR2BGMZEHXR73EWBMGM7OPKJNNOHHEJLBSXMZPQNUD'
   // Non-empty but fails StrKey.isValidContract — the old startsWith('C') bug
   const malformedContractId = 'Cabc123'
 
   it('returns "valid" and isContractConfigured()=true for a canonical contract id', async () => {
+    expect(StrKey.isValidContract(validContractId)).toBe(true)
     vi.stubEnv('NEXT_PUBLIC_CONTRACT_ID', validContractId)
     vi.resetModules()
     const { contractIdStatus, isContractConfigured } = await import('@/lib/stellar')
@@ -137,7 +139,7 @@ describe('isStellarAddress', () => {
   // Canonical Stellar addresses are uppercase base32: G or C + 55 chars
   // from the RFC 4648 alphabet [A-Z2-7] — 0, 1, 8 and 9 are never valid.
   const validG = 'GAHJJJKMOKYE4RVPZEWZTKH5FVI4PA3VL7GK2LFNUBSGBV3MQAXRWUDX'
-  const validC = 'CA7QYNF7SOWQ3GLR2BGMZEHXR73EWBMGM7OPKJNNOHHEJLBSXMZPQNUD'
+  const validC = validContractId
   // Muxed address (M + 68 base32 chars = 69 total)
   const validM = 'MAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA'
 
@@ -206,7 +208,7 @@ describe('isStellarAddress', () => {
 
 describe('validateStellarAddress', () => {
   const validG = 'GAHJJJKMOKYE4RVPZEWZTKH5FVI4PA3VL7GK2LFNUBSGBV3MQAXRWUDX'
-  const validC = 'CA7QYNF7SOWQ3GLR2BGMZEHXR73EWBMGM7OPKJNNOHHEJLBSXMZPQNUD'
+  const validC = validContractId
   const validM = 'MAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA'
 
   it('returns valid=true for canonical G address', () => {
