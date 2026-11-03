@@ -201,7 +201,7 @@ export function mapLoanProposal(raw: Record<string, unknown>, hasVoted = false):
     votesAgainst: v.against_votes,
     creationTime: v.created_at,
     votingStartTime: editingEnd,
-    votingEndTime: editingEnd ? editingEnd + GOVERNANCE_PERIOD_FALLBACKS.votingPeriod : 0,
+    votingEndTime: editingEnd ? editingEnd + votingPeriod : 0,
     editingPeriodEnd: editingEnd,
     isPrivate: false, // loan proposals are public; treasury proposals can be private
     // The contract stores the borrower's supporting-document pointer as
