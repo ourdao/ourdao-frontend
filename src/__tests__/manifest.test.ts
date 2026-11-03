@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import { readFileSync, existsSync } from 'fs'
-import { resolve } from 'path'
+import { resolve, join } from 'path'
 
 const PUBLIC_DIR = resolve(import.meta.dirname, '../../public')
 
@@ -20,7 +20,7 @@ describe('PWA Manifest', () => {
 
   it('all referenced icon files exist', () => {
     for (const icon of manifest.icons) {
-      const iconPath = resolve(PUBLIC_DIR, icon.src)
+      const iconPath = join(PUBLIC_DIR, icon.src)
       expect(existsSync(iconPath)).toBe(true)
     }
   })
@@ -30,7 +30,7 @@ describe('PWA Manifest', () => {
       for (const shortcut of manifest.shortcuts) {
         if (shortcut.icons) {
           for (const icon of shortcut.icons) {
-            const iconPath = resolve(PUBLIC_DIR, icon.src)
+            const iconPath = join(PUBLIC_DIR, icon.src)
             expect(existsSync(iconPath)).toBe(true)
           }
         }
