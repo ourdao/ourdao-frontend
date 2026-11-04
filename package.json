@@ -75,7 +75,7 @@
     "audit-ci": "^7.1.0",
     "axe-core": "^4.14.0",
     "depcheck": "^1.4.7",
-    "eslint": "^10",
+    "eslint": "^9.39.5",
     "eslint-config-next": "^16.4.2",
     "eslint-plugin-jsx-a11y": "^6.10.2",
     "jsdom": "^30.0.0",

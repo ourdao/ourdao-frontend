@@ -2,11 +2,12 @@
 
 import { useParams, useRouter } from 'next/navigation'
 import Link from 'next/link'
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import {
+  AlertCircle,
   ArrowLeft,
   Check,
   X,
@@ -15,6 +16,7 @@ import {
   Eye,
   EyeOff,
   Download,
+  Lock,
   Upload,
 } from 'lucide-react'
 import { PageHeader } from '@/components/PageHeader'
@@ -30,7 +32,7 @@ import {
   useToken,
   useDAOStats,
 } from '@/hooks/useDAO'
-import { formatToken, generateCommitment, storeCommitSalt, loadCommitSalt } from '@/lib/utils'
+import { generateCommitment, storeCommitSalt, loadCommitSalt } from '@/lib/utils'
 import { PROPOSAL_STATUS_LABELS, PROPOSAL_STATUS_AWAITING_FUNDS } from '@/constants'
 import toast from 'react-hot-toast'
 
@@ -50,19 +52,12 @@ export default function TreasuryProposalDetailPage() {
 
   const [showCommitDialog, setShowCommitDialog] = useState(false)
   const [commitSupport, setCommitSupport] = useState<boolean | null>(null)
-  const [saltBackedUp, setSaltBackedUp] = useState(false)
   const [showRevealDialog, setShowRevealDialog] = useState(false)
   const [revealSupport, setRevealSupport] = useState<boolean | null>(null)
   const [importedSalt, setImportedSalt] = useState<Uint8Array | null>(null)
 
   // Check if salt exists in localStorage for this proposal
   const storedSalt = address ? loadCommitSalt(proposalId) : null
-
-  useEffect(() => {
-    if (showCommitDialog) {
-      setSaltBackedUp(false)
-    }
-  }, [showCommitDialog])
 
   const handleCommit = async (support: boolean) => {
     setCommitSupport(support)
@@ -88,7 +83,6 @@ export default function TreasuryProposalDetailPage() {
     a.click()
     document.body.removeChild(a)
     URL.revokeObjectURL(url)
-    setSaltBackedUp(true)
     toast.success('Salt backup downloaded')
   }
 
@@ -120,16 +114,19 @@ export default function TreasuryProposalDetailPage() {
   const confirmCommit = async () => {
     if (commitSupport === null) return
     try {
+      // Generate once: the salt that is backed up must be the one that produced
+      // the on-chain commitment, or the vote can never be revealed (#514).
       const { commitment, salt } = await generateCommitment(commitSupport)
+      exportSalt(salt)
       await commitVote(proposalId, commitment)
       storeCommitSalt(proposalId, salt)
       toast.success(
-        'Vote committed! Save your salt backup — you'll need it to reveal your vote.',
+        "Vote committed! Save your salt backup — you'll need it to reveal your vote.",
         { duration: 6000 }
       )
       setShowCommitDialog(false)
       refetch()
-    } catch (err) {
+    } catch {
       // Error handling is in the hook
     }
   }
@@ -152,7 +149,7 @@ export default function TreasuryProposalDetailPage() {
       setShowRevealDialog(false)
       setImportedSalt(null)
       refetch()
-    } catch (err) {
+    } catch {
       // Error handling is in the hook
     }
   }
@@ -222,7 +219,7 @@ export default function TreasuryProposalDetailPage() {
               Commit Your Vote
             </CardTitle>
             <CardDescription>
-              You're voting <strong>{commitSupport ? 'FOR' : 'AGAINST'}</strong> this proposal using private
+              You&apos;re voting <strong>{commitSupport ? 'FOR' : 'AGAINST'}</strong> this proposal using private
               commit-reveal voting.
             </CardDescription>
           </CardHeader>
@@ -240,18 +237,13 @@ export default function TreasuryProposalDetailPage() {
                 onClick={() => {
                   setShowCommitDialog(false)
                   setCommitSupport(null)
-                  setSaltBackedUp(false)
                 }}
                 disabled={isCommitting}
               >
                 Cancel
               </Button>
               <Button
-                onClick={async () => {
-                  const { commitment, salt } = await generateCommitment(commitSupport)
-                  exportSalt(salt)
-                  await confirmCommit()
-                }}
+                onClick={confirmCommit}
                 disabled={isCommitting || isPaused}
                 className="flex-1"
               >
@@ -279,7 +271,7 @@ export default function TreasuryProposalDetailPage() {
               <div className="rounded-lg border border-amber-300 bg-amber-100 p-4 text-sm text-amber-900 dark:border-amber-800 dark:bg-amber-950/40 dark:text-amber-200">
                 <p className="font-semibold mb-2">Salt not found</p>
                 <p className="mb-3">
-                  Your salt wasn't found in local storage. Import your backup file to reveal.
+                  Your salt wasn&apos;t found in local storage. Import your backup file to reveal.
                 </p>
                 <label className="cursor-pointer">
                   <input
@@ -588,7 +580,7 @@ export default function TreasuryProposalDetailPage() {
                       </Button>
                     </div>
                     <p className="text-xs text-amber-600 dark:text-amber-400 mt-2">
-                      ⚠️ You'll need to download and save your salt backup to reveal later
+                      ⚠️ You&apos;ll need to download and save your salt backup to reveal later
                     </p>
                   </div>
                 ) : proposal.status !== 2 ? (

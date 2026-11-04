@@ -464,7 +464,7 @@ export function WalletProvider({
       document.removeEventListener('visibilitychange', handleVisibilityChange)
       stopWatcher()
     }
-  }, [isConnected, usingKit, queryClient])
+  }, [isConnected, usingKit, queryClient, kit])
 
   const seedKitNetwork = useCallback(async () => {
     try {
