@@ -44,6 +44,8 @@ describe('issue #240 — coverage measurement and threshold', () => {
     expect(ci).toContain('GITHUB_STEP_SUMMARY')
     expect(ci).toContain('coverage/coverage-summary.json')
     // Enforced: the aggregate status job depends on coverage.
-    expect(ci).toMatch(/needs:\s*\[lint,\s*typecheck,\s*test,\s*coverage,\s*build\]/)
+    // Match only the dependency, so adding another job to `needs` does not break this.
+    const needs = ci.match(/^ {2}status:[\s\S]*?\n {4}needs:\s*\[([^\]]+)\]/m)
+    expect(needs?.[1].split(/,\s*/)).toContain('coverage')
   })
 })
