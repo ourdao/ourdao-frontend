@@ -38,8 +38,8 @@ export const CONTRACT_ERROR_MESSAGES: Record<number, string> = {
   37: 'You are on cooldown — you borrowed recently and must wait before requesting another loan.',
   38: 'Loan not found.',
   39: 'This loan is not active.',
-  40: 'The requested amount exceeds the maximum loan-to-treasury ratio.',
-  41: 'Insufficient treasury balance to fund this loan.',
+  40: 'This payout exceeds the maximum share of the treasury that can be lent out. Wait for the treasury to grow, then try again.',
+  41: 'The treasury balance is too low to cover this payout. Top up the treasury, then try again.',
   42: 'This loan is not overdue and cannot be marked as defaulted.',
 
   // treasury

@@ -7,6 +7,12 @@ import TreasuryProposalDetailPage from '@/app/(app)/treasury/[id]/page'
 const mockGetTreasuryProposal = vi.fn()
 const mockHasVoted = vi.fn()
 const mockIsMember = vi.fn()
+const mockExecuteTreasury = vi.fn()
+const mockAnnounce = vi.fn()
+
+vi.mock('@/lib/announce', () => ({
+  announce: (...a: unknown[]) => mockAnnounce(...a),
+}))
 const mockVoteOnTreasury = vi.fn().mockResolvedValue({ hash: 'tx-vote-treasury', returnValue: null })
 
 vi.mock('next/navigation', () => ({
@@ -48,6 +54,7 @@ vi.mock('@/lib/dao-client', () => ({
   },
   daoWrite: () => ({
     voteOnTreasuryProposal: (...a: unknown[]) => mockVoteOnTreasury(...a),
+    executeTreasuryProposal: (...a: unknown[]) => mockExecuteTreasury(...a),
   }),
   InvokeError: class InvokeError extends Error {
     retryable = false
@@ -56,6 +63,9 @@ vi.mock('@/lib/dao-client', () => ({
       this.name = 'InvokeError'
     }
   },
+  // useWriteAction's catch block does `instanceof TransactionPendingError`.
+  TransactionPendingError: class TransactionPendingError extends Error {},
+  watchTransaction: vi.fn(),
 }))
 
 describe('TreasuryProposalDetailPage (/treasury/[id])', () => {
@@ -119,6 +129,82 @@ describe('TreasuryProposalDetailPage (/treasury/[id])', () => {
 
     await waitFor(() => {
       expect(screen.getByText(/Treasury Proposal Not Found/i)).toBeInTheDocument()
+    })
+  })
+
+  describe('awaiting funds (#540)', () => {
+    const awaiting = {
+      id: 42,
+      destination: 'GBBD47IF6LWK7P7MDEVSCWR7DPUWV3NY3DTQEVFL4NAT4AQH3ZLLFLA5',
+      reason: 'Treasury Proposal #42',
+      amount: '50000000',
+      status: 'ApprovedPendingDisbursement',
+      votesFor: '10',
+      votesAgainst: '2',
+      isPrivate: false,
+    }
+
+    it('offers Execute to a member and calls execute_treasury_proposal', async () => {
+      mockGetTreasuryProposal.mockResolvedValue(awaiting)
+      mockExecuteTreasury.mockResolvedValue({ hash: 'tx-exec', returnValue: null })
+
+      renderWithProviders(<TreasuryProposalDetailPage />)
+
+      fireEvent.click(await screen.findByRole('button', { name: /^Execute$/ }))
+
+      await waitFor(() => expect(mockExecuteTreasury).toHaveBeenCalledWith(42))
+    })
+
+    it('refetches the proposal after a successful execution', async () => {
+      mockGetTreasuryProposal.mockResolvedValue(awaiting)
+      mockExecuteTreasury.mockResolvedValue({ hash: 'tx-exec', returnValue: null })
+
+      renderWithProviders(<TreasuryProposalDetailPage />)
+      await screen.findByRole('button', { name: /^Execute$/ })
+      const before = mockGetTreasuryProposal.mock.calls.length
+
+      fireEvent.click(screen.getByRole('button', { name: /^Execute$/ }))
+
+      await waitFor(() =>
+        expect(mockGetTreasuryProposal.mock.calls.length).toBeGreaterThan(before),
+      )
+    })
+
+    it('surfaces the contract error in plain language when execution fails', async () => {
+      mockGetTreasuryProposal.mockResolvedValue(awaiting)
+      mockExecuteTreasury.mockRejectedValue(
+        new Error('The treasury balance is too low to cover this payout. Top up the treasury, then try again.'),
+      )
+      renderWithProviders(<TreasuryProposalDetailPage />)
+      fireEvent.click(await screen.findByRole('button', { name: /^Execute$/ }))
+
+      await waitFor(() =>
+        expect(mockAnnounce).toHaveBeenCalledWith(
+          expect.stringContaining('treasury balance is too low'),
+          'assertive',
+        ),
+      )
+      // The action stays available so the member can retry after a top-up.
+      expect(screen.getByRole('button', { name: /^Execute$/ })).toBeEnabled()
+    })
+
+    it('hides Execute when the proposal is not awaiting funds', async () => {
+      mockGetTreasuryProposal.mockResolvedValue({ ...awaiting, status: 'Pending' })
+
+      renderWithProviders(<TreasuryProposalDetailPage />)
+      await screen.findByRole('button', { name: /Vote For/i })
+
+      expect(screen.queryByRole('button', { name: /^Execute$/ })).not.toBeInTheDocument()
+    })
+
+    it('hides Execute from a wallet that is not a member', async () => {
+      mockIsMember.mockResolvedValue(false)
+      mockGetTreasuryProposal.mockResolvedValue(awaiting)
+
+      renderWithProviders(<TreasuryProposalDetailPage />)
+      await screen.findByText(/awaiting treasury funds/i)
+
+      expect(screen.queryByRole('button', { name: /^Execute$/ })).not.toBeInTheDocument()
     })
   })
 })

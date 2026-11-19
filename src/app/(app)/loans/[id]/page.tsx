@@ -28,6 +28,7 @@ import {
   useLoanProposal,
   useLoan,
   useMarkLoanDefaulted,
+  useDisburseApprovedLoan,
   useProposalDocument,
   useAttachDocument,
   type UILoan,
@@ -50,6 +51,7 @@ export default function LoanDetailsPage() {
   const { editLoanProposal, isPending: isEditing } = useEditLoanProposal()
   const { repayLoan, repayLoanPartial, isPending: isRepaying } = useLoanRepayment()
   const { markLoanDefaulted, isPending: isMarkingDefaulted } = useMarkLoanDefaulted()
+  const { disburseApprovedLoan, isPending: isFunding } = useDisburseApprovedLoan()
   const now = useNow()
 
   const loanId = parseInt(params.id as string)
@@ -187,6 +189,19 @@ export default function LoanDetailsPage() {
     if (!window.confirm('Mark this loan as defaulted? This will slash a share of the borrower\'s treasury claim and cannot be undone.')) return
     await markLoanDefaulted(loanId)
     refetchLoan()
+  }
+
+  // Permissionless: any member can complete an approved loan once the treasury
+  // can cover it. A failure (e.g. still short of funds) is already surfaced by
+  // the write hook as a toast with the contract's plain-language message.
+  const handleFundNow = async () => {
+    try {
+      await disburseApprovedLoan(loanId)
+      refetchProposal()
+      refetchLoan()
+    } catch {
+      /* reported by useWriteAction */
+    }
   }
 
   const getStatusIcon = (status: number) => {
@@ -561,7 +576,12 @@ export default function LoanDetailsPage() {
                     treasury is topped up and the loan is disbursed.
                   </CardDescription>
                 </CardHeader>
-                <CardContent>
+                <CardContent className="flex flex-wrap gap-3">
+                  {userData.isMember && (
+                    <Button onClick={handleFundNow} disabled={isFunding || isPaused}>
+                      {isFunding ? 'Funding…' : 'Fund now'}
+                    </Button>
+                  )}
                   <Button asChild variant="outline">
                     <Link href="/treasury">Go to Treasury</Link>
                   </Button>

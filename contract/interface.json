@@ -48,6 +48,8 @@
     "vote_on_loan_proposal": { "args": { "addr": "Address", "proposal_id": "u32", "support": "bool" } },
     "repay_loan": { "args": { "addr": "Address", "loan_id": "u32" } },
     "mark_loan_defaulted": { "args": { "loan_id": "u32" } },
+    "disburse_approved_loan": { "args": { "proposal_id": "u32" } },
+    "execute_treasury_proposal": { "args": { "proposal_id": "u32" } },
     "propose_treasury_withdrawal": { "args": { "addr": "Address", "amount": "i128", "destination": "Address", "reason": "string", "is_private": "bool" } },
     "vote_on_treasury_proposal": { "args": { "addr": "Address", "proposal_id": "u32", "support": "bool" } },
     "stake": { "args": { "addr": "Address", "amount": "i128" } },
