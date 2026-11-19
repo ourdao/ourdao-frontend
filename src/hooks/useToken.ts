@@ -37,13 +37,10 @@ export function useToken(): TokenInfo {
     queryKey: queryKeys.daoToken(),
     enabled: isContractConfigured(),
     queryFn: async () => {
-      try {
-        const id = await daoRead.getToken()
-        return id || null
-      } catch {
-        return null
-      }
+      const id = await daoRead.getToken()
+      return id || null
     },
+    retry: 2,
     staleTime: Infinity,
     gcTime: Infinity,
   })
@@ -60,9 +57,9 @@ export function useToken(): TokenInfo {
     queryFn: async () => {
       if (!tokenId) return null
       const [symbol, decimals, name] = await Promise.all([
-        tokenRead.getSymbol(tokenId).catch(() => null),
-        tokenRead.getDecimals(tokenId).catch(() => null),
-        tokenRead.getName(tokenId).catch(() => null),
+        tokenRead.getSymbol(tokenId),
+        tokenRead.getDecimals(tokenId),
+        tokenRead.getName(tokenId),
       ])
       return {
         symbol: symbol || 'TOKEN',
@@ -70,6 +67,7 @@ export function useToken(): TokenInfo {
         name: name || '',
       }
     },
+    retry: 2,
     staleTime: Infinity,
     gcTime: Infinity,
   })
@@ -85,7 +83,7 @@ export function useToken(): TokenInfo {
     enabled: !!tokenId && !!address,
     queryFn: async () => {
       if (!tokenId || !address) return BigInt(0)
-      const bal = await tokenRead.getBalance(tokenId, address).catch(() => BigInt(0))
+      const bal = await tokenRead.getBalance(tokenId, address)
       return typeof bal === 'bigint' ? bal : BigInt(bal || 0)
     },
     refetchInterval: 15_000,
@@ -119,6 +117,9 @@ export function useToken(): TokenInfo {
   }
 
   const hasSufficientBalance = (amount: bigint | string) => {
+    if (isTokenIdError || isMetadataError || isBalanceError) {
+      return true
+    }
     try {
       const needed = typeof amount === 'bigint' ? amount : parse(amount)
       return userBalance >= needed

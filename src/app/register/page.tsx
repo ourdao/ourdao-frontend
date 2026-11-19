@@ -26,7 +26,7 @@ export default function RegisterPage() {
   const { registerMember, isPending, error, isSuccess } = useMemberRegistration()
 
   const membershipFee = BigInt(stats.membershipFee || 0)
-  const hasSufficientBalance = token.balance >= membershipFee
+  const hasSufficientBalance = token.isError || token.balance >= membershipFee
   
   const [formData, setFormData] = useState({
     acceptTerms: false,
