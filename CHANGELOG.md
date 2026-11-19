@@ -20,6 +20,8 @@ report can name the entry below it came from. See
 ## [Unreleased]
 
 ### Added
+- A **Fund now** (loan) / **Execute** (treasury withdrawal) action on proposals that passed their vote while the treasury was short, so any member can complete them once the treasury is topped up; contract failures such as `InsufficientTreasury` are shown in plain language (#540).
+- A test guard that fails when a DOM-touching test file lands without `// @vitest-environment jsdom` (#539).
 - Per-module coverage floors for `dao-client.ts` and `wallet.tsx`, tests for every `daoWrite` entrypoint and the wallet connect/restore/sign flows, and a coverage provider pin matching the installed vitest (#327, #328, #329).
 - Playwright end-to-end smoke test suite against mocked Soroban RPC and backend covering load, connect, register, request loan, and vote flows (#374).
 - Automated accessibility checks with documented known-issues allow-list for the shell, forms, and main pages at rest (#375).
@@ -40,6 +42,7 @@ report can name the entry below it came from. See
 - Upgraded `@stellar/stellar-sdk` to `^17.1.0` and added migration plan and testnet smoke verification checklist (#383).
 
 ### Fixed
+- Test suite: the contract-id fixture is generated with `StrKey.encodeContract` (#537); partial `@/lib/stellar` mocks spread `importOriginal()` (#538); `error-reporting.test.ts` runs in jsdom (#539). A signature cancelled before the wallet prompt opens now aborts instead of hanging.
 - The service worker now caches only the offline shell, icons and content-hashed build assets, in a cache named after the build. Member API responses, RSC payloads and cross-origin (IPFS/indexer) responses are no longer stored, so a shared device keeps no member data after disconnect and Cache Storage no longer grows on every navigation; each deploy starts from a fresh cache and deletes the previous one (#479).
 - Loan voting deadlines now come from the `voting_period` the contract stored on each proposal instead of a hard-coded fallback, so a proposal created under a different policy period no longer shows (or hides) its vote buttons and "days left" at the wrong time (#477).
 - Loan proposals now show their supporting-document indicator on /loans: the contract's `metadata_cid` is mapped to `documentHash` instead of being dropped, so a request created with a document is no longer indistinguishable from one without (#476).
