@@ -51,9 +51,13 @@ vi.mock('@/lib/dao-client', () => ({
   watchTransaction: (hash: string, handlers?: unknown) => mockWatchTransaction(hash, handlers),
 }))
 
-vi.mock('@/lib/stellar', () => ({
-  getTransactionUrl: (hash: string) => `https://stellar.expert/explorer/testnet/tx/${hash}`,
-}))
+vi.mock('@/lib/stellar', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@/lib/stellar')>()
+  return {
+    ...actual,
+    getTransactionUrl: (hash: string) => `https://stellar.expert/explorer/testnet/tx/${hash}`,
+  }
+})
 
 vi.mock('@/lib/announce', () => ({
   announce: (...a: unknown[]) => mockAnnounce(...a),

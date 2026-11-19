@@ -36,6 +36,30 @@ vi.mock('@/hooks/useDAO', () => ({
 This convention was established in closed issue #6 and should be followed for
 all new page/render tests.
 
+### Partial mocks of `@/lib/stellar` (#538)
+
+Never replace `@/lib/stellar` with a bare factory. Production code reads
+exports such as `isContractConfigured()` and `contractIdStatus()`, and a
+factory that omits them makes vitest throw
+`No "isContractConfigured" export is defined on the "@/lib/stellar" mock` the
+first time anything calls them — and again for every export added later.
+
+Spread the real module and override only what the test needs:
+
+```ts
+vi.mock('@/lib/stellar', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@/lib/stellar')>()
+  return {
+    ...actual,
+    getTransactionUrl: (hash: string) => `https://explorer.test/tx/${hash}`,
+  }
+})
+```
+
+If you override `isContractConfigured`, override `contractIdStatus` to match
+(`'valid'`), so the two never disagree. The same rule applies to any other
+module whose exports the app grows over time.
+
 ### Exception: wallet
 
 `useWallet()` from `src/lib/wallet.tsx` is mocked at the hook level in most
