@@ -6,15 +6,22 @@ import {
   isStellarAddress,
   validateStellarAddress,
 } from '@/lib/stellar'
-import { Networks } from '@stellar/stellar-sdk'
+import { Networks, StrKey } from '@stellar/stellar-sdk'
 
 // ── Regression #355: contractIdStatus / isContractConfigured validation ─────
 
 describe('contractIdStatus and isContractConfigured (#355)', () => {
-  // A canonical Soroban contract address (C + 55 base32 chars)
-  const validContractId = 'CA7QYNF7SOWQ3GLR2BGMZEHXR73EWBMGM7OPKJNNOHHEJLBSXMZPQNUD'
+  // Generated with StrKey.encodeContract so the checksum is genuinely valid
+  // (the previous hand-typed id failed StrKey.isValidContract, #537).
+  const validContractId = StrKey.encodeContract(Buffer.alloc(32, 7))
   // Non-empty but fails StrKey.isValidContract — the old startsWith('C') bug
   const malformedContractId = 'Cabc123'
+
+  it('uses a fixture that StrKey itself accepts', () => {
+    // Guards the fixture: a bad id fails here with a clear message instead of
+    // making the "valid" case below assert the opposite.
+    expect(StrKey.isValidContract(validContractId)).toBe(true)
+  })
 
   it('returns "valid" and isContractConfigured()=true for a canonical contract id', async () => {
     vi.stubEnv('NEXT_PUBLIC_CONTRACT_ID', validContractId)
