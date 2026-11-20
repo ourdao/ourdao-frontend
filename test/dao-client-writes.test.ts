@@ -94,6 +94,8 @@ describe('daoWrite — method name and ScVal argument types per entrypoint', () 
     ['repayLoanPartial', (w) => w.repayLoanPartial(2, BigInt(10)), 'repay_loan_partial', ['scvAddress', 'scvU32', 'scvI128']],
     // Permissionless: no caller argument.
     ['markLoanDefaulted', (w) => w.markLoanDefaulted(3), 'mark_loan_defaulted', ['scvU32']],
+    ['disburseApprovedLoan', (w) => w.disburseApprovedLoan(5), 'disburse_approved_loan', ['scvU32']],
+    ['executeTreasuryProposal', (w) => w.executeTreasuryProposal(6), 'execute_treasury_proposal', ['scvU32']],
     [
       'proposeTreasuryWithdrawal',
       (w) => w.proposeTreasuryWithdrawal(BigInt(5), OTHER, 'why', false),

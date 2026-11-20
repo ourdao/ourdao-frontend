@@ -52,21 +52,24 @@ jobs:
               run_id: runId,
             });
 
+            // [label, key, exact job name in ci.yml, local command]. Names are matched
+            // exactly: `test` and `build` also prefix the informational Node 22/24 legs
+            // and the e2e job, so a substring match could report the wrong job.
+            // Keep in step with the `status` job's `needs` in ci.yml.
             const jobs = [
-              ['Lint', 'lint', 'npm run lint'],
-              ['Typecheck', 'typecheck', 'npm run typecheck'],
-              ['Test', 'test', 'npm test'],
-              ['Build', 'build', 'npm run build'],
-              ['Visual', 'visual', 'npm run test:visual'],
+              ['Lint', 'lint', 'lint', 'npm run lint'],
+              ['Typecheck', 'typecheck', 'typecheck', 'npm run typecheck'],
+              ['Test', 'test', 'test', 'npm test'],
+              ['Coverage', 'coverage', 'Coverage', 'npm run coverage'],
+              ['Build', 'build', 'build', 'npm run build'],
+              ['Visual', 'visual', 'Visual regression', 'npm run test:visual'],
             ];
 
             const allowedResults = new Set(['success', 'failure', 'cancelled', 'skipped']);
 
             const results = {};
-            for (const [, key] of jobs) {
-              const matchedJob = jobsData.jobs.find((j) =>
-                j.name.toLowerCase().includes(key)
-              );
+            for (const [, key, jobName] of jobs) {
+              const matchedJob = jobsData.jobs.find((j) => j.name === jobName);
               const conclusion = matchedJob ? matchedJob.conclusion : null;
               results[key] = allowedResults.has(conclusion) ? conclusion : 'failure';
             }
@@ -87,10 +90,10 @@ jobs:
             body += `\n\n[Full run details](${runUrl})`;
 
             if (failed.length > 0) {
-              body += `\n\nThis PR can't be merged until the failing check(s) above are fixed. Reproduce locally:\n`;
-              body += failed.map(([, key, cmd]) => `- \`${cmd}\``).join('\n');
+              body += `\n\nFix the failing check(s) above. Reproduce locally:\n`;
+              body += failed.map(([, , , cmd]) => `- \`${cmd}\``).join('\n');
             } else {
-              body += `\n\nAll required checks passed.`;
+              body += `\n\nAll checks passed.`;
             }
 
             const { data: comments } = await github.rest.issues.listComments({

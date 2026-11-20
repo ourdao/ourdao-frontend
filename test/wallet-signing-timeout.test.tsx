@@ -19,10 +19,14 @@ vi.mock('@stellar/freighter-api', () => ({
   }),
 }))
 
-vi.mock('@/lib/stellar', () => ({
-  NETWORK_PASSPHRASE: 'Test SDF Network ; September 2015',
-  getTransactionUrl: (hash: string) => `https://stellar.expert/explorer/testnet/tx/${hash}`
-}))
+vi.mock('@/lib/stellar', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@/lib/stellar')>()
+  return {
+    ...actual,
+    NETWORK_PASSPHRASE: 'Test SDF Network ; September 2015',
+    getTransactionUrl: (hash: string) => `https://stellar.expert/explorer/testnet/tx/${hash}`,
+  }
+})
 
 vi.mock('@/lib/dao-client', () => ({
   daoWrite: vi.fn().mockImplementation((addr, signer) => ({

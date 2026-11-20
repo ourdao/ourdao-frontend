@@ -26,6 +26,7 @@ const mockToastError = vi.fn()
 const mockPush = vi.fn()
 const mockRepayLoan = vi.fn().mockResolvedValue({ hash: 'tx-repay', returnValue: null })
 const mockRepayLoanPartial = vi.fn().mockResolvedValue({ hash: 'tx-partial', returnValue: null })
+const mockDisburseApprovedLoan = vi.fn()
 const mockMarkLoanDefaulted = vi.fn().mockResolvedValue({ hash: 'tx-default', returnValue: null })
 
 vi.mock('next/navigation', () => ({
@@ -74,13 +75,18 @@ vi.mock('@/lib/dao-client', () => ({
     repayLoan: (...a: unknown[]) => mockRepayLoan(...a),
     repayLoanPartial: (...a: unknown[]) => mockRepayLoanPartial(...a),
     markLoanDefaulted: (...a: unknown[]) => mockMarkLoanDefaulted(...a),
+    disburseApprovedLoan: (...a: unknown[]) => mockDisburseApprovedLoan(...a),
     voteOnLoanProposal: vi.fn().mockResolvedValue({ hash: 'tx-vote', returnValue: null }),
     attachDocument: vi.fn().mockResolvedValue({ hash: 'tx-attach', returnValue: null }),
   }),
   InvokeError: class InvokeError extends Error { retryable = false; constructor(m: string) { super(m); this.name = 'InvokeError' } },
+  // useWriteAction's catch block does `instanceof TransactionPendingError`.
+  TransactionPendingError: class TransactionPendingError extends Error {},
+  watchTransaction: vi.fn(),
 }))
 
-vi.mock('@/lib/backend', () => ({
+vi.mock('@/lib/backend', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@/lib/backend')>()),
   backend: {
     getLoans: (...a: unknown[]) => mockGetLoans(...a),
     getNotifications: (...a: unknown[]) => mockGetNotifications(...a),
@@ -357,6 +363,80 @@ describe('LoanDetailsPage', () => {
       const calledAmount = mockRepayLoanPartial.mock.calls[0][1] as bigint
       expect(typeof calledAmount).toBe('bigint')
       expect(calledAmount).toBe(BigInt(1_0000000))
+    })
+  })
+
+  describe('awaiting treasury funds (#540)', () => {
+    const awaitingProposal = {
+      id: 1,
+      borrower: 'GBORROWER',
+      amount: BigInt(1000_0000000),
+      interest_rate: 500,
+      status: 'ApprovedPendingDisbursement',
+      phase: 'Voting',
+      for_votes: 5,
+      against_votes: 1,
+      created_at: 1000,
+      editing_period_end: 2000,
+    }
+
+    it('offers Fund now to a member and calls disburse_approved_loan', async () => {
+      mockGetLoanProposal.mockResolvedValue(awaitingProposal)
+      mockDisburseApprovedLoan.mockResolvedValue({ hash: 'tx-fund', returnValue: null })
+      renderWithProviders(<LoanDetailsPage />)
+
+      await userEvent.click(await screen.findByRole('button', { name: /Fund now/i }))
+
+      await waitFor(() => expect(mockDisburseApprovedLoan).toHaveBeenCalledWith(1))
+    })
+
+    it('refetches the proposal after funding', async () => {
+      mockGetLoanProposal.mockResolvedValue(awaitingProposal)
+      mockDisburseApprovedLoan.mockResolvedValue({ hash: 'tx-fund', returnValue: null })
+      renderWithProviders(<LoanDetailsPage />)
+      const button = await screen.findByRole('button', { name: /Fund now/i })
+      const before = mockGetLoanProposal.mock.calls.length
+
+      await userEvent.click(button)
+
+      await waitFor(() =>
+        expect(mockGetLoanProposal.mock.calls.length).toBeGreaterThan(before),
+      )
+    })
+
+    it('shows the contract error and keeps the action available when funding fails', async () => {
+      mockGetLoanProposal.mockResolvedValue(awaitingProposal)
+      mockDisburseApprovedLoan.mockRejectedValue(
+        new Error('The treasury balance is too low to cover this payout. Top up the treasury, then try again.'),
+      )
+      renderWithProviders(<LoanDetailsPage />)
+
+      await userEvent.click(await screen.findByRole('button', { name: /Fund now/i }))
+
+      await waitFor(() =>
+        expect(mockToastError).toHaveBeenCalledWith(
+          expect.stringContaining('treasury balance is too low'),
+          expect.anything(),
+        ),
+      )
+      expect(screen.getByRole('button', { name: /Fund now/i })).toBeEnabled()
+    })
+
+    it('hides Fund now when the proposal is not awaiting funds', async () => {
+      mockGetLoanProposal.mockResolvedValue({ ...awaitingProposal, status: 'Pending' })
+      renderWithProviders(<LoanDetailsPage />)
+      await waitFor(() => expect(screen.getByText(/Loan Proposal #1/)).toBeInTheDocument())
+
+      expect(screen.queryByRole('button', { name: /Fund now/i })).not.toBeInTheDocument()
+    })
+
+    it('hides Fund now from a wallet that is not a member', async () => {
+      mockIsMember.mockResolvedValue(false)
+      mockGetLoanProposal.mockResolvedValue(awaitingProposal)
+      renderWithProviders(<LoanDetailsPage />)
+      await screen.findByText(/awaiting treasury funds/i)
+
+      expect(screen.queryByRole('button', { name: /Fund now/i })).not.toBeInTheDocument()
     })
   })
 })

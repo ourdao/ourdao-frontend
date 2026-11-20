@@ -414,6 +414,39 @@ export function useRevealVote() {
   return { revealVote, isPending, error, cancelSignature }
 }
 
+/**
+ * Completes a loan that passed its vote while the treasury was short (#540).
+ * Permissionless, so any connected member can call it once the treasury has
+ * been topped up. Refreshes the proposal, the borrower's data and the treasury.
+ */
+export function useDisburseApprovedLoan() {
+  const { run, isPending, isSuccess, error, address, cancelSignature } = useWriteAction()
+  const disburseApprovedLoan = (proposalId: number) =>
+    run('Funding approved loan', (w) => w.disburseApprovedLoan(proposalId), [
+      queryKeys.loanProposal(proposalId),
+      queryKeys.loanProposalsAll(),
+      queryKeys.userLoans(address!),
+      queryKeys.userData(address!),
+      // `daoStats` carries the treasury balance.
+      queryKeys.daoStats(),
+      queryKeys.backendStats(),
+    ])
+  return { disburseApprovedLoan, isPending, error, isSuccess, cancelSignature }
+}
+
+/** Executes a treasury withdrawal approved while the treasury was short (#540). */
+export function useExecuteTreasuryProposal() {
+  const { run, isPending, isSuccess, error, cancelSignature } = useWriteAction()
+  const executeTreasuryProposal = (proposalId: number) =>
+    run('Executing treasury withdrawal', (w) => w.executeTreasuryProposal(proposalId), [
+      queryKeys.treasuryProposal(proposalId),
+      queryKeys.treasuryProposalsAll(),
+      queryKeys.daoStats(),
+      queryKeys.backendStats(),
+    ])
+  return { executeTreasuryProposal, isPending, error, isSuccess, cancelSignature }
+}
+
 export function useTreasuryVoting() {
   const { run, isPending, isSuccess, error, address, cancelSignature } = useWriteAction()
   const voteOnTreasury = (proposalId: number, support: boolean) =>

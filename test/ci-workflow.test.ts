@@ -18,15 +18,41 @@ const jobs = Object.fromEntries(
 )
 
 describe('CI workflow', () => {
-  it('pins every action to the same major everywhere it is used (#252)', () => {
-    const majors = new Map<string, Set<string>>()
-    for (const [, action, major] of ci.matchAll(/^\s*- uses: ([\w./-]+)@(v\d+)/gm)) {
-      majors.set(action, (majors.get(action) ?? new Set()).add(major))
+  it('pins every action to the same version everywhere it is used (#252)', () => {
+    // Actions are pinned to a commit SHA with the release in a trailing
+    // `# vX.Y.Z` comment (#390); compare that release per action.
+    const versions = new Map<string, Set<string>>()
+    const pinned = /^\s*(?:- )?uses: ([\w./-]+)@[0-9a-f]{40}[ \t]+#[ \t]*(v\d+(?:\.\d+)*)\s*$/gm
+    for (const [, action, version] of ci.matchAll(pinned)) {
+      versions.set(action, (versions.get(action) ?? new Set()).add(version))
     }
-    expect(majors.size).toBeGreaterThan(0)
-    for (const [action, versions] of majors) {
-      expect([...versions], action).toHaveLength(1)
+    expect(versions.size).toBeGreaterThan(0)
+    for (const [action, found] of versions) {
+      expect([...found], action).toHaveLength(1)
     }
+    // Every `uses:` must be SHA-pinned with a version comment, so none escapes the check above.
+    const usesCount = [...ci.matchAll(/^\s*(?:- )?uses: /gm)].length
+    expect([...ci.matchAll(pinned)]).toHaveLength(usesCount)
+  })
+
+  it('reports every status-job dependency in the PR status comment', () => {
+    const comment = readFileSync(
+      resolve(__dirname, '../.github/workflows/ci-status-comment.yml'),
+      'utf8'
+    )
+    // Rows are matched by exact job name, never by substring (`test` would also
+    // match the informational Node legs and the e2e job).
+    expect(comment).not.toMatch(/\.includes\(key\)/)
+    expect(comment).toContain('j.name === jobName')
+    const rows = [...comment.matchAll(/^\s*\['[^']+', '([^']+)', '([^']+)', '[^']+'\],$/gm)]
+    expect(rows.length).toBeGreaterThan(0)
+    for (const [, , jobName] of rows) {
+      // A row's job name must be a real job's `name:` (or its id when unnamed).
+      const unnamed = Object.keys(jobs).includes(jobName)
+      expect(unnamed || ci.includes(`name: ${jobName}`), jobName).toBe(true)
+    }
+    const needs = jobs.status.match(/needs: \[([^\]]+)\]/)![1].split(/,\s*/)
+    expect(rows.map((r) => r[1]).sort()).toEqual([...needs].sort())
   })
 
   it.each(['test', 'build'])('runs %s on every supported Node version (#251)', (job) => {

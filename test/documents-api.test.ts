@@ -29,7 +29,9 @@ describe('POST /api/documents', () => {
     return new NextRequest('http://localhost:3000/api/documents', {
       method: 'POST',
       body,
-      headers,
+      // The route checks Content-Type before auth, so every request carries it;
+      // the auth cases differ only in the Authorization / address headers.
+      headers: { 'content-type': 'application/octet-stream', ...headers },
     })
   }
 

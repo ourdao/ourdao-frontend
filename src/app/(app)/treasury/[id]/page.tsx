@@ -26,6 +26,7 @@ import {
   useUserData,
   useTreasuryProposal,
   useTreasuryVoting,
+  useExecuteTreasuryProposal,
   useCommitVote,
   useRevealVote,
   useProposalDocument,
@@ -45,6 +46,7 @@ export default function TreasuryProposalDetailPage() {
   const token = useToken()
   const { proposal, isLoading, isError, hasVoted, refetch } = useTreasuryProposal(proposalId)
   const { voteOnTreasury, isPending: isVoting } = useTreasuryVoting()
+  const { executeTreasuryProposal, isPending: isExecuting } = useExecuteTreasuryProposal()
   const { commitVote, isPending: isCommitting } = useCommitVote()
   const { revealVote, isPending: isRevealing } = useRevealVote()
   const { isPaused } = useDAOStats()
@@ -186,6 +188,17 @@ export default function TreasuryProposalDetailPage() {
     )
   }
 
+  // Permissionless completion of a withdrawal approved while the treasury was
+  // short. Failures are surfaced by the write hook's toast.
+  const handleExecute = async () => {
+    try {
+      await executeTreasuryProposal(proposalId)
+      refetch()
+    } catch {
+      /* reported by useWriteAction */
+    }
+  }
+
   const statusLabel =
     PROPOSAL_STATUS_LABELS[proposal.status as keyof typeof PROPOSAL_STATUS_LABELS] || 'Unknown'
   const canVotePublic = isMember && proposal.status === 2 && !proposal.isPrivate && !hasVoted
@@ -209,6 +222,26 @@ export default function TreasuryProposalDetailPage() {
         title={proposal.title || `Treasury Proposal #${proposal.id}`}
         subtitle={`Proposal #${proposal.id} · Disbursement of DAO treasury funds`}
       />
+
+      {/* Approved by vote but the treasury can't cover it yet (#540) */}
+      {proposal.status === PROPOSAL_STATUS_AWAITING_FUNDS && (
+        <Card role="status" className="border-amber-300 dark:border-amber-900">
+          <CardHeader>
+            <CardTitle>Approved — awaiting treasury funds</CardTitle>
+            <CardDescription>
+              Members approved this withdrawal, but the treasury cannot cover it yet. Once the
+              treasury is topped up, any member can execute it.
+            </CardDescription>
+          </CardHeader>
+          {isMember && (
+            <CardContent>
+              <Button onClick={handleExecute} disabled={isExecuting || isPaused}>
+                {isExecuting ? 'Executing…' : 'Execute'}
+              </Button>
+            </CardContent>
+          )}
+        </Card>
+      )}
 
       {/* Commit Dialog */}
       {showCommitDialog && commitSupport !== null && (

@@ -580,6 +580,15 @@ export function daoWrite(
     markLoanDefaulted: (loanId: number) =>
       send('mark_loan_defaulted', { loan_id: loanId }),
 
+    // Permissionless and idempotent from `ApprovedPendingDisbursement`: completes
+    // an approved loan once the treasury can cover it (#540).
+    disburseApprovedLoan: (proposalId: number) =>
+      send('disburse_approved_loan', { proposal_id: proposalId }),
+
+    // Same, for an approved treasury withdrawal (#540).
+    executeTreasuryProposal: (proposalId: number) =>
+      send('execute_treasury_proposal', { proposal_id: proposalId }),
+
     proposeTreasuryWithdrawal: (
       amount: bigint | number,
       destination: string,

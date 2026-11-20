@@ -8,18 +8,5 @@
   "export:src/lib/responsive.ts:useResponsiveModal",
   "export:src/lib/stellar.ts:getNetworkMismatchMessage",
   "export:src/lib/stellar.ts:isNetworkPassphraseMatch",
-  "export:src/lib/utils.ts:generateCommitment",
-  "export:src/lib/utils.ts:loadCommitSalt",
-  "export:src/lib/utils.ts:storeCommitSalt",
-  "owners:src/components/ui/dialog.tsx:@bbjiggy",
-  "owners:src/components/ui/dropdown-menu.tsx:@bbjiggy",
-  "owners:src/components/ui/popover.tsx:@bbjiggy",
-  "owners:src/components/ui/sheet.tsx:@bbjiggy",
-  "owners:src/hooks/dao/reads.ts:@bbjiggy",
-  "owners:src/lib/backend.ts:@bbjiggy",
-  "owners:src/lib/dao-client.ts:@bbjiggy",
-  "owners:src/lib/responsive.ts:@bbjiggy",
-  "owners:src/lib/stellar.ts:@bbjiggy",
-  "owners:src/lib/utils.ts:@bbjiggy",
   "type:src/lib/dao-client.ts:DaoWrite"
 ]

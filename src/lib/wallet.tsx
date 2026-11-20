@@ -635,6 +635,10 @@ export function WalletProvider({
       }
       const timeoutMs = options?.timeoutMs ?? DEFAULT_SIGN_TIMEOUT_MS
       const signal = options?.signal
+      // The caller may cancel before we get here (useWriteAction awaits
+      // optimistic-update setup first), and an abort that already fired will
+      // never trigger the listener below — so honour it up front.
+      if (signal?.aborted) throw new Error('Signing cancelled')
       const result = await Promise.race([
         usingKitRef.current
           ? kit.signTransaction(xdr, addressRef.current || '')

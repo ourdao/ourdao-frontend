@@ -23,9 +23,13 @@ vi.mock('@/lib/wallet', () => ({
   }),
 }))
 
-vi.mock('@/lib/stellar', () => ({
-  getTransactionUrl: (hash: string) => `https://explorer.test/tx/${hash}`,
-}))
+vi.mock('@/lib/stellar', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@/lib/stellar')>()
+  return {
+    ...actual,
+    getTransactionUrl: (hash: string) => `https://explorer.test/tx/${hash}`,
+  }
+})
 
 let mockWrite: () => Promise<{ hash: string; returnValue: null }>
 vi.mock('@/lib/dao-client', () => ({

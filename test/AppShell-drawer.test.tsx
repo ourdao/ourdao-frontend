@@ -17,9 +17,14 @@ vi.mock('@/hooks/useDAO', () => ({
   useDAOStats: () => ({ indexerStale: false }),
 }))
 
-vi.mock('@/lib/stellar', () => ({
-  isContractConfigured: () => true,
-}))
+vi.mock('@/lib/stellar', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@/lib/stellar')>()
+  return {
+    ...actual,
+    isContractConfigured: () => true,
+    contractIdStatus: () => 'valid' as const,
+  }
+})
 
 vi.mock('@/components/ConnectButton', () => ({
   ConnectButton: () => <button type="button">Connect Wallet</button>,
