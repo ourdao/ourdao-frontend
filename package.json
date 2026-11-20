@@ -78,7 +78,7 @@
     "eslint": "^9.39.5",
     "eslint-config-next": "^16.4.2",
     "eslint-plugin-jsx-a11y": "^6.10.2",
-    "jsdom": "^30.0.0",
+    "jsdom": "^31.0.1",
     "knip": "^6.42.0",
     "tailwindcss": "^4.3.2",
     "typescript": "^5",
