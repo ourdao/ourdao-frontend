@@ -207,4 +207,67 @@ describe('TreasuryProposalDetailPage (/treasury/[id])', () => {
       expect(screen.queryByRole('button', { name: /^Execute$/ })).not.toBeInTheDocument()
     })
   })
+
+  describe('private (commit-reveal) voting', () => {
+    // Raw contract shape (see treasuryProposalSchema): the mapper reads
+    // `private`, `for_votes`, `against_votes`, not the UI field names.
+    const privateProposal = {
+      id: 42,
+      proposer: 'GPROPOSER',
+      destination: 'GBBD47IF6LWK7P7MDEVSCWR7DPUWV3NY3DTQEVFL4NAT4AQH3ZLLFLA5',
+      reason: 'Treasury Proposal #42',
+      amount: '50000000',
+      status: 'Pending',
+      for_votes: '0',
+      against_votes: '0',
+      created_at: 0,
+      private: true,
+    }
+
+    beforeEach(() => {
+      localStorage.clear()
+      // exportSalt() builds a Blob download link; jsdom does not implement these.
+      URL.createObjectURL = vi.fn(() => 'blob:salt-backup')
+      URL.revokeObjectURL = vi.fn()
+    })
+
+    // #519: the commit transaction must not be sendable until the salt backup
+    // has been downloaded.
+    it('keeps the commit button disabled until the salt backup is downloaded', async () => {
+      mockGetTreasuryProposal.mockResolvedValue(privateProposal)
+      mockHasVoted.mockResolvedValue(false)
+
+      renderWithProviders(<TreasuryProposalDetailPage />)
+
+      fireEvent.click(await screen.findByRole('button', { name: /Commit FOR/i }))
+
+      const commitButton = await screen.findByRole('button', { name: /Step 2: Commit Vote/i })
+      expect(commitButton).toBeDisabled()
+
+      fireEvent.click(screen.getByRole('button', { name: /Step 1: Download salt backup/i }))
+
+      await waitFor(() => expect(screen.getByRole('button', { name: /Step 2: Commit Vote/i })).toBeEnabled())
+      expect(URL.createObjectURL).toHaveBeenCalledTimes(1)
+    })
+
+    // #518: a member whose local salt is missing must still be able to import
+    // the backup and reach the reveal buttons.
+    it('offers a salt import when the vote is committed but no salt is stored, and reveals after import', async () => {
+      mockGetTreasuryProposal.mockResolvedValue(privateProposal)
+      mockHasVoted.mockResolvedValue(true)
+
+      renderWithProviders(<TreasuryProposalDetailPage />)
+
+      await screen.findByText(/salt not found/i)
+      expect(screen.queryByRole('button', { name: /Reveal FOR/i })).not.toBeInTheDocument()
+
+      const input = document.querySelector('input[type="file"]') as HTMLInputElement
+      expect(input).not.toBeNull()
+      const backup = JSON.stringify({ proposalId: 42, address: 'GALICE', salt: '00'.repeat(32) })
+      const file = new File([backup], 'salt.json', { type: 'application/json' })
+      fireEvent.change(input, { target: { files: [file] } })
+
+      expect(await screen.findByRole('button', { name: /Reveal FOR/i })).toBeInTheDocument()
+    })
+  })
 })
