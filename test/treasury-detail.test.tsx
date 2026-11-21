@@ -1,13 +1,15 @@
 // @vitest-environment jsdom
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { screen, waitFor, fireEvent } from '@testing-library/react'
 import { renderWithProviders } from './test-utils'
 import TreasuryProposalDetailPage from '@/app/(app)/treasury/[id]/page'
+import * as utils from '@/lib/utils'
 
 const mockGetTreasuryProposal = vi.fn()
 const mockHasVoted = vi.fn()
 const mockIsMember = vi.fn()
 const mockExecuteTreasury = vi.fn()
+const mockCommitTreasuryVote = vi.fn().mockResolvedValue({ hash: 'tx-commit', returnValue: null })
 const mockAnnounce = vi.fn()
 
 vi.mock('@/lib/announce', () => ({
@@ -55,6 +57,7 @@ vi.mock('@/lib/dao-client', () => ({
   daoWrite: () => ({
     voteOnTreasuryProposal: (...a: unknown[]) => mockVoteOnTreasury(...a),
     executeTreasuryProposal: (...a: unknown[]) => mockExecuteTreasury(...a),
+    commitTreasuryVote: (...a: unknown[]) => mockCommitTreasuryVote(...a),
   }),
   InvokeError: class InvokeError extends Error {
     retryable = false
@@ -75,6 +78,10 @@ describe('TreasuryProposalDetailPage (/treasury/[id])', () => {
     mockHasVoted.mockResolvedValue(false)
   })
 
+  afterEach(() => {
+    vi.restoreAllMocks()
+  })
+
   it('renders treasury proposal details when loaded', async () => {
     mockGetTreasuryProposal.mockResolvedValue({
       id: 42,
@@ -93,7 +100,7 @@ describe('TreasuryProposalDetailPage (/treasury/[id])', () => {
       expect(screen.getAllByText(/Treasury Proposal #42/)[0]).toBeInTheDocument()
     })
 
-    expect(screen.getByText('5')).toBeInTheDocument() // 50000000 stroops = 5 tokens
+    expect(screen.getByText('5 TOKEN')).toBeInTheDocument() // 50000000 stroops = 5 TOKEN
     expect(screen.getByText(/GBBD47IF6LWK7P7MDEVSCWR7DPUWV3NY3DTQEVFL4NAT4AQH3ZLLFLA5/)).toBeInTheDocument()
     expect(screen.getByText('In Voting')).toBeInTheDocument()
     expect(screen.getByRole('button', { name: /Vote For/i })).toBeInTheDocument()
@@ -205,6 +212,76 @@ describe('TreasuryProposalDetailPage (/treasury/[id])', () => {
       await screen.findByText(/awaiting treasury funds/i)
 
       expect(screen.queryByRole('button', { name: /^Execute$/ })).not.toBeInTheDocument()
+    })
+  })
+
+  describe('private commit-reveal salt backup (#546)', () => {
+    it('backs up the exact salt used to compute the on-chain commitment and calls generateCommitment once', async () => {
+      mockGetTreasuryProposal.mockResolvedValue({
+        id: 42,
+        destination: 'GBBD47IF6LWK7P7MDEVSCWR7DPUWV3NY3DTQEVFL4NAT4AQH3ZLLFLA5',
+        reason: 'Private Treasury Proposal #42',
+        amount: '50000000',
+        status: 'Pending',
+        votesFor: '0',
+        votesAgainst: '0',
+        private: true,
+      })
+
+      const generateCommitmentSpy = vi.spyOn(utils, 'generateCommitment')
+      vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(() => {})
+
+      let capturedBlob: Blob | null = null
+      const origCreateObjectURL = URL.createObjectURL
+      const origRevokeObjectURL = URL.revokeObjectURL
+      URL.createObjectURL = vi.fn((blob: Blob) => {
+        capturedBlob = blob
+        return 'blob:salt-backup'
+      })
+      URL.revokeObjectURL = vi.fn()
+
+      try {
+        renderWithProviders(<TreasuryProposalDetailPage />)
+
+        fireEvent.click(await screen.findByRole('button', { name: /Commit FOR/i }))
+        fireEvent.click(await screen.findByRole('button', { name: /Commit Vote & Download Salt/i }))
+
+        await waitFor(() => {
+          expect(mockCommitTreasuryVote).toHaveBeenCalledTimes(1)
+        })
+
+        expect(generateCommitmentSpy).toHaveBeenCalledTimes(1)
+        expect(capturedBlob).not.toBeNull()
+
+        const [calledProposalId, committedHash] = mockCommitTreasuryVote.mock.calls[0] as [
+          number,
+          Uint8Array,
+        ]
+        expect(calledProposalId).toBe(42)
+
+        const backupJson = JSON.parse(await capturedBlob!.text()) as {
+          proposalId: number
+          address: string
+          salt: string
+        }
+        expect(backupJson.proposalId).toBe(42)
+        expect(backupJson.address).toBe('GALICE')
+
+        const backedUpSalt = new Uint8Array(
+          (backupJson.salt.match(/.{1,2}/g) || []).map((byte) => parseInt(byte, 16)),
+        )
+        expect(backedUpSalt).toHaveLength(32)
+
+        const preimage = new Uint8Array(33)
+        preimage[0] = 1 // FOR
+        preimage.set(backedUpSalt, 1)
+        const expectedCommitment = new Uint8Array(await crypto.subtle.digest('SHA-256', preimage))
+
+        expect(Array.from(committedHash)).toEqual(Array.from(expectedCommitment))
+      } finally {
+        URL.createObjectURL = origCreateObjectURL
+        URL.revokeObjectURL = origRevokeObjectURL
+      }
     })
   })
 })

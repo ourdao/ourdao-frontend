@@ -81,7 +81,7 @@ export function useRequireMember(options: RequireMemberOptions): RequireMemberRe
         : null
 
   useEffect(() => {
-    if (redirectTo) router.push(redirectTo)
+    if (redirectTo) router.replace(redirectTo)
   }, [redirectTo, router])
 
   return { userData, isResolving, redirectTo, isConnected, isMember, isError: !!isError }
@@ -100,7 +100,7 @@ export function useRedirectIfMember(destination: string, userData: UserData) {
   const shouldRedirect = !isLoading && isConnected && isMember
 
   useEffect(() => {
-    if (shouldRedirect) router.push(destination)
+    if (shouldRedirect) router.replace(destination)
   }, [shouldRedirect, destination, router])
 
   return { isResolving: isLoading, shouldRedirect }

@@ -46,9 +46,11 @@ Contract changes are fundamentally different from backend changes:
 - ABI drift is currently tracked in issue #143
 
 ### How the frontend finds out
-- Contract ABI is embedded in the frontend codebase
-- New deployments require explicit frontend updates
-- CI should eventually detect ABI drift (planned in #143)
+- Contract ABI is embedded in the frontend codebase (`src/lib/generated/dao-bindings.ts`)
+- New deployments require explicit frontend updates (`npm run gen:contract`)
+- CI verifies `src/lib/generated/dao-bindings.ts` against the pinned ref in `contract/interface.json` (`_last_verified`) on PRs/pushes, and runs a non-blocking daily schedule against `ourdao-contracts` `main` to surface upstream drift (#541)
+
+**Current target decision (#541):** The frontend currently targets `ourdao-contracts @ 16e4222` (the pinned commit in `contract/interface.json` and `CHANGELOG.md`). Regenerating the bindings against `ourdao-contracts` `main` is deferred to a dedicated contract-upgrade PR.
 
 ## Version Tracking
 
