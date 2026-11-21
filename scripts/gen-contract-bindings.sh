@@ -2,17 +2,30 @@
 # Regenerates src/lib/generated/dao-bindings.ts from an OurDAO contract wasm.
 #
 #   npm run gen:contract -- path/to/ourdao_dao.wasm [ourdao-contracts-commit]
+#   npm run gen:contract -- path/to/ourdao_dao.wasm [ourdao-contracts-commit] --check
 #
 # The wasm comes from a release of ourdao-contracts (ourdao_dao.optimized.wasm)
 # or `cargo build --target wasm32v1-none --release -p ourdao-dao`. Re-run this
 # whenever the contract is redeployed, then fix any type errors `tsc` reports.
 set -euo pipefail
 
-wasm="${1:?usage: gen-contract-bindings.sh <path-to-ourdao_dao.wasm> [ourdao-contracts-commit]}"
-ref="${2:-unspecified}"
+wasm="${1:?usage: gen-contract-bindings.sh <path-to-ourdao_dao.wasm> [ourdao-contracts-commit] [--check]}"
+ref="unspecified"
+check=false
+shift
+for arg in "$@"; do
+  if [[ "$arg" == "--check" ]]; then
+    check=true
+  else
+    ref="$arg"
+  fi
+done
+
 out="src/lib/generated/dao-bindings.ts"
-tmp="$(mktemp -d)/dao-bindings"
-trap 'rm -rf "$(dirname "$tmp")"' EXIT
+tmp_dir="$(mktemp -d)"
+tmp="$tmp_dir/dao-bindings"
+generated="$tmp_dir/dao-bindings.ts"
+trap 'rm -rf "$tmp_dir"' EXIT
 
 stellar contract bindings typescript --wasm "$wasm" --output-dir "$tmp" --overwrite
 {
@@ -22,5 +35,15 @@ stellar contract bindings typescript --wasm "$wasm" --output-dir "$tmp" --overwr
   # be a binding name in strict mode. Where it appears in a destructured
   # parameter, take the object whole instead (the type keeps the `private` key).
   sed -E 's/\(\{[^}]*\bprivate\}: /(args: /' "$tmp/src/index.ts"
-} > "$out"
-echo "wrote $out"
+} > "$generated"
+
+if [[ "$check" == true ]]; then
+  if ! diff -u "$out" "$generated"; then
+    echo "error: $out is out of date with ourdao-contracts @ ${ref}. Run: npm run gen:contract -- <path-to-ourdao_dao.wasm> ${ref}" >&2
+    exit 1
+  fi
+  echo "$out is up to date with ourdao-contracts @ ${ref}"
+else
+  cp "$generated" "$out"
+  echo "wrote $out"
+fi

@@ -21,7 +21,7 @@ let mockIsConnected = true
 
 vi.mock('next/navigation', () => ({
   usePathname: () => '/register',
-  useRouter: () => ({ push: vi.fn() }),
+  useRouter: () => ({ push: vi.fn(), replace: vi.fn() }),
 }))
 
 vi.mock('@/lib/wallet', () => ({

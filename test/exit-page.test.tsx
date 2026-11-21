@@ -5,6 +5,7 @@ import { renderWithProviders } from './test-utils'
 import ExitPage from '@/app/(app)/exit/page'
 
 const mockPush = vi.fn()
+const mockReplace = vi.fn()
 const mockExitDao = vi.fn()
 let mockIsSuccess = false
 let mockUserData = {
@@ -28,7 +29,7 @@ let mockUserData = {
 
 vi.mock('next/navigation', () => ({
   usePathname: () => '/exit',
-  useRouter: () => ({ push: mockPush }),
+  useRouter: () => ({ push: mockPush, replace: mockReplace }),
 }))
 
 vi.mock('@/hooks/useDAO', () => ({
@@ -65,8 +66,9 @@ describe('ExitPage (#565)', () => {
     renderWithProviders(<ExitPage />)
 
     await waitFor(() => {
-      expect(mockPush).toHaveBeenCalledWith('/register')
+      expect(mockReplace).toHaveBeenCalledWith('/register')
     })
+    expect(mockPush).not.toHaveBeenCalled()
     expect(screen.getByText('Not a Member')).toBeTruthy()
   })
 
@@ -90,6 +92,7 @@ describe('ExitPage (#565)', () => {
     rerender(<ExitPage />)
 
     expect(screen.getByText('Successfully exited the DAO')).toBeTruthy()
+    expect(mockReplace).not.toHaveBeenCalledWith('/register')
     expect(mockPush).not.toHaveBeenCalledWith('/register')
   })
 })

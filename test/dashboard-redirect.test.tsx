@@ -8,8 +8,9 @@ import type { UserData } from '@/types/dao'
 // redirect effect firing while isMember is still the loading default.
 
 const mockPush = vi.fn()
+const mockReplace = vi.fn()
 vi.mock('next/navigation', () => ({
-  useRouter: () => ({ push: mockPush }),
+  useRouter: () => ({ push: mockPush, replace: mockReplace }),
 }))
 
 const mockUserData = vi.fn<() => UserData>()
@@ -75,12 +76,14 @@ async function renderDashboard() {
 describe('DashboardPage membership redirect', () => {
   beforeEach(() => {
     mockPush.mockClear()
+    mockReplace.mockClear()
   })
   afterEach(() => vi.clearAllMocks())
 
   it('does not redirect to /register while the membership query is still pending', async () => {
     mockUserData.mockReturnValue({ ...baseUserData, isLoading: true, isMember: false })
     await renderDashboard()
+    expect(mockReplace).not.toHaveBeenCalled()
     expect(mockPush).not.toHaveBeenCalled()
   })
 
@@ -93,7 +96,8 @@ describe('DashboardPage membership redirect', () => {
   it('redirects to /register once the read settles and confirms non-membership', async () => {
     mockUserData.mockReturnValue({ ...baseUserData, isLoading: false, isMember: false })
     await renderDashboard()
-    expect(mockPush).toHaveBeenCalledWith('/register')
+    expect(mockReplace).toHaveBeenCalledWith('/register')
+    expect(mockPush).not.toHaveBeenCalled()
   })
 
   it('does not redirect once the read settles and confirms membership', async () => {
@@ -112,12 +116,14 @@ describe('DashboardPage membership redirect', () => {
       },
     })
     await renderDashboard()
+    expect(mockReplace).not.toHaveBeenCalled()
     expect(mockPush).not.toHaveBeenCalled()
   })
   it('#230: a failed membership read is a load error, not "not a member" — no redirect, retry offered', async () => {
     const refetch = vi.fn()
     mockUserData.mockReturnValue({ ...baseUserData, isLoading: false, isMember: false, isError: true, refetch })
     await renderDashboard()
+    expect(mockReplace).not.toHaveBeenCalled()
     expect(mockPush).not.toHaveBeenCalled()
     expect(screen.queryByText('Not a Member')).not.toBeInTheDocument()
     expect(screen.getByTestId('load-error')).toHaveTextContent("Couldn't load your membership data")
