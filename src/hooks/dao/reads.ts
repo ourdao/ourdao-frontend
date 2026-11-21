@@ -5,7 +5,10 @@ import { useQuery } from '@tanstack/react-query'
 import { useWallet } from '@/lib/wallet'
 import { CONTRACT_ID, isContractConfigured } from '@/lib/stellar'
 import { daoRead } from '@/lib/dao-client'
-import { backend, isBackendConfigured } from '@/lib/backend'
+import { backend } from '@/lib/backend'
+// Hooks import the gate from the config module (see backend-config.ts). Pulling it
+// through `@/lib/backend` made every test that mocks only `backend` fail (#517).
+import { isBackendConfigured } from '@/lib/backend-config'
 import type { UserData, DAOStats } from '@/types/dao'
 import { asBigInt, mapLoanTerms, resolveLoanPolicy, toLoan, toMemberStatus } from '@/lib/dao-mappers'
 import type { UILoanPolicy, UILoanTerms } from '@/lib/dao-mappers'
@@ -42,7 +45,9 @@ export function useUserData(): UserData {
         daoRead.getMember(address!),
         daoRead.getPendingYield(address!),
         daoRead.calculateExitShare ? daoRead.calculateExitShare(address!).catch(() => null) : Promise.resolve(null),
-        daoRead.getStake ? daoRead.getStake(address!).catch(() => BigInt(0)) : Promise.resolve(BigInt(0)),
+        // A failed stake read stays `null` (unknown), never 0: a zero would
+        // show the member the base voting weight as if it were their real one (#486).
+        daoRead.getStake ? daoRead.getStake(address!).catch(() => null) : Promise.resolve(null),
       ])
       return { isMember, isAdmin, member, pendingYield, exitShare, stakeAmount }
     },
@@ -95,7 +100,13 @@ export function useUserData(): UserData {
           lastLoanDate: Number(m.last_loan_time ?? 0),
         }
       : undefined,
-    votingWeight: isMember ? calculateVotingWeight(asBigInt(data?.stakeAmount)) : 0,
+    // `null` = the stake is unknown (read in flight or failed), so the weight
+    // cannot be computed. Non-members have no weight at all.
+    votingWeight: !isMember
+      ? 0
+      : data?.stakeAmount == null
+        ? null
+        : calculateVotingWeight(asBigInt(data.stakeAmount)),
     pendingYield: asBigInt(data?.pendingYield),
     hasActiveLoan: !!m?.has_active_loan,
     loans: (loans ?? []).map(toLoan),

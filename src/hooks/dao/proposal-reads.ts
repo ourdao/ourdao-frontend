@@ -185,17 +185,33 @@ export function useTreasuryProposal(id: number) {
   return { proposal, isLoading, isError, hasVoted, refetch }
 }
 
-/** The connected member's current stake (in token base units). */
-export function useStake(): bigint {
+/**
+ * The connected member's current stake (in token base units).
+ *
+ * `stake` is `null` until the read has succeeded. It is never coerced to `0`
+ * while the read is in flight or after it fails: a zero would read as a real
+ * balance and drive a wrong voting weight (#486).
+ */
+export function useStake(): {
+  stake: bigint | null
+  isLoading: boolean
+  isError: boolean
+  refetch: () => void
+} {
   const { address } = useWallet()
-  const { data } = useQuery({
+  const { data, isLoading, isError, refetch } = useQuery({
     queryKey: address ? queryKeys.stake(address) : queryKeys.stakeDisabled(),
     enabled: !!address && isContractConfigured(),
     queryFn: () => daoRead.getStake(address!),
     refetchInterval: QUERY_REFRESH_INTERVAL_MS,
     refetchIntervalInBackground: false,
   })
-  return asBigInt(data)
+  return {
+    stake: data === undefined ? null : asBigInt(data),
+    isLoading,
+    isError,
+    refetch: () => void refetch(),
+  }
 }
 
 // ---------------------------------------------------------------------------

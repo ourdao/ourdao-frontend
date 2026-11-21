@@ -136,7 +136,9 @@ export default function TreasuryPage() {
   const userData = useUserData()
   const stats = useDAOStats()
   const token = useToken()
-  const myStake = useStake()
+  // `myStake` is null until the stake read succeeds; never treat that as 0 (#486).
+  const { stake: myStake } = useStake()
+  const stakeKnown = myStake !== null
   const { stake, unstake, isPending: staking } = useStaking()
   const { proposals, isLoading, hasMore, loadMore, isLoadingMore, hasErrors, isError, refetch } = useTreasuryProposals()
   const proposalFilters = useProposalFilters(proposals)
@@ -153,8 +155,9 @@ export default function TreasuryPage() {
     }
   })()
   const hasInsufficientStakeBalance = enteredAmountStroops > token.balance
-  const currentWeight = calculateVotingWeight(myStake, token.decimals)
-  const projectedWeight = calculateVotingWeight(myStake + enteredAmountStroops, token.decimals)
+  const currentWeight = myStake === null ? null : calculateVotingWeight(myStake, token.decimals)
+  const projectedWeight =
+    myStake === null ? null : calculateVotingWeight(myStake + enteredAmountStroops, token.decimals)
   useAnnounceLoad('Treasury proposals', isLoading, isError)
   const { voteOnTreasury, isPending: voting } = useTreasuryVoting()
 
@@ -226,7 +229,7 @@ export default function TreasuryPage() {
         />
         <StatCard
           label="Your Stake"
-          value={token.format(myStake)}
+          value={stakeKnown ? token.format(myStake) : 'Unavailable'}
           loading={stats.isLoading}
           icon={TrendingUp}
           tint="bg-amber-50 text-amber-600 dark:bg-amber-950/50 dark:text-amber-400"
@@ -318,13 +321,20 @@ export default function TreasuryPage() {
             <div className="rounded-lg border border-border bg-muted/40 p-3 space-y-1">
               <div className="flex justify-between text-xs">
                 <span className="text-muted-foreground">Current Voting Weight</span>
-                <span className="font-semibold text-foreground">{currentWeight} vote{currentWeight > 1 ? 's' : ''}</span>
+                <span className="font-semibold text-foreground">
+                  {currentWeight === null
+                    ? 'Unavailable'
+                    : `${currentWeight} vote${currentWeight > 1 ? 's' : ''}`}
+                </span>
               </div>
               <div className="flex justify-between text-xs">
                 <span className="text-muted-foreground">Projected Weight (after stake)</span>
                 <span className="font-semibold text-emerald-600 dark:text-emerald-400">
-                  {projectedWeight} vote{projectedWeight > 1 ? 's' : ''}
-                  {projectedWeight > currentWeight && ` (+${projectedWeight - currentWeight})`}
+                  {projectedWeight === null || currentWeight === null
+                    ? 'Unavailable'
+                    : `${projectedWeight} vote${projectedWeight > 1 ? 's' : ''}${
+                        projectedWeight > currentWeight ? ` (+${projectedWeight - currentWeight})` : ''
+                      }`}
                 </span>
               </div>
               <p className="text-[11px] text-muted-foreground pt-1">
@@ -335,7 +345,7 @@ export default function TreasuryPage() {
             <div className="flex gap-2">
               <Button
                 onClick={handleStake}
-                disabled={!userData.isMember || staking || !amount || hasInsufficientStakeBalance || stats.isPaused}
+                disabled={!userData.isMember || !stakeKnown || staking || !amount || hasInsufficientStakeBalance || stats.isPaused}
                 className="flex-1"
               >
                 <Upload className="mr-2 h-4 w-4" />
@@ -344,7 +354,7 @@ export default function TreasuryPage() {
               <Button
                 variant="outline"
                 onClick={handleUnstake}
-                disabled={!userData.isMember || staking || !amount || stats.isPaused}
+                disabled={!userData.isMember || !stakeKnown || staking || !amount || stats.isPaused}
                 className="flex-1"
               >
                 <Download className="mr-2 h-4 w-4" />
