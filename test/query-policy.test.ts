@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from 'vitest'
 import { createQueryClient } from '@/components/providers'
 import { allWalletScopedQueryKeys, queryKeys } from '@/lib/query-keys'
 import { QUERY_REFRESH_INTERVAL_MS, QUERY_STALE_TIME_MS } from '@/constants'
+import { logger } from '@/lib/logger'
 
 describe('query policy', () => {
   it('uses one explicit freshness policy without automatic retries', () => {
@@ -15,7 +16,9 @@ describe('query policy', () => {
   })
 
   it('routes query failures through the central cache handler', async () => {
-    const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
+    // Assert on the logger call, not on the console text: the logger adds a
+    // `[error]` prefix and scrubs context, which is not this test's concern.
+    const errorSpy = vi.spyOn(logger, 'error').mockImplementation(() => {})
     const client = createQueryClient()
 
     await expect(
@@ -44,6 +47,7 @@ describe('query key factory', () => {
       ['stake'],
       ['document'],
       ['notifications'],
+      ['tokenBalance'],
     ])
   })
 })

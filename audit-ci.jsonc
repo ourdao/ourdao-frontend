@@ -55,7 +55,45 @@
       }
     },
 
+    // --- Wallet kit transitive zod (#579) -----------------------------------
+    // zod@3 is pulled in by @creit.tech/stellar-wallets-kit through its optional
+    // @reown/appkit and @coinbase/cdp-sdk wallet modules. npm's only fix is a
+    // semver-major downgrade of the kit, which #579 excludes. The app imports
+    // only the kit's sdk, utils and freighter modules (src/lib/wallet-adapter.ts).
+    // That the other modules are absent from client chunks is NOT yet asserted
+    // in CI, so this entry is a reviewed risk, not a verified one. Revisit when
+    // the kit is upgraded or a bundle assertion covers these packages.
+    {
+      "GHSA-mrhx-c7xc-m3w5": {
+        "active": true,
+        "expiry": "2026-12-31",
+        "notes": "zod@3 reaches the app only via @creit.tech/stellar-wallets-kit's optional @reown/appkit and @coinbase/cdp-sdk wallet modules; the app loads only the sdk/utils/freighter modules. Bundle absence not yet asserted in CI (#579)."
+      }
+    },
+
     // --- Dev tooling (#455) -------------------------------------------------
+    // (#579) basic-ftp via @lhci/cli, minimatch via depcheck and eslint: dev-only.
+    {
+      "GHSA-5pm8-86m8-9m6r": {
+        "active": true,
+        "expiry": "2026-12-31",
+        "notes": "basic-ftp is reachable only from the dev-only Lighthouse CI uploader (@lhci/cli); not shipped to the browser (#579)."
+      }
+    },
+    {
+      "GHSA-r4jh-29pc-gfqr": {
+        "active": true,
+        "expiry": "2026-12-31",
+        "notes": "basic-ftp is reachable only from the dev-only Lighthouse CI uploader (@lhci/cli); not shipped to the browser (#579)."
+      }
+    },
+    {
+      "GHSA-g3hv-75wg-m249": {
+        "active": true,
+        "expiry": "2026-12-31",
+        "notes": "minimatch is used only by dev tooling (depcheck, eslint, typescript-eslint) to match file globs; not shipped to the browser (#579)."
+      }
+    },
     // @lhci/cli, depcheck, eslint-config-next and their transitive parsers run
     // in CI and locally only; none of them is bundled for a browser and none
     // processes untrusted input from a member. Tracked separately in #455.

@@ -1,3 +1,5 @@
+import { toBufferSource } from './buffer-source'
+
 // The single IPFS CID implementation, shared by the documents route (verifying
 // what the pinning provider returned) and the client (verifying downloads).
 // It rebuilds the UnixFS DAG the way IPFS importers do by default: 256 KiB
@@ -64,7 +66,7 @@ function encodeBase32(bytes: Uint8Array): string {
 }
 
 async function sha256Multihash(block: Uint8Array): Promise<Uint8Array> {
-  const digest = new Uint8Array(await crypto.subtle.digest('SHA-256', block as unknown as BufferSource))
+  const digest = new Uint8Array(await crypto.subtle.digest('SHA-256', toBufferSource(block)))
   return concat(new Uint8Array([0x12, 0x20]), digest)
 }
 

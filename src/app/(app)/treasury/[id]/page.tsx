@@ -37,6 +37,27 @@ import { generateCommitment, storeCommitSalt, loadCommitSalt } from '@/lib/utils
 import { PROPOSAL_STATUS_LABELS, PROPOSAL_STATUS_AWAITING_FUNDS } from '@/constants'
 import toast from 'react-hot-toast'
 
+/** File picker for a salt backup. Shared by both places a salt can be imported. */
+function SaltImportButton({ onFile, className }: { onFile: (file: File) => void; className?: string }) {
+  return (
+    <label className={`cursor-pointer ${className ?? ''}`}>
+      <input
+        type="file"
+        accept=".json"
+        className="hidden"
+        onChange={(e) => {
+          const file = e.target.files?.[0]
+          if (file) onFile(file)
+        }}
+      />
+      <div className="flex items-center gap-2 rounded bg-amber-200 px-3 py-2 text-amber-900 hover:bg-amber-300 dark:bg-amber-900 dark:text-amber-100 dark:hover:bg-amber-800">
+        <Upload className="h-4 w-4" />
+        <span className="text-sm font-medium">Import Salt Backup</span>
+      </div>
+    </label>
+  )
+}
+
 export default function TreasuryProposalDetailPage() {
   const params = useParams()
   const router = useRouter()
@@ -57,13 +78,32 @@ export default function TreasuryProposalDetailPage() {
   const [showRevealDialog, setShowRevealDialog] = useState(false)
   const [revealSupport, setRevealSupport] = useState<boolean | null>(null)
   const [importedSalt, setImportedSalt] = useState<Uint8Array | null>(null)
+  // The commitment and salt for the vote being committed. Held only until the
+  // commit is sent or the dialog is cancelled (#519).
+  const [pendingCommit, setPendingCommit] = useState<{ commitment: Uint8Array; salt: Uint8Array } | null>(null)
+  // The commit transaction is not sent until the salt backup has been downloaded (#519).
+  const [saltBackedUp, setSaltBackedUp] = useState(false)
 
   // Check if salt exists in localStorage for this proposal
   const storedSalt = address ? loadCommitSalt(proposalId) : null
 
   const handleCommit = async (support: boolean) => {
-    setCommitSupport(support)
-    setShowCommitDialog(true)
+    try {
+      const generated = await generateCommitment(support)
+      setCommitSupport(support)
+      setPendingCommit(generated)
+      setSaltBackedUp(false)
+      setShowCommitDialog(true)
+    } catch {
+      toast.error('Could not prepare your vote. Please try again.')
+    }
+  }
+
+  const cancelCommit = () => {
+    setShowCommitDialog(false)
+    setCommitSupport(null)
+    setPendingCommit(null)
+    setSaltBackedUp(false)
   }
 
   const exportSalt = (salt: Uint8Array) => {
@@ -114,19 +154,22 @@ export default function TreasuryProposalDetailPage() {
   }
 
   const confirmCommit = async () => {
-    if (commitSupport === null) return
+    // Enforced here as well as by the disabled button: no commit without a backup (#519).
+    if (!pendingCommit || !saltBackedUp) return
     try {
-      // Generate once: the salt that is backed up must be the one that produced
-      // the on-chain commitment, or the vote can never be revealed (#514).
-      const { commitment, salt } = await generateCommitment(commitSupport)
-      exportSalt(salt)
-      await commitVote(proposalId, commitment)
-      storeCommitSalt(proposalId, salt)
+      // The salt that is backed up must be the one that produced the on-chain
+      // commitment, or the vote can never be revealed (#514). Both come from the
+      // same `pendingCommit`.
+      await commitVote(proposalId, pendingCommit.commitment)
+      storeCommitSalt(proposalId, pendingCommit.salt)
       toast.success(
-        "Vote committed! Save your salt backup — you'll need it to reveal your vote.",
+        "Vote committed! Keep your salt backup — you'll need it to reveal your vote.",
         { duration: 6000 }
       )
       setShowCommitDialog(false)
+      setCommitSupport(null)
+      setPendingCommit(null)
+      setSaltBackedUp(false)
       refetch()
     } catch {
       // Error handling is in the hook
@@ -203,7 +246,9 @@ export default function TreasuryProposalDetailPage() {
     PROPOSAL_STATUS_LABELS[proposal.status as keyof typeof PROPOSAL_STATUS_LABELS] || 'Unknown'
   const canVotePublic = isMember && proposal.status === 2 && !proposal.isPrivate && !hasVoted
   const canCommit = isMember && proposal.status === 2 && proposal.isPrivate && !hasVoted
-  const canReveal = isMember && proposal.isPrivate && hasVoted && storedSalt !== null
+  // A salt imported from a backup counts too: without this, a member whose
+  // local salt is missing could never reach the reveal buttons (#518).
+  const canReveal = isMember && proposal.isPrivate && hasVoted && (storedSalt !== null || importedSalt !== null)
   const totalVotes = Number(proposal.votesFor) + Number(proposal.votesAgainst)
   const percentFor = totalVotes > 0 ? Math.round((Number(proposal.votesFor) / totalVotes) * 100) : 0
 
@@ -264,23 +309,37 @@ export default function TreasuryProposalDetailPage() {
                 you cannot reveal your vote and it will be forfeited permanently.
               </p>
             </div>
-            <div className="flex gap-2">
+            <div className="space-y-2">
               <Button
                 variant="outline"
+                className="w-full gap-2"
                 onClick={() => {
-                  setShowCommitDialog(false)
-                  setCommitSupport(null)
+                  if (pendingCommit) {
+                    exportSalt(pendingCommit.salt)
+                    setSaltBackedUp(true)
+                  }
                 }}
-                disabled={isCommitting}
+                disabled={isCommitting || !pendingCommit}
               >
+                <Download className="h-4 w-4" />
+                {saltBackedUp ? 'Salt backup downloaded' : 'Step 1: Download salt backup'}
+              </Button>
+              <p className="text-xs text-muted-foreground">
+                {saltBackedUp
+                  ? 'Backup saved. You can now commit your vote.'
+                  : 'Download the backup before committing. The commit is only sent after this step.'}
+              </p>
+            </div>
+            <div className="flex gap-2">
+              <Button variant="outline" onClick={cancelCommit} disabled={isCommitting}>
                 Cancel
               </Button>
               <Button
                 onClick={confirmCommit}
-                disabled={isCommitting || isPaused}
+                disabled={isCommitting || isPaused || !saltBackedUp}
                 className="flex-1"
               >
-                {isCommitting ? 'Committing...' : 'Commit Vote & Download Salt'}
+                {isCommitting ? 'Committing...' : 'Step 2: Commit Vote'}
               </Button>
             </div>
           </CardContent>
@@ -306,21 +365,7 @@ export default function TreasuryProposalDetailPage() {
                 <p className="mb-3">
                   Your salt wasn&apos;t found in local storage. Import your backup file to reveal.
                 </p>
-                <label className="cursor-pointer">
-                  <input
-                    type="file"
-                    accept=".json"
-                    className="hidden"
-                    onChange={(e) => {
-                      const file = e.target.files?.[0]
-                      if (file) importSalt(file)
-                    }}
-                  />
-                  <div className="flex items-center gap-2 rounded bg-amber-200 px-3 py-2 text-amber-900 hover:bg-amber-300 dark:bg-amber-900 dark:text-amber-100 dark:hover:bg-amber-800">
-                    <Upload className="h-4 w-4" />
-                    <span className="text-sm font-medium">Import Salt Backup</span>
-                  </div>
-                </label>
+                <SaltImportButton onFile={importSalt} />
               </div>
             )}
             {(storedSalt || importedSalt) && (
@@ -555,9 +600,12 @@ export default function TreasuryProposalDetailPage() {
                     </div>
                   </div>
                 ) : hasVoted && proposal.isPrivate ? (
-                  <div className="flex items-center gap-2 text-sm text-amber-700 bg-amber-50 p-3 rounded-lg dark:bg-amber-950/30 dark:text-amber-300">
-                    <AlertCircle className="h-4 w-4" />
-                    <span>Vote committed, but salt not found. Import backup to reveal.</span>
+                  <div className="space-y-3">
+                    <div className="flex items-center gap-2 text-sm text-amber-700 bg-amber-50 p-3 rounded-lg dark:bg-amber-950/30 dark:text-amber-300">
+                      <AlertCircle className="h-4 w-4" />
+                      <span>Vote committed, but salt not found. Import backup to reveal.</span>
+                    </div>
+                    <SaltImportButton onFile={importSalt} className="w-full" />
                   </div>
                 ) : canVotePublic ? (
                   <div className="space-y-2">

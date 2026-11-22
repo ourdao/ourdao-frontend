@@ -1,5 +1,6 @@
 import { IPFS_GATEWAY, IPFS_GATEWAYS, IPFS_GATEWAY_TIMEOUT_MS } from '@/constants'
 import { validateIPFSHash, verifyIPFSHash } from './ipfs-cid'
+import { toBufferSource } from './buffer-source'
 
 export { validateIPFSHash }
 
@@ -89,7 +90,7 @@ async function deriveKey(password: string, salt: Uint8Array, iterations: number)
   return crypto.subtle.deriveKey(
     {
       name: 'PBKDF2',
-      salt: salt as unknown as BufferSource,
+      salt: toBufferSource(salt),
       iterations,
       hash: 'SHA-256'
     },
@@ -163,11 +164,11 @@ async function decryptWith(candidates: DecryptParams[], password: string): Promi
       const decrypted = await crypto.subtle.decrypt(
         {
           name: 'AES-GCM',
-          iv: iv as unknown as BufferSource,
-          ...(additionalData && { additionalData: additionalData as unknown as BufferSource }),
+          iv: toBufferSource(iv),
+          ...(additionalData && { additionalData: toBufferSource(additionalData) }),
         },
         key,
-        ciphertext as unknown as BufferSource
+        toBufferSource(ciphertext)
       )
       return new Uint8Array(decrypted)
     } catch (err) {
@@ -199,7 +200,7 @@ export async function encryptBytes(data: Uint8Array, password: string): Promise<
   const encrypted = await crypto.subtle.encrypt(
     { name: 'AES-GCM', iv, additionalData: header },
     key,
-    data as unknown as BufferSource
+    toBufferSource(data)
   )
 
   const envelope = new Uint8Array(header.length + encrypted.byteLength)

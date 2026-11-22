@@ -43,6 +43,9 @@ report can name the entry below it came from. See
 
 ### Fixed
 - Test suite: the contract-id fixture is generated with `StrKey.encodeContract` (#537); partial `@/lib/stellar` mocks spread `importOriginal()` (#538); `error-reporting.test.ts` runs in jsdom (#539). A signature cancelled before the wallet prompt opens now aborts instead of hanging.
+- A stake that fails to load or is still loading is shown as unavailable instead of `0`: the treasury and exit pages no longer show a zero stake or base voting weight, the dashboard shows `—` for voting weight, and staking or exiting is disabled until the stake is known (#486).
+- Members who committed a private vote without a stored salt can now import their salt backup from the proposal page and reveal the vote (#518).
+- The commit dialog now requires the salt backup to be downloaded before the commit transaction is sent (#519).
 - The service worker now caches only the offline shell, icons and content-hashed build assets, in a cache named after the build. Member API responses, RSC payloads and cross-origin (IPFS/indexer) responses are no longer stored, so a shared device keeps no member data after disconnect and Cache Storage no longer grows on every navigation; each deploy starts from a fresh cache and deletes the previous one (#479).
 - Loan voting deadlines now come from the `voting_period` the contract stored on each proposal instead of a hard-coded fallback, so a proposal created under a different policy period no longer shows (or hides) its vote buttons and "days left" at the wrong time (#477).
 - Loan proposals now show their supporting-document indicator on /loans: the contract's `metadata_cid` is mapped to `documentHash` instead of being dropped, so a request created with a document is no longer indistinguishable from one without (#476).

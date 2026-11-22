@@ -24,7 +24,10 @@ import { LoadingSpinner } from '@/components/ui/skeleton'
 
 export default function ExitPage() {
   const userData = useUserData()
-  const myStake = useStake()
+  // `myStake` is null until the stake read succeeds. Exiting while the stake is
+  // unknown would show and withdraw an amount we cannot vouch for (#486).
+  const { stake: myStake } = useStake()
+  const stakeKnown = myStake !== null
   const { exitDao, isPending, isSuccess } = useExitDao()
   const { isPaused } = useDAOStats()
   const { isResolving } = useRequireMember({
@@ -112,7 +115,7 @@ export default function ExitPage() {
 
   const shareBalance = userData.member?.shareBalance ?? BigInt(0)
   const pendingYield = userData.pendingYield ?? BigInt(0)
-  const totalExitAmount = shareBalance + pendingYield + myStake
+  const totalExitAmount = shareBalance + pendingYield + (myStake ?? BigInt(0))
   const hasActiveLoan = userData.hasActiveLoan
 
   const handleExit = async () => {
@@ -226,7 +229,7 @@ export default function ExitPage() {
                   </p>
                 </div>
                 <p className="text-lg font-semibold text-foreground">
-                  {formatToken(myStake)}
+                  {stakeKnown ? formatToken(myStake) : 'Unavailable'}
                 </p>
               </div>
 
@@ -251,7 +254,7 @@ export default function ExitPage() {
                 </p>
               </div>
               <p className="text-2xl font-bold text-primary">
-                {formatToken(totalExitAmount)}
+                {stakeKnown ? formatToken(totalExitAmount) : 'Unavailable'}
               </p>
             </div>
           </CardContent>
@@ -299,7 +302,7 @@ export default function ExitPage() {
 
               <Button
                 onClick={handleExit}
-                disabled={!confirmed || isPending || hasActiveLoan || isPaused}
+                disabled={!confirmed || !stakeKnown || isPending || hasActiveLoan || isPaused}
                 variant="destructive"
                 size="lg"
                 className="w-full"

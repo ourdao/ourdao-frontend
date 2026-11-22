@@ -27,6 +27,8 @@ export default function RegisterPage() {
 
   const membershipFee = BigInt(stats.membershipFee || 0)
   const hasSufficientBalance = token.isError || token.balance >= membershipFee
+  // #656: show "Unavailable" rather than a zero balance when the read fails.
+  const balanceLabel = token.isError ? 'Unavailable' : token.format(token.balance)
   
   const [formData, setFormData] = useState({
     acceptTerms: false,
@@ -127,7 +129,7 @@ export default function RegisterPage() {
                 <div className="flex justify-between items-center text-sm border-t border-border pt-2">
                   <span className="text-muted-foreground">Your {token.symbol} Balance:</span>
                   <span className={`font-medium ${hasSufficientBalance ? 'text-foreground' : 'text-red-500 dark:text-red-400'}`}>
-                    {token.format(token.balance)}
+                    {balanceLabel}
                   </span>
                 </div>
               )}
@@ -168,7 +170,7 @@ export default function RegisterPage() {
                 <div className="flex justify-between text-sm">
                   <span className="text-muted-foreground">Your Balance:</span>
                   <span className={`font-medium ${hasSufficientBalance ? 'text-foreground' : 'text-red-500 dark:text-red-400'}`}>
-                    {token.format(token.balance)}
+                    {balanceLabel}
                   </span>
                 </div>
 

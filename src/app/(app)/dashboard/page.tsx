@@ -212,7 +212,7 @@ export default function DashboardPage() {
                 
                 <div className="text-right">
                   <div className="text-sm text-muted-foreground">Voting Weight</div>
-                  <div className="text-2xl font-bold text-foreground">{userData.votingWeight}</div>
+                  <div className="text-2xl font-bold text-foreground">{userData.votingWeight ?? '—'}</div>
                 </div>
               </div>
             </CardContent>

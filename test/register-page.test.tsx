@@ -15,6 +15,8 @@ const mockGetConsensusThreshold = vi.fn()
 const mockGetTreasuryBalance = vi.fn()
 const mockIsPaused = vi.fn()
 const mockGetLoans = vi.fn()
+const mockGetToken = vi.fn()
+const mockGetBalance = vi.fn()
 
 let mockWalletAddress: string | null = 'GALICE'
 let mockIsConnected = true
@@ -52,6 +54,13 @@ vi.mock('@/lib/dao-client', () => ({
     getConsensusThreshold: (...a: unknown[]) => mockGetConsensusThreshold(...a),
     getTreasuryBalance: (...a: unknown[]) => mockGetTreasuryBalance(...a),
     isPaused: (...a: unknown[]) => mockIsPaused(...a),
+    getToken: (...a: unknown[]) => mockGetToken(...a),
+  },
+  tokenRead: {
+    getSymbol: vi.fn().mockResolvedValue('OUSD'),
+    getDecimals: vi.fn().mockResolvedValue(7),
+    getName: vi.fn().mockResolvedValue('OurDAO USD'),
+    getBalance: (...a: unknown[]) => mockGetBalance(...a),
   },
   daoWrite: () => ({ registerMember: vi.fn() }),
 }))
@@ -82,6 +91,8 @@ describe('RegisterPage', () => {
     mockGetTreasuryBalance.mockResolvedValue(BigInt(0))
     mockIsPaused.mockResolvedValue(false)
     mockGetLoans.mockResolvedValue([])
+    mockGetToken.mockResolvedValue('CTOKEN')
+    mockGetBalance.mockResolvedValue(BigInt(0))
     mockWalletAddress = 'GALICE'
     mockIsConnected = true
   })
@@ -93,6 +104,14 @@ describe('RegisterPage', () => {
     renderWithProviders(<RegisterPage />)
 
     expect(screen.getByText('Connect Your Wallet')).toBeInTheDocument()
+  })
+
+  it('shows "Unavailable" instead of a zero balance when the balance read fails (#656)', async () => {
+    mockGetBalance.mockRejectedValue(new Error('rpc down'))
+    renderWithProviders(<RegisterPage />)
+
+    await waitFor(() => expect(screen.getAllByText('Unavailable').length).toBeGreaterThan(0))
+    expect(screen.queryByText(/Insufficient OUSD balance/)).not.toBeInTheDocument()
   })
 
   it('shows the real membership fee (not a fabricated placeholder) for a connected non-member', async () => {

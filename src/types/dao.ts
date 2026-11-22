@@ -45,7 +45,8 @@ export interface UserData {
   isAdmin: boolean
   member?: Member
   ensName?: string
-  votingWeight: number
+  /** `null` when the member's stake is unknown (read failed or still loading). */
+  votingWeight: number | null
   pendingYield: bigint
   hasActiveLoan: boolean
   loans: Loan[]
