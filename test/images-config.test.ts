@@ -13,19 +13,9 @@ describe('next.config image remotePatterns for IPFS gateways (#245)', () => {
     vi.unstubAllEnvs()
   })
 
-  it('provides default remote pattern for pinata gateway when env is unset', () => {
+  it('returns no remote patterns when NEXT_PUBLIC_IPFS_GATEWAY is unset', () => {
     delete process.env.NEXT_PUBLIC_IPFS_GATEWAY
-    const patterns = buildImageRemotePatterns()
-
-    expect(patterns).toEqual(
-      expect.arrayContaining([
-        expect.objectContaining({
-          protocol: 'https',
-          hostname: 'gateway.pinata.cloud',
-          pathname: '/ipfs/**',
-        }),
-      ])
-    )
+    expect(buildImageRemotePatterns()).toEqual([])
   })
 
   it('derives remote patterns from comma-separated NEXT_PUBLIC_IPFS_GATEWAY', () => {
