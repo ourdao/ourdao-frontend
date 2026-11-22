@@ -162,20 +162,12 @@ describe('formatStellarAddress — canonical output', () => {
 // formatDate — follows the browser locale instead of hardcoding en-US (#248)
 // ---------------------------------------------------------------------------
 describe('formatDate — locale handling', () => {
-  const originalLanguage = navigator.language
-
   afterEach(() => {
-    Object.defineProperty(navigator, 'language', {
-      value: originalLanguage,
-      configurable: true,
-    })
+    vi.unstubAllGlobals()
   })
 
   it('formats using the browser locale (de-DE), not a hardcoded en-US', () => {
-    Object.defineProperty(navigator, 'language', {
-      value: 'de-DE',
-      configurable: true,
-    })
+    vi.stubGlobal('navigator', { language: 'de-DE' })
 
     // A fixed UTC timestamp so the assertion isn't timezone-flaky.
     const result = formatDate(new Date('2024-03-04T10:00:00Z'))
@@ -198,10 +190,7 @@ describe('formatDate — locale handling', () => {
   })
 
   it('falls back gracefully and still returns a formatted string when locale is unset', () => {
-    Object.defineProperty(navigator, 'language', {
-      value: undefined,
-      configurable: true,
-    })
+    vi.stubGlobal('navigator', { language: undefined })
     const result = formatDate(new Date('2024-03-04T10:00:00Z'))
     expect(typeof result).toBe('string')
     expect(result).not.toBe('Invalid date')
