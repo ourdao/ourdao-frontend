@@ -2,6 +2,7 @@
   "_comment": "Historical contract summary, not exhaustive. Generated dao-bindings.ts is the authoritative ABI. Regenerate with: stellar contract inspect --wasm <path-to-contract.wasm>",
   "_contract_repo": "https://github.com/ourdao/ourdao-contracts",
   "_last_verified": "ourdao-contracts @ 16e4222fbe77192ca888cd3739aca8fdb02150a4",
+  "contract_version": "0.1.0",
   "reads": {
     "get_total_members": { "returns": "u32" },
     "get_active_members": { "returns": "u32" },
@@ -37,7 +38,9 @@
     "resolve_name": { "args": { "name": "string" }, "returns": "Option<Address>" },
     "name_of": { "args": { "addr": "Address" }, "returns": "Option<string>" },
     "get_document": { "args": { "kind": "ProposalKind", "id": "u32" }, "returns": "Option<BytesN<32>>" },
-    "has_voted": { "args": { "kind": "ProposalKind", "proposal_id": "u32", "voter": "Address" }, "returns": "bool" }
+    "has_voted": { "args": { "kind": "ProposalKind", "proposal_id": "u32", "voter": "Address" }, "returns": "bool" },
+    "get_version": { "returns": "string" },
+    "get_whitelisted_tokens": { "returns": "vec<Address>" }
   },
   "writes": {
     "register_member": { "args": { "addr": "Address" } },
@@ -63,7 +66,12 @@
     "set_consensus_threshold": { "args": { "caller": "Address", "threshold_bps": "u32" } },
     "set_loan_policy": { "args": { "caller": "Address", "policy": "LoanPolicy" } },
     "pause": { "args": { "caller": "Address" } },
-    "unpause": { "args": { "caller": "Address" } }
+    "unpause": { "args": { "caller": "Address" } },
+    "set_pauser": { "args": { "caller": "Address", "pauser": "Address" } },
+    "revoke_pauser": { "args": { "caller": "Address" } },
+    "propose_token_addition": { "args": { "caller": "Address", "token": "Address" } },
+    "execute_token_addition": { "args": { "caller": "Address", "token": "Address" } },
+    "remove_token": { "args": { "caller": "Address", "token": "Address" } }
   },
   "types": {
     "ProposalKind": { "variants": ["Loan", "Treasury"] },

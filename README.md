@@ -424,6 +424,13 @@ The table below documents every contract entrypoint the client wraps and its cur
 | `set_loan_policy` | ⚠️ Not wired | — | Wrapper exists, no UI (#TBD) |
 | `get_consensus_threshold` | ✅ Wired | `/dashboard`, stats | Threshold display |
 | `get_loan_policy` | ✅ Wired | `/loans/request` | Loan policy display |
+| `set_pauser` | ✅ Wired | `/admin` | Set pauser address (#629) |
+| `revoke_pauser` | ✅ Wired | `/admin` | Revoke pauser address (#629) |
+| `get_version` | ✅ Wired | `AppShell` build info | Deployed contract version (#645) |
+| `get_whitelisted_tokens` | ✅ Wired | `/admin` | List whitelisted tokens (#623) |
+| `propose_token_addition` | ✅ Wired | `/admin` | Propose token whitelist addition (#623) |
+| `execute_token_addition` | ✅ Wired | `/admin` | Execute token whitelist addition (#623) |
+| `remove_token` | ✅ Wired | `/admin` | Remove token from whitelist (#623) |
 | **Governance** ||||
 | `has_voted` | ✅ Wired | All proposal pages | Vote status check |
 | `calculate_exit_share` | ⚠️ Not wired | — | Wrapper exists, no caller |

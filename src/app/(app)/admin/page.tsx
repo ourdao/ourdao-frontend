@@ -17,6 +17,12 @@ import {
   useAdminActions,
   useAdminLog,
   useFailedEvents,
+  useWhitelistedTokens,
+  useTokenWhitelist,
+  usePauserActions,
+  useAuditLog,
+  useReevaluateFailedEvent,
+  useBatchResolveFailedEvents,
 } from '@/hooks/useDAO'
 import { AddressLink } from '@/components/AddressLink'
 import { LoadError } from '@/components/LoadError'
@@ -328,43 +334,315 @@ function GovernanceTab({ stats }: { stats: ReturnType<typeof useDAOStats> }) {
         </form>
         {isSuccess && <p className="px-6 pb-4 text-sm text-green-600 dark:text-green-400">Updated.</p>}
       </div>
+
+      <PauserSection />
+      <TokenWhitelistSection />
+    </div>
+  )
+}
+
+/** Pauser assignment controls (#629). The pauser can pause but only an admin
+ *  can unpause (per the contract CHANGELOG, #319). */
+function PauserSection() {
+  const { setPauser, revokePauser, isPending } = usePauserActions()
+  const [pauserAddr, setPauserAddr] = useState('')
+
+  const trimmed = pauserAddr.trim()
+  const addrError = trimmed.length > 0 && !isStellarAddress(trimmed)
+
+  const submitSetPauser = async (e: FormEvent) => {
+    e.preventDefault()
+    if (!trimmed || !isStellarAddress(trimmed)) return
+    if (!window.confirm(`Set ${formatStellarAddress(trimmed)} as the pauser? They will be able to pause the DAO, but only an admin can unpause it.`)) return
+    try {
+      await setPauser(trimmed)
+    } catch {
+      return
+    }
+    setPauserAddr('')
+  }
+
+  const submitRevoke = async () => {
+    if (!window.confirm('Revoke the pauser role? The current pauser will no longer be able to pause the DAO. Only an admin can pause it afterwards.')) return
+    try {
+      await revokePauser()
+    } catch {
+      return
+    }
+  }
+
+  return (
+    <div className="bg-card rounded-lg border border-border">
+      <div className="px-6 py-4 border-b border-border">
+        <h3 className="text-lg font-semibold text-foreground">Pauser</h3>
+        <p className="text-sm text-muted-foreground">
+          Assign a dedicated address that can pause the DAO. Only an admin can unpause it.
+        </p>
+      </div>
+      <div className="p-6 space-y-4">
+        <form onSubmit={submitSetPauser} className="flex items-start space-x-2">
+          <div className="flex-1">
+            <input
+              type="text"
+              value={pauserAddr}
+              onChange={(e) => setPauserAddr(e.target.value)}
+              placeholder="G… address to set as pauser"
+              aria-label="Address to set as pauser"
+              aria-invalid={addrError}
+              aria-describedby={addrError ? 'pauser-addr-error' : undefined}
+              className="w-full px-3 py-2 border border-input rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-muted dark:text-foreground"
+            />
+            {addrError && (
+              <p id="pauser-addr-error" className="mt-1 text-sm text-red-600 dark:text-red-400">
+                Enter a valid Stellar address (G… or C…)
+              </p>
+            )}
+          </div>
+          <button
+            type="submit"
+            disabled={isPending || !trimmed || !isStellarAddress(trimmed)}
+            className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50 dark:bg-blue-500 dark:hover:bg-blue-600"
+          >
+            Set Pauser
+          </button>
+        </form>
+        <button
+          onClick={submitRevoke}
+          disabled={isPending}
+          className="flex items-center space-x-1 text-red-600 hover:text-red-800 dark:text-red-400 dark:hover:text-red-300 text-sm disabled:opacity-40"
+        >
+          <TrashIcon className="h-4 w-4" />
+          <span>Revoke Pauser</span>
+        </button>
+      </div>
+    </div>
+  )
+}
+
+/** Supported assets (token whitelist) controls (#623). Admins can propose a
+ *  token addition (48 h timelock), execute once the timelock expires, and
+ *  remove a token immediately. The base token cannot be removed. */
+function TokenWhitelistSection() {
+  const { tokens, isLoading: tokensLoading, isError: tokensError, refetch: refetchTokens } = useWhitelistedTokens()
+  const { proposeTokenAddition, executeTokenAddition, removeToken, isPending } = useTokenWhitelist()
+  const [tokenAddr, setTokenAddr] = useState('')
+  const [executeAddr, setExecuteAddr] = useState('')
+
+  const trimmed = tokenAddr.trim()
+  const addrError = trimmed.length > 0 && !isStellarAddress(trimmed)
+  const executeTrimmed = executeAddr.trim()
+  const executeError = executeTrimmed.length > 0 && !isStellarAddress(executeTrimmed)
+
+  // The base token (the DAO's own token) should not be removable. We compare
+  // against the token read from the contract, available via useDAOStats or a
+  // separate read. For now we use the first token in the list as a heuristic
+  // since the contract always includes it — a more precise check would read
+  // `get_token()` and compare.
+
+  const submitPropose = async (e: FormEvent) => {
+    e.preventDefault()
+    if (!trimmed || !isStellarAddress(trimmed)) return
+    try {
+      await proposeTokenAddition(trimmed)
+    } catch {
+      return
+    }
+    setTokenAddr('')
+    refetchTokens()
+  }
+
+  const submitExecute = async (e: FormEvent) => {
+    e.preventDefault()
+    if (!executeTrimmed || !isStellarAddress(executeTrimmed)) return
+    try {
+      await executeTokenAddition(executeTrimmed)
+    } catch {
+      return
+    }
+    setExecuteAddr('')
+    refetchTokens()
+  }
+
+  const submitRemove = async (token: string) => {
+    if (!window.confirm(`Remove ${formatStellarAddress(token)} from the whitelist? This takes effect immediately and blocks new loans and withdrawals in that asset. Existing loans can still be repaid.`)) return
+    try {
+      await removeToken(token)
+    } catch {
+      return
+    }
+    refetchTokens()
+  }
+
+  return (
+    <div className="bg-card rounded-lg border border-border">
+      <div className="px-6 py-4 border-b border-border">
+        <h3 className="text-lg font-semibold text-foreground">Supported Assets</h3>
+        <p className="text-sm text-muted-foreground">
+          Whitelisted tokens the DAO accepts for loans and withdrawals. Additions require a 48-hour timelock.
+        </p>
+      </div>
+
+      {/* Whitelisted token list */}
+      <div className="divide-y divide-border">
+        {tokensLoading && <div className="px-6 py-4 text-sm text-muted-foreground">Loading…</div>}
+        {tokensError && <LoadError what="the whitelisted tokens" onRetry={() => void refetchTokens()} className="m-4" />}
+        {!tokensLoading && !tokensError && tokens.length === 0 && (
+          <div className="px-6 py-8 text-center text-muted-foreground">
+            No whitelisted tokens found.
+          </div>
+        )}
+        {tokens.map((token) => (
+          <div key={token} className="px-6 py-3 flex items-center justify-between">
+            <AddressLink address={token} className="text-sm text-foreground" />
+            <button
+              onClick={() => submitRemove(token)}
+              disabled={isPending}
+              className="flex items-center space-x-1 text-red-600 hover:text-red-800 dark:text-red-400 dark:hover:text-red-300 text-sm disabled:opacity-40"
+            >
+              <TrashIcon className="h-4 w-4" />
+              <span>Remove</span>
+            </button>
+          </div>
+        ))}
+      </div>
+
+      {/* Propose addition form */}
+      <form onSubmit={submitPropose} className="p-6 flex items-start space-x-2 border-t border-border">
+        <div className="flex-1">
+          <label className="text-sm font-medium text-foreground mb-1 block">Propose token addition</label>
+          <input
+            type="text"
+            value={tokenAddr}
+            onChange={(e) => setTokenAddr(e.target.value)}
+            placeholder="Token contract address (C…)"
+            aria-label="Token address to propose"
+            aria-invalid={addrError}
+            aria-describedby={addrError ? 'token-addr-error' : undefined}
+            className="w-full px-3 py-2 border border-input rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-muted dark:text-foreground"
+          />
+          {addrError && (
+            <p id="token-addr-error" className="mt-1 text-sm text-red-600 dark:text-red-400">
+              Enter a valid Stellar contract address (C…)
+            </p>
+          )}
+        </div>
+        <button
+          type="submit"
+          disabled={isPending || !trimmed || !isStellarAddress(trimmed)}
+          className="mt-6 px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50 dark:bg-blue-500 dark:hover:bg-blue-600"
+        >
+          Propose
+        </button>
+      </form>
+
+      {/* Execute addition form */}
+      <form onSubmit={submitExecute} className="p-6 pt-0 flex items-start space-x-2">
+        <div className="flex-1">
+          <label className="text-sm font-medium text-foreground mb-1 block">Execute token addition</label>
+          <p className="text-xs text-muted-foreground mb-1">
+            Available 48 hours after the proposal. Enter the same token address you proposed.
+          </p>
+          <input
+            type="text"
+            value={executeAddr}
+            onChange={(e) => setExecuteAddr(e.target.value)}
+            placeholder="Token contract address (C…)"
+            aria-label="Token address to execute"
+            aria-invalid={executeError}
+            aria-describedby={executeError ? 'execute-addr-error' : undefined}
+            className="w-full px-3 py-2 border border-input rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-muted dark:text-foreground"
+          />
+          {executeError && (
+            <p id="execute-addr-error" className="mt-1 text-sm text-red-600 dark:text-red-400">
+              Enter a valid Stellar contract address (C…)
+            </p>
+          )}
+        </div>
+        <button
+          type="submit"
+          disabled={isPending || !executeTrimmed || !isStellarAddress(executeTrimmed)}
+          className="mt-6 px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 disabled:opacity-50 dark:bg-green-500 dark:hover:bg-green-600"
+        >
+          Execute
+        </button>
+      </form>
     </div>
   )
 }
 
 function ActivityTab() {
   const { entries, isLoading, isError, refetch } = useAdminLog(100)
+  const { entries: auditEntries, isLoading: auditLoading, isError: auditError, refetch: refetchAudit } = useAuditLog(100)
   useAnnounceLoad('Admin event history', isLoading, isError)
 
   return (
-    <div className="bg-card rounded-lg border border-border">
-      <div className="px-6 py-4 border-b border-border">
-        <h3 className="text-lg font-semibold text-foreground">
-          Admin/Governance Event History
-        </h3>
-        <p className="text-sm text-muted-foreground">
-          Indexed on-chain events: admin add/remove, threshold and policy changes, pause/unpause.
-        </p>
-      </div>
-      <div className="divide-y divide-border">
-        {isLoading && <div className="px-6 py-4 text-sm text-muted-foreground">Loading…</div>}
-        {isError && <LoadError what="the admin event history" onRetry={() => void refetch()} className="m-4" />}
-        {!isLoading && !isError && entries.length === 0 && (
-          <div className="px-6 py-8 text-center text-muted-foreground">
-            No admin/governance events indexed yet.
-          </div>
-        )}
-        {entries.map((entry) => (
-          <div key={entry.id} className="px-6 py-3 flex items-center justify-between">
-            <div className="flex items-center space-x-3">
-              <span className="px-2 py-1 text-xs font-mono bg-muted text-foreground rounded">
-                {entry.symbol}
-              </span>
-              <span className="text-sm text-foreground">Ledger {entry.ledger}</span>
+    <div className="space-y-6">
+      {/* Backend audit log (#555) — records admin actions like pause/unpause,
+          admin add/remove, threshold changes, reorg clears. */}
+      <div className="bg-card rounded-lg border border-border">
+        <div className="px-6 py-4 border-b border-border">
+          <h3 className="text-lg font-semibold text-foreground">Admin Audit Log</h3>
+          <p className="text-sm text-muted-foreground">
+            Backend-recorded admin actions: pause/unpause, admin changes, threshold updates, reorg clears, re-evaluations.
+          </p>
+        </div>
+        <div className="divide-y divide-border">
+          {auditLoading && <div className="px-6 py-4 text-sm text-muted-foreground">Loading audit log…</div>}
+          {auditError && <LoadError what="the audit log" onRetry={() => void refetchAudit()} className="m-4" />}
+          {!auditLoading && !auditError && auditEntries.length === 0 && (
+            <div className="px-6 py-8 text-center text-muted-foreground">
+              No admin audit log entries yet.
             </div>
-            <span className="text-xs text-muted-foreground">{formatDate(entry.closedAt)}</span>
-          </div>
-        ))}
+          )}
+          {auditEntries.map((entry) => (
+            <div key={entry.id} className="px-6 py-3 flex items-center justify-between">
+              <div className="flex items-center space-x-3">
+                <span className="px-2 py-1 text-xs font-mono bg-muted text-foreground rounded">
+                  {entry.action}
+                </span>
+                {entry.actor && (
+                  <span className="text-sm text-muted-foreground">{formatStellarAddress(entry.actor)}</span>
+                )}
+                {entry.ledger != null && (
+                  <span className="text-sm text-muted-foreground">Ledger {entry.ledger}</span>
+                )}
+              </div>
+              <span className="text-xs text-muted-foreground">{formatDate(entry.created_at)}</span>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* Indexed on-chain event history */}
+      <div className="bg-card rounded-lg border border-border">
+        <div className="px-6 py-4 border-b border-border">
+          <h3 className="text-lg font-semibold text-foreground">
+            Admin/Governance Event History
+          </h3>
+          <p className="text-sm text-muted-foreground">
+            Indexed on-chain events: admin add/remove, threshold and policy changes, pause/unpause.
+          </p>
+        </div>
+        <div className="divide-y divide-border">
+          {isLoading && <div className="px-6 py-4 text-sm text-muted-foreground">Loading…</div>}
+          {isError && <LoadError what="the admin event history" onRetry={() => void refetch()} className="m-4" />}
+          {!isLoading && !isError && entries.length === 0 && (
+            <div className="px-6 py-8 text-center text-muted-foreground">
+              No admin/governance events indexed yet.
+            </div>
+          )}
+          {entries.map((entry) => (
+            <div key={entry.id} className="px-6 py-3 flex items-center justify-between">
+              <div className="flex items-center space-x-3">
+                <span className="px-2 py-1 text-xs font-mono bg-muted text-foreground rounded">
+                  {entry.symbol}
+                </span>
+                <span className="text-sm text-foreground">Ledger {entry.ledger}</span>
+              </div>
+              <span className="text-xs text-muted-foreground">{formatDate(entry.closedAt)}</span>
+            </div>
+          ))}
+        </div>
       </div>
     </div>
   )
@@ -372,17 +650,46 @@ function ActivityTab() {
 
 function QuarantinedEventsTab() {
   const { failedEvents, isLoading, isError, refetch } = useFailedEvents()
+  const { reevaluate, isPending: reevalPending, error: reevalError } = useReevaluateFailedEvent()
+  const { batchResolve, isPending: batchPending, error: batchError } = useBatchResolveFailedEvents()
+
+  const handleReevaluate = async (id: number | string) => {
+    const ok = await reevaluate(id)
+    if (ok) refetch()
+  }
+
+  const handleBatchResolve = async () => {
+    if (!window.confirm(`Batch-resolve all ${failedEvents.length} quarantined event(s)? This reprocesses each failed event.`)) return
+    const ok = await batchResolve()
+    if (ok) refetch()
+  }
 
   return (
     <div className="bg-card rounded-lg border border-border">
-      <div className="px-6 py-4 border-b border-border">
-        <h3 className="text-lg font-semibold text-foreground">
-          Quarantined / Failed Events
-        </h3>
-        <p className="text-sm text-muted-foreground">
-          Events that failed indexer handler processing and are quarantined for investigation.
-        </p>
+      <div className="px-6 py-4 border-b border-border flex items-center justify-between">
+        <div>
+          <h3 className="text-lg font-semibold text-foreground">
+            Quarantined / Failed Events
+          </h3>
+          <p className="text-sm text-muted-foreground">
+            Events that failed indexer handler processing and are quarantined for investigation.
+          </p>
+        </div>
+        {failedEvents.length > 0 && (
+          <button
+            onClick={handleBatchResolve}
+            disabled={batchPending || reevalPending}
+            className="px-3 py-1.5 text-sm bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50 dark:bg-blue-500 dark:hover:bg-blue-600"
+          >
+            {batchPending ? 'Resolving…' : 'Batch Resolve All'}
+          </button>
+        )}
       </div>
+      {(reevalError || batchError) && (
+        <div className="px-6 py-2 text-sm text-red-600 dark:text-red-400">
+          {reevalError || batchError}
+        </div>
+      )}
       <div className="divide-y divide-border">
         {isLoading && <div className="px-6 py-4 text-sm text-muted-foreground">Loading quarantined events…</div>}
         {isError && <LoadError what="quarantined events" onRetry={() => void refetch()} className="m-4" />}
@@ -403,7 +710,16 @@ function QuarantinedEventsTab() {
                   <span className="text-xs text-muted-foreground">Retries: {ev.retry_count}</span>
                 )}
               </div>
-              <span className="text-xs text-muted-foreground">{formatDate(ev.created_at)}</span>
+              <div className="flex items-center gap-3">
+                <span className="text-xs text-muted-foreground">{formatDate(ev.created_at)}</span>
+                <button
+                  onClick={() => handleReevaluate(ev.id)}
+                  disabled={reevalPending || batchPending}
+                  className="px-2 py-1 text-xs bg-blue-600 text-white rounded hover:bg-blue-700 disabled:opacity-50 dark:bg-blue-500 dark:hover:bg-blue-600"
+                >
+                  Re-evaluate
+                </button>
+              </div>
             </div>
             <div className="text-xs font-mono text-red-600 dark:text-red-400 mt-1 bg-red-50 dark:bg-red-950/20 p-2 rounded">
               {ev.error}

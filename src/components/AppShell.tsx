@@ -29,9 +29,9 @@ import NotificationCenter from '@/components/NotificationCenter'
 import { OrbitMark } from '@/components/OrbitMark'
 import { ThemeToggle } from '@/components/ThemeToggle'
 import { Sheet, SheetContent, SheetTitle, SheetTrigger } from '@/components/ui/sheet'
-import { useUserData, useDAOStats } from '@/hooks/useDAO'
+import { useUserData, useDAOStats, useContractVersion } from '@/hooks/useDAO'
 import { useStreamStatus } from '@/hooks/useLiveEvents'
-import { buildLabel } from '@/lib/build-info'
+import { buildLabel, pinnedContractVersion } from '@/lib/build-info'
 import { isBackendConfigured } from '@/lib/backend'
 import { contractIdStatus } from '@/lib/stellar'
 import { cn } from '@/lib/utils'
@@ -111,8 +111,19 @@ function NavLinks({ onNavigate }: { onNavigate?: () => void }) {
 }
 
 // Names the running build so a bug report can be matched to CHANGELOG.md (#250).
+// Shows the deployed contract version alongside the frontend build (#645).
 function BuildLabel() {
-  return <p className="px-6 pt-4 text-xs text-muted-foreground">{buildLabel()}</p>
+  const { version } = useContractVersion()
+  return (
+    <div className="px-6 pt-4 space-y-1">
+      <p className="text-xs text-muted-foreground">{buildLabel()}</p>
+      {version && (
+        <p className="text-xs text-muted-foreground">
+          Contract: <span className="font-mono">{version}</span>
+        </p>
+      )}
+    </div>
+  )
 }
 
 const STREAM_STATUS_TEXT = {
@@ -133,6 +144,42 @@ function LiveConnectionStatus() {
 
 interface AppShellProps {
   children: ReactNode
+}
+
+/**
+ * Dismissible warning shown when the deployed contract's version (read via
+ * `get_version()`) does not match the version pinned in
+ * `contract/interface.json` (#645). When they match, nothing is shown.
+ * The deployed version is always shown in the build label regardless.
+ */
+function ContractVersionBanner() {
+  const { version, isLoading } = useContractVersion()
+  const [dismissed, setDismissed] = useState(false)
+  const pinned = pinnedContractVersion()
+
+  if (isLoading || dismissed || !version || !pinned || version === pinned) return null
+
+  return (
+    <div
+      data-testid="contract-version-mismatch-banner"
+      className="flex items-center gap-2 border-b border-amber-200 bg-amber-50 px-4 py-2.5 text-sm text-amber-800 dark:border-amber-900 dark:bg-amber-950/30 dark:text-amber-300 sm:px-6"
+    >
+      <TriangleAlert className="h-5 w-5 shrink-0 text-amber-600 dark:text-amber-400" />
+      <span>
+        Contract version mismatch: the deployment reports <strong className="font-mono">{version}</strong> but
+        the frontend was built against <strong className="font-mono">{pinned}</strong>. Some features may not
+        work as expected.
+      </span>
+      <button
+        type="button"
+        onClick={() => setDismissed(true)}
+        className="ml-auto shrink-0 text-amber-600 hover:text-amber-800 dark:text-amber-400 dark:hover:text-amber-200"
+        aria-label="Dismiss version mismatch warning"
+      >
+        ✕
+      </button>
+    </div>
+  )
 }
 
 export function AppShell({ children }: AppShellProps) {
@@ -254,6 +301,8 @@ export function AppShell({ children }: AppShellProps) {
           </span>
         </div>
       )}
+
+      <ContractVersionBanner />
 
       <div className="mx-auto flex w-full max-w-7xl">
         {/* Desktop sidebar */}

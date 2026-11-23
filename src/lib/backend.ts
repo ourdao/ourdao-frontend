@@ -118,6 +118,55 @@ export interface BackendFailedEvent {
   tx_hash?: string | null
 }
 
+/** A row from GET /api/stats/history — daily loan aggregates (#555). */
+export interface BackendStatsHistoryDay {
+  date: string
+  principalLent: string
+  principalRepaid: string
+  defaults: number
+  valueDefaulted: string
+  cumulativeDefaultRatePercent: number
+}
+
+export const isBackendStatsHistoryDay = (value: unknown): value is BackendStatsHistoryDay => {
+  if (!isRecord(value)) return false
+  return (
+    isString(value.date) &&
+    isString(value.principalLent) &&
+    isString(value.principalRepaid) &&
+    isNumber(value.defaults) &&
+    isString(value.valueDefaulted) &&
+    isNumber(value.cumulativeDefaultRatePercent)
+  )
+}
+
+export const isBackendStatsHistoryResponse = (value: unknown): value is { data: BackendStatsHistoryDay[] } => {
+  if (!isRecord(value)) return false
+  return Array.isArray(value.data) && value.data.every(isBackendStatsHistoryDay)
+}
+
+/** A row from GET /api/admin/audit-log — admin action history (#555). */
+export interface BackendAuditLogEntry {
+  id: number | string
+  action: string
+  actor: string | null
+  ledger: number | null
+  tx_hash: string | null
+  created_at: string
+}
+
+export const isBackendAuditLogEntry = (value: unknown): value is BackendAuditLogEntry => {
+  if (!isRecord(value)) return false
+  return (
+    (isNumber(value.id) || isString(value.id)) &&
+    isString(value.action) &&
+    (value.actor === null || isString(value.actor)) &&
+    (value.ledger === null || isNumber(value.ledger)) &&
+    (value.tx_hash === null || isString(value.tx_hash)) &&
+    isString(value.created_at)
+  )
+}
+
 export const isBackendFailedEvent = (value: unknown): value is BackendFailedEvent => {
   if (!isRecord(value)) return false
   return (
@@ -606,6 +655,88 @@ async function patch(
   return { ok: true, status: res.status }
 }
 
+/**
+ * POST with optional body, authenticated by a freshly signed challenge.
+ * Used for admin mutating endpoints like re-evaluate and batch-resolve (#555).
+ * Same auth flow as {@link patch} but uses POST.
+ */
+async function post(
+  path: string,
+  signer: AuthSigner,
+  options?: BackendRequestOptions | AbortSignal
+): Promise<MutationResult> {
+  if (!isBackendConfigured()) {
+    return {
+      ok: false,
+      status: null,
+      reason: 'unavailable',
+      message: 'No backend is configured, so this change cannot be saved.',
+    }
+  }
+
+  const userSignal = options instanceof AbortSignal ? options : options?.signal
+  const timeoutMs =
+    options && !(options instanceof AbortSignal) && options.timeoutMs !== undefined
+      ? options.timeoutMs
+      : DEFAULT_BACKEND_TIMEOUT_MS
+
+  const { signal, cleanup } = combineSignals(timeoutMs, userSignal)
+
+  let auth: SignedAuth
+  try {
+    auth = await requestSignedAuth(signer)
+  } catch (err) {
+    cleanup()
+    if (err instanceof AuthError) {
+      return { ok: false, status: err.status, reason: reasonFromAuth(err.reason), message: err.message }
+    }
+    return {
+      ok: false,
+      status: null,
+      reason: 'rejected',
+      message: err instanceof Error ? err.message : 'Could not obtain a signature.',
+    }
+  }
+
+  const base = process.env.NEXT_PUBLIC_BACKEND_URL || ''
+  let res: Response
+  try {
+    res = await fetch(`${base}${path}`, {
+      method: 'POST',
+      headers: {
+        Authorization: buildAuthHeader(auth),
+      },
+      cache: 'no-store',
+      signal,
+    })
+  } catch (cause) {
+    if (signal.aborted) {
+      const msg =
+        signal.reason instanceof Error
+          ? signal.reason.message
+          : String(signal.reason ?? 'Request aborted or timed out')
+      return {
+        ok: false,
+        status: null,
+        reason: 'unavailable',
+        message: msg,
+      }
+    }
+    return {
+      ok: false,
+      status: null,
+      reason: 'unavailable',
+      message: `Could not reach the backend: ${
+        cause instanceof Error ? cause.message : String(cause)
+      }`,
+    }
+  } finally {
+    cleanup()
+  }
+  if (!res.ok) return classifyFailure(res)
+  return { ok: true, status: res.status }
+}
+
 // --- Endpoints --------------------------------------------------------------
 
 export const backend = {
@@ -749,6 +880,43 @@ export const backend = {
       `/api/members/${encodeURIComponent(address)}/activity?limit=${limit}`,
       [],
       arrayOf(isBackendEvent),
+      options
+    ),
+
+  // --- Admin operations (#555) ---------------------------------------------
+
+  /** Admin audit log — records of admin actions like pause/unpause, admin
+   *  add/remove, threshold changes, reorg clears. Distinct from the raw event
+   *  log served by getAdminLog. */
+  getAuditLog: (limit = 100, options?: BackendRequestOptions | AbortSignal) =>
+    get<BackendAuditLogEntry[]>(
+      `/api/admin/audit-log?limit=${limit}`,
+      [],
+      arrayOf(isBackendAuditLogEntry),
+      options
+    ),
+
+  /** Re-evaluate a single quarantined/failed event. Requires a signed
+   *  StellarSignature header (#555). */
+  reevaluateFailedEvent: (
+    id: number | string,
+    signer: AuthSigner,
+    options?: BackendRequestOptions | AbortSignal
+  ) => post(`/api/admin/failed-events/${encodeURIComponent(String(id))}/re-evaluate`, signer, options),
+
+  /** Batch-resolve all quarantined/failed events. Requires a signed
+   *  StellarSignature header (#555). */
+  batchResolveFailedEvents: (
+    signer: AuthSigner,
+    options?: BackendRequestOptions | AbortSignal
+  ) => post(`/api/admin/failed-events/batch-resolve`, signer, options),
+
+  /** Daily loan aggregates for a historical view (#555). */
+  getStatsHistory: (options?: BackendRequestOptions | AbortSignal) =>
+    get<{ data: BackendStatsHistoryDay[] }>(
+      '/api/stats/history',
+      { data: [] },
+      isBackendStatsHistoryResponse,
       options
     ),
 }

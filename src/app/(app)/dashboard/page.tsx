@@ -15,7 +15,7 @@ import {
   ArrowUpRightIcon,
   TrophyIcon,
 } from '@/lib/icons'
-import { useDAOStats, useUserData, useRewards, useDAOEvents, eventLabel } from '@/hooks/useDAO'
+import { useDAOStats, useUserData, useRewards, useDAOEvents, eventLabel, useStatsHistory } from '@/hooks/useDAO'
 import { useRequireMember } from '@/hooks/useRequireMember'
 import { LoadError } from '@/components/LoadError'
 import { useAnnounceLoad } from '@/lib/useAnnounceLoad'
@@ -418,8 +418,61 @@ export default function DashboardPage() {
                 )}
               </CardContent>
             </Card>
+
+            {/* Daily Loan Activity History (#555) */}
+            <LoanActivityHistoryCard />
           </div>
         </div>
     </>
+  )
+}
+
+/** Daily loan aggregates from the backend's /api/stats/history endpoint (#555). */
+function LoanActivityHistoryCard() {
+  const { history, isLoading, isError, refetch } = useStatsHistory()
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle>Daily Loan Activity</CardTitle>
+        <CardDescription>Historical daily loan aggregates</CardDescription>
+      </CardHeader>
+      <CardContent>
+        {isLoading ? (
+          <p className="text-sm text-muted-foreground">Loading…</p>
+        ) : isError ? (
+          <LoadError what="loan activity history" onRetry={() => void refetch()} />
+        ) : history.length > 0 ? (
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b border-border text-left text-muted-foreground">
+                  <th className="py-2 pr-4 font-medium">Date</th>
+                  <th className="py-2 pr-4 font-medium">Principal Lent</th>
+                  <th className="py-2 pr-4 font-medium">Principal Repaid</th>
+                  <th className="py-2 pr-4 font-medium">Defaults</th>
+                  <th className="py-2 pr-4 font-medium">Value Defaulted</th>
+                  <th className="py-2 font-medium">Default Rate</th>
+                </tr>
+              </thead>
+              <tbody>
+                {history.slice(-30).reverse().map((day) => (
+                  <tr key={day.date} className="border-b border-border">
+                    <td className="py-2 pr-4 text-foreground">{day.date}</td>
+                    <td className="py-2 pr-4 text-muted-foreground">{day.principalLent}</td>
+                    <td className="py-2 pr-4 text-muted-foreground">{day.principalRepaid}</td>
+                    <td className="py-2 pr-4 text-muted-foreground">{day.defaults}</td>
+                    <td className="py-2 pr-4 text-muted-foreground">{day.valueDefaulted}</td>
+                    <td className="py-2 text-muted-foreground">{day.cumulativeDefaultRatePercent.toFixed(2)}%</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        ) : (
+          <p className="text-sm text-muted-foreground">No historical data available</p>
+        )}
+      </CardContent>
+    </Card>
   )
 }

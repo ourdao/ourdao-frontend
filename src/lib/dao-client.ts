@@ -522,6 +522,16 @@ export const daoRead = {
   // "fully voted".
   hasVoted: (k: 'Loan' | 'Treasury', proposalId: number, voter: string): Promise<boolean | null> =>
     read('has_voted', { kind: kind(k), proposal_id: proposalId, voter }),
+  // Returns the contract's semver (CARGO_PKG_VERSION at build time). Used to
+  // show the deployed version in build info and flag a mismatch against the
+  // pinned version in contract/interface.json (#645).
+  getVersion: (): Promise<string | null> => read('get_version'),
+  // The list of currently whitelisted token addresses the DAO accepts for
+  // loans and withdrawals. `get_whitelisted_tokens` is not in the generated
+  // bindings (added to the contract after the current spec was generated),
+  // so this uses the raw `readContract` path with no encoded args (#623).
+  getWhitelistedTokens: (): Promise<string[] | null> =>
+    isContractConfigured() ? readContract<string[]>(CONTRACT_ID, 'get_whitelisted_tokens') : Promise.resolve(null),
 }
 
 /** Standard SEP-41 token contract reads. */
@@ -652,6 +662,27 @@ export function daoWrite(
       send('set_loan_policy', { caller: address, policy }),
     pause: () => send('pause', { caller: address }),
     unpause: () => send('unpause', { caller: address }),
+
+    // Pauser assignment (#629): set_pauser and revoke_pauser are admin-only.
+    // The pauser can pause but only an admin can unpause (per the contract
+    // CHANGELOG, #319).
+    setPauser: (pauser: string) => send('set_pauser', { caller: address, pauser }),
+    revokePauser: () => send('revoke_pauser', { caller: address }),
+
+    // Token whitelist (#623): propose_token_addition, execute_token_addition,
+    // and remove_token are admin-only. These are not in the generated
+    // bindings (added to the contract after the current spec was generated),
+    // so they call `invoke` directly with hand-built Address ScVals instead of
+    // going through `send`/`encodeArgs`.
+    proposeTokenAddition: (token: string) =>
+      invoke(address, signXDR, 'propose_token_addition',
+        new Address(address).toScVal(), new Address(token).toScVal()),
+    executeTokenAddition: (token: string) =>
+      invoke(address, signXDR, 'execute_token_addition',
+        new Address(address).toScVal(), new Address(token).toScVal()),
+    removeToken: (token: string) =>
+      invoke(address, signXDR, 'remove_token',
+        new Address(address).toScVal(), new Address(token).toScVal()),
   }
 }
 

@@ -1,12 +1,13 @@
 'use client'
 
-import { useInfiniteQuery, useQuery } from '@tanstack/react-query'
-import { useCallback, useMemo } from 'react'
+import { useInfiniteQuery, useQuery, useQueryClient } from '@tanstack/react-query'
+import { useCallback, useMemo, useState } from 'react'
 import { useWallet } from '@/lib/wallet'
 import { isContractConfigured } from '@/lib/stellar'
 import { daoRead } from '@/lib/dao-client'
 import { backend } from '@/lib/backend'
 import { isBackendConfigured } from '@/lib/backend-config'
+import { serializePerAddress } from '@/lib/backend-auth'
 import { asBigInt, mapLoanProposal, mapLoan, mapTreasuryProposal, toAdminLogEntry, type UILoan } from '@/lib/dao-mappers'
 import { fetchProposalPage } from './enumeration'
 import { queryKeys } from '@/lib/query-keys'
@@ -276,6 +277,132 @@ export function useFailedEvents() {
     isError,
     refetch,
   }
+}
+
+/** Whitelisted token addresses the DAO currently accepts (#623). */
+export function useWhitelistedTokens() {
+  const { data, isLoading, isError, refetch } = useQuery({
+    queryKey: queryKeys.whitelistedTokens(),
+    enabled: isContractConfigured(),
+    queryFn: () => daoRead.getWhitelistedTokens(),
+  })
+  return {
+    tokens: data ?? [],
+    isLoading,
+    isError,
+    refetch,
+  }
+}
+
+/** Admin audit log from the backend (#555). */
+export function useAuditLog(limit = 100) {
+  const backendConfigured = isBackendConfigured()
+  const { data, isLoading, isError, refetch } = useQuery({
+    queryKey: queryKeys.auditLog(limit),
+    enabled: backendConfigured,
+    queryFn: ({ signal }) => backend.getAuditLog(limit, { signal }),
+    refetchInterval: backendConfigured ? QUERY_REFRESH_INTERVAL_MS : false,
+    refetchIntervalInBackground: false,
+  })
+  return {
+    entries: data ?? [],
+    isLoading,
+    isError,
+    refetch,
+  }
+}
+
+/** Daily loan aggregates from the backend (#555). */
+export function useStatsHistory() {
+  const backendConfigured = isBackendConfigured()
+  const { data, isLoading, isError, refetch } = useQuery({
+    queryKey: queryKeys.statsHistory(),
+    enabled: backendConfigured,
+    queryFn: ({ signal }) => backend.getStatsHistory({ signal }),
+  })
+  return {
+    history: data?.data ?? [],
+    isLoading,
+    isError,
+    refetch,
+  }
+}
+
+/** Re-evaluate a single quarantined event (#555). Requires a signed
+ *  StellarSignature header — the signer is the connected wallet. */
+export function useReevaluateFailedEvent() {
+  const { address, signMessage } = useWallet()
+  const queryClient = useQueryClient()
+  const [isPending, setPending] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+
+  const reevaluate = useCallback(
+    async (id: number | string): Promise<boolean> => {
+      if (!address || !signMessage) {
+        setError('Connect your wallet first')
+        return false
+      }
+      setPending(true)
+      setError(null)
+      try {
+        const result = await serializePerAddress(address, () =>
+          backend.reevaluateFailedEvent(id, { address, signMessage })
+        )
+        if (!result.ok) {
+          setError(result.message)
+          return false
+        }
+        void queryClient.invalidateQueries({ queryKey: queryKeys.failedEvents() })
+        void queryClient.invalidateQueries({ queryKey: queryKeys.auditLog(100) })
+        return true
+      } catch (err) {
+        setError(err instanceof Error ? err.message : 'Could not re-evaluate event')
+        return false
+      } finally {
+        setPending(false)
+      }
+    },
+    [address, signMessage, queryClient]
+  )
+
+  return { reevaluate, isPending, error }
+}
+
+/** Batch-resolve all quarantined events (#555). Requires a signed
+ *  StellarSignature header — the signer is the connected wallet. */
+export function useBatchResolveFailedEvents() {
+  const { address, signMessage } = useWallet()
+  const queryClient = useQueryClient()
+  const [isPending, setPending] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+
+  const batchResolve = useCallback(async (): Promise<boolean> => {
+    if (!address || !signMessage) {
+      setError('Connect your wallet first')
+      return false
+    }
+    setPending(true)
+    setError(null)
+    try {
+      const result = await serializePerAddress(address, () =>
+        backend.batchResolveFailedEvents({ address, signMessage })
+      )
+      if (!result.ok) {
+        setError(result.message)
+        return false
+      }
+      void queryClient.invalidateQueries({ queryKey: queryKeys.failedEvents() })
+      void queryClient.invalidateQueries({ queryKey: queryKeys.auditLog(100) })
+      return true
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Could not batch-resolve events')
+      return false
+    } finally {
+      setPending(false)
+    }
+  }, [address, signMessage, queryClient])
+
+  return { batchResolve, isPending, error }
 }
 
 export function useDocumentHistory(kind: 'loan' | 'treasury' | string, proposalId: number) {

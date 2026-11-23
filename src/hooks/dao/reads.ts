@@ -305,8 +305,22 @@ export function useLoanEligibility(): {
   return { eligibility, isLoading: enabled && isLoading, isError }
 }
 
-export function useDAOStats(): ExtendedStats & { isLoading: boolean } {
-  const { data, isLoading: contractLoading, isError: contractError, refetch: refetchContract } = useQuery({
+/** The deployed contract's version string from `get_version()` (#645).
+ *  Returns null when no contract is configured or the read hasn't landed. */
+export function useContractVersion(): {
+  version: string | null
+  isLoading: boolean
+} {
+  const { data, isLoading } = useQuery({
+    queryKey: ['contractVersion'],
+    enabled: isContractConfigured(),
+    queryFn: () => daoRead.getVersion(),
+    staleTime: Infinity,
+  })
+  return { version: data ?? null, isLoading }
+}
+
+export function useDAOStats(): ExtendedStats & { isLoading: boolean } {  const { data, isLoading: contractLoading, isError: contractError, refetch: refetchContract } = useQuery({
     queryKey: queryKeys.daoStats(),
     enabled: isContractConfigured(),
     queryFn: async () => {
