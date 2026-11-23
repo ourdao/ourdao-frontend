@@ -26,6 +26,8 @@ import {
   useVoting,
   useTreasuryVoting,
   useHasVoted,
+  useExpireLoanProposal,
+  useExpireTreasuryProposal,
   type UILoanProposal,
   type UITreasuryProposal,
 } from '@/hooks/useDAO'
@@ -33,8 +35,9 @@ import { LoadError } from '@/components/LoadError'
 import { useAnnounceLoad } from '@/lib/useAnnounceLoad'
 import { formatToken, formatThreshold } from '@/lib/utils'
 import { AddressLink } from '@/components/AddressLink'
-import { PROPOSAL_STATUS_LABELS, PROPOSAL_STATUS_AWAITING_FUNDS } from '@/constants'
+import { PROPOSAL_STATUS_LABELS, PROPOSAL_STATUS_AWAITING_FUNDS, GOVERNANCE_PERIOD_FALLBACKS } from '@/constants'
 import { VirtualizedList } from '@/components/ui/virtualized-list'
+import { useNow } from '@/hooks/useNow'
 
 function StatusBadge({ status }: { status: number }) {
   const variant =
@@ -93,14 +96,29 @@ function LoanProposalRow({
   proposal: p,
   canVote,
   votingLoan,
+  now,
   onVote,
+  onFinalize,
+  finalizing,
 }: {
   proposal: UILoanProposal
   canVote: boolean
   votingLoan: boolean
+  now: number | null
   onVote: (proposalId: number, support: boolean) => Promise<unknown>
+  onFinalize: (proposalId: number) => Promise<unknown>
+  finalizing: boolean
 }) {
   const { hasVoted, refetch } = useHasVoted('Loan', p.id, p.status === 2)
+
+  // A loan proposal can be finalized when status is still Pending (status=2 or 1)
+  // and the voting window has closed: now > editingPeriodEnd + votingPeriod.
+  // `p.votingEndTime` already encodes editingPeriodEnd + votingPeriod.
+  const canFinalize =
+    now !== null &&
+    p.status === 2 &&
+    p.votingEndTime > 0 &&
+    Math.floor(now / 1000) > p.votingEndTime
 
   return (
     <li className="flex flex-wrap items-start justify-between gap-3 py-4">
@@ -131,6 +149,11 @@ function LoanProposalRow({
           />
         )}
         {canVote && p.status === 2 && hasVoted && <AlreadyVotedLabel />}
+        {canFinalize && (
+          <Button size="sm" variant="outline" disabled={finalizing} onClick={() => onFinalize(p.id)}>
+            Finalize
+          </Button>
+        )}
       </div>
     </li>
   )
@@ -140,14 +163,31 @@ function TreasuryProposalRow({
   proposal: p,
   canVote,
   votingTreasury,
+  now,
   onVote,
+  onFinalize,
+  finalizing,
 }: {
   proposal: UITreasuryProposal
   canVote: boolean
   votingTreasury: boolean
+  now: number | null
   onVote: (proposalId: number, support: boolean) => Promise<unknown>
+  onFinalize: (proposalId: number) => Promise<unknown>
+  finalizing: boolean
 }) {
   const { hasVoted, refetch } = useHasVoted('Treasury', p.id, p.status === 2 && !p.isPrivate)
+
+  // For private proposals, the commit-reveal window is 2× the voting period,
+  // so only offer Finalize after both windows have elapsed.
+  const finalizeWindowSec = p.isPrivate
+    ? 2 * GOVERNANCE_PERIOD_FALLBACKS.votingPeriod
+    : GOVERNANCE_PERIOD_FALLBACKS.votingPeriod
+  const canFinalize =
+    now !== null &&
+    p.status === 2 &&
+    p.creationTime > 0 &&
+    Math.floor(now / 1000) > p.creationTime + finalizeWindowSec
 
   return (
     <li className="flex flex-wrap items-start justify-between gap-3 py-4">
@@ -179,6 +219,11 @@ function TreasuryProposalRow({
           />
         )}
         {canVote && p.status === 2 && !p.isPrivate && hasVoted && <AlreadyVotedLabel />}
+        {canFinalize && (
+          <Button size="sm" variant="outline" disabled={finalizing} onClick={() => onFinalize(p.id)}>
+            Finalize
+          </Button>
+        )}
       </div>
     </li>
   )
@@ -222,6 +267,9 @@ export default function GovernancePage() {
   useAnnounceLoad('Treasury proposals', loadingTreasury, treasuryFailed)
   const { voteOnProposal, isPending: votingLoan } = useVoting()
   const { voteOnTreasury, isPending: votingTreasury } = useTreasuryVoting()
+  const { expireLoanProposal, isPending: finalizingLoan } = useExpireLoanProposal()
+  const { expireTreasuryProposal, isPending: finalizingTreasury } = useExpireTreasuryProposal()
+  const now = useNow()
 
   const loanFilters = useProposalFilters(loanProposals)
   const treasuryFilters = useProposalFilters(treasuryProposals)
@@ -333,7 +381,10 @@ export default function GovernancePage() {
                       proposal={p}
                       canVote={userData.isMember}
                       votingLoan={votingLoan || stats.isPaused}
+                      now={now}
                       onVote={voteOnProposal}
+                      onFinalize={expireLoanProposal}
+                      finalizing={finalizingLoan || stats.isPaused}
                     />
                   )}
                 />
@@ -383,7 +434,10 @@ export default function GovernancePage() {
                       proposal={p}
                       canVote={userData.isMember}
                       votingTreasury={votingTreasury || stats.isPaused}
+                      now={now}
                       onVote={voteOnTreasury}
+                      onFinalize={expireTreasuryProposal}
+                      finalizing={finalizingTreasury || stats.isPaused}
                     />
                   )}
                 />

@@ -41,6 +41,7 @@ import {
   type LoanTerms,
   type Member,
   type ProposalKind,
+  type ProposalVote,
   type TreasuryProposal,
 } from './generated/dao-bindings'
 
@@ -710,7 +711,45 @@ export function daoWrite(
       send('propose_policy_update', { caller: address, policy }),
     executePolicyUpdate: () => send('execute_policy_update', { caller: address }),
     cancelPolicyUpdate: () => send('cancel_policy_update', { caller: address }),
+
+    // Permissionless keeper call: persists the expired transition for a loan
+    // proposal whose voting window has passed without reaching quorum (#612).
+    expireLoanProposal: (proposalId: number) =>
+      send('expire_loan_proposal', { proposal_id: proposalId }),
+
+    // Permissionless keeper call: same as above but for treasury proposals (#612).
+    expireTreasuryProposal: (proposalId: number) =>
+      send('expire_treasury_proposal', { proposal_id: proposalId }),
+
+    // Batch-vote on multiple loan proposals in a single transaction (#613).
+    // The contract applies each vote atomically and returns on the first error,
+    // so the whole batch is all-or-nothing. An empty votes array is rejected
+    // before signing because it would waste a signature for a no-op.
+    voteBatch: (votes: ProposalVote[]) => {
+      if (votes.length === 0) {
+        return Promise.reject(new Error('voteBatch: votes array must not be empty'))
+      }
+      return send('vote_batch', { voter: address, votes })
+    },
+
+    // Cancel a loan proposal while it is still in the editing phase (#609).
+    // Uses invoke directly because cancel_loan_proposal is not yet in the
+    // generated bindings spec; args match the contract's (borrower, proposal_id).
+    cancelLoanProposal: (proposalId: number) =>
+      invoke(address, signXDR, 'cancel_loan_proposal',
+        new Address(address).toScVal(),
+        xdr.ScVal.scvU32(proposalId),
+      ),
+
+    // Cancel a treasury proposal while it is still in the editing window (#609).
+    // Same approach as cancelLoanProposal above.
+    cancelTreasuryProposal: (proposalId: number) =>
+      invoke(address, signXDR, 'cancel_treasury_proposal',
+        new Address(address).toScVal(),
+        xdr.ScVal.scvU32(proposalId),
+      ),
   }
 }
 
 export type DaoWrite = ReturnType<typeof daoWrite>
+export type { ProposalVote }

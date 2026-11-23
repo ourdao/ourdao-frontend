@@ -6,7 +6,7 @@ import React from 'react'
 import toast from 'react-hot-toast'
 import { useWallet } from '@/lib/wallet'
 import { getTransactionUrl } from '@/lib/stellar'
-import { daoWrite, InvokeError, TransactionPendingError, watchTransaction, type InvokeResult, type DaoWrite } from '@/lib/dao-client'
+import { daoWrite, InvokeError, TransactionPendingError, watchTransaction, type InvokeResult, type DaoWrite, type ProposalVote } from '@/lib/dao-client'
 import { queryKeys } from '@/lib/query-keys'
 import { announce } from '@/lib/announce'
 import { reportError } from '@/lib/error-reporting'
@@ -532,6 +532,72 @@ export function useExitDao() {
       queryKeys.backendStats(),
     ])
   return { exitDao, isPending, error, isSuccess, cancelSignature }
+}
+
+/** Persists the expired state for a loan proposal whose voting window has closed (#612). */
+export function useExpireLoanProposal() {
+  const { run, isPending, isSuccess, error, cancelSignature } = useWriteAction()
+  const expireLoanProposal = (proposalId: number) =>
+    run('Finalizing expired loan proposal', (w) => w.expireLoanProposal(proposalId), [
+      queryKeys.loanProposal(proposalId),
+      queryKeys.loanProposalsAll(),
+      queryKeys.backendStats(),
+    ])
+  return { expireLoanProposal, isPending, isSuccess, error, cancelSignature }
+}
+
+/** Persists the expired state for a treasury proposal whose voting window has closed (#612). */
+export function useExpireTreasuryProposal() {
+  const { run, isPending, isSuccess, error, cancelSignature } = useWriteAction()
+  const expireTreasuryProposal = (proposalId: number) =>
+    run('Finalizing expired treasury proposal', (w) => w.expireTreasuryProposal(proposalId), [
+      queryKeys.treasuryProposal(proposalId),
+      queryKeys.treasuryProposalsAll(),
+      queryKeys.backendStats(),
+    ])
+  return { expireTreasuryProposal, isPending, isSuccess, error, cancelSignature }
+}
+
+/** Cancels a loan proposal while it is in the editing phase (#609). */
+export function useCancelLoanProposal() {
+  const { run, isPending, isSuccess, error, address, cancelSignature } = useWriteAction()
+  const cancelLoanProposal = (proposalId: number) =>
+    run('Cancelling loan proposal', (w) => w.cancelLoanProposal(proposalId), [
+      queryKeys.loanProposal(proposalId),
+      queryKeys.loanProposalsAll(),
+      queryKeys.userData(address!),
+      queryKeys.backendStats(),
+    ])
+  return { cancelLoanProposal, isPending, isSuccess, error, cancelSignature }
+}
+
+/** Cancels a treasury proposal while it is in the editing window (#609). */
+export function useCancelTreasuryProposal() {
+  const { run, isPending, isSuccess, error, cancelSignature } = useWriteAction()
+  const cancelTreasuryProposal = (proposalId: number) =>
+    run('Cancelling treasury proposal', (w) => w.cancelTreasuryProposal(proposalId), [
+      queryKeys.treasuryProposal(proposalId),
+      queryKeys.treasuryProposalsAll(),
+      queryKeys.backendStats(),
+    ])
+  return { cancelTreasuryProposal, isPending, isSuccess, error, cancelSignature }
+}
+
+/**
+ * Submits votes on multiple loan proposals in a single transaction (#613).
+ * The batch is all-or-nothing: the contract returns on the first error.
+ * Throws before signing when `votes` is empty.
+ */
+export function useVoteBatch() {
+  const { run, isPending, isSuccess, error, address, cancelSignature } = useWriteAction()
+  const voteBatch = (votes: ProposalVote[]) =>
+    run('Casting batch votes', (w) => w.voteBatch(votes), [
+      queryKeys.loanProposalsAll(),
+      queryKeys.userData(address!),
+      queryKeys.daoStats(),
+      queryKeys.backendStats(),
+    ])
+  return { voteBatch, isPending, isSuccess, error, cancelSignature }
 }
 
 export function useAdminActions() {
