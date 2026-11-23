@@ -47,7 +47,7 @@ describe('MemberProfilePage (#562)', () => {
 
     const link = screen.getByRole('link', { name: /view on explorer/i })
     expect(link.getAttribute('href')).toBe(
-      `https://stellar.expert/explorer/testnet/account/${TEST_ADDRESS}`,
+      `https://stellar.expert/explorer/testnet/account/${TEST_ADDRESS}`
     )
   }, 30_000)
 
@@ -60,7 +60,7 @@ describe('MemberProfilePage (#562)', () => {
 
     const link = screen.getByRole('link', { name: /view on explorer/i })
     expect(link.getAttribute('href')).toBe(
-      `https://stellar.expert/explorer/public/account/${TEST_ADDRESS}`,
+      `https://stellar.expert/explorer/public/account/${TEST_ADDRESS}`
     )
   })
 })

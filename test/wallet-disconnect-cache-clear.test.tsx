@@ -56,11 +56,7 @@ vi.mock('@stellar/freighter-api', () => ({
 // Test helpers
 // ---------------------------------------------------------------------------
 
-function TestHarness({
-  onRender,
-}: {
-  onRender: (w: ReturnType<typeof useWallet>) => void
-}) {
+function TestHarness({ onRender }: { onRender: (w: ReturnType<typeof useWallet>) => void }) {
   const wallet = useWallet()
   onRender(wallet)
 
@@ -104,25 +100,34 @@ function TestHarness({
   return (
     <div data-testid="harness">
       <div data-testid="address">{wallet.address || 'none'}</div>
-      <div data-testid="userData">{userDataQuery.data ? JSON.stringify(userDataQuery.data) : 'none'}</div>
-      <div data-testid="userLoans">{userLoansQuery.data ? JSON.stringify(userLoansQuery.data) : 'none'}</div>
+      <div data-testid="userData">
+        {userDataQuery.data ? JSON.stringify(userDataQuery.data) : 'none'}
+      </div>
+      <div data-testid="userLoans">
+        {userLoansQuery.data ? JSON.stringify(userLoansQuery.data) : 'none'}
+      </div>
       <div data-testid="stake">{stakeQuery.data ? JSON.stringify(stakeQuery.data) : 'none'}</div>
       <div data-testid="document">{documentQuery.data ? 'cached' : 'none'}</div>
       <div data-testid="notifications">
         {notificationsQuery.data ? JSON.stringify(notificationsQuery.data) : 'none'}
       </div>
-      <div data-testid="daoStats">{daoStatsQuery.data ? JSON.stringify(daoStatsQuery.data) : 'none'}</div>
+      <div data-testid="daoStats">
+        {daoStatsQuery.data ? JSON.stringify(daoStatsQuery.data) : 'none'}
+      </div>
     </div>
   )
 }
 
-function renderProvider(queryClient: QueryClient, onRender: (w: ReturnType<typeof useWallet>) => void) {
+function renderProvider(
+  queryClient: QueryClient,
+  onRender: (w: ReturnType<typeof useWallet>) => void
+) {
   return render(
     <QueryClientProvider client={queryClient}>
       <WalletProvider>
         <TestHarness onRender={onRender} />
       </WalletProvider>
-    </QueryClientProvider>,
+    </QueryClientProvider>
   )
 }
 

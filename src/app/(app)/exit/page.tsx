@@ -52,9 +52,7 @@ export default function ExitPage() {
         <Card className="w-full max-w-md">
           <CardHeader className="text-center">
             <CardTitle>Exit DAO</CardTitle>
-            <CardDescription>
-              Connect your wallet to exit the DAO
-            </CardDescription>
+            <CardDescription>Connect your wallet to exit the DAO</CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
             <ConnectButton.Custom>
@@ -65,7 +63,7 @@ export default function ExitPage() {
               )}
             </ConnectButton.Custom>
             <div className="text-center">
-              <Link href="/" className="text-sm text-muted-foreground hover:text-foreground">
+              <Link href="/" className="text-muted-foreground hover:text-foreground text-sm">
                 &larr; Back to Home
               </Link>
             </div>
@@ -78,10 +76,7 @@ export default function ExitPage() {
   if (userData.isError) {
     return (
       <div className="mx-auto mt-8 max-w-md">
-        <LoadError
-          what="your membership data"
-          onRetry={userData.refetch}
-        />
+        <LoadError what="your membership data" onRetry={userData.refetch} />
       </div>
     )
   }
@@ -92,18 +87,14 @@ export default function ExitPage() {
         <Card className="w-full max-w-md">
           <CardHeader className="text-center">
             <CardTitle>Not a Member</CardTitle>
-            <CardDescription>
-              You must be a DAO member to exit
-            </CardDescription>
+            <CardDescription>You must be a DAO member to exit</CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
             <Button asChild className="w-full" size="lg">
-              <Link href="/register">
-                Join the DAO
-              </Link>
+              <Link href="/register">Join the DAO</Link>
             </Button>
             <div className="text-center">
-              <Link href="/" className="text-sm text-muted-foreground hover:text-foreground">
+              <Link href="/" className="text-muted-foreground hover:text-foreground text-sm">
                 &larr; Back to Home
               </Link>
             </div>
@@ -187,73 +178,59 @@ export default function ExitPage() {
               <ArrowRightOnRectangleIcon className="h-5 w-5 text-red-600 dark:text-red-400" />
               Exit Summary
             </CardTitle>
-            <CardDescription>
-              Review what you will receive upon exiting
-            </CardDescription>
+            <CardDescription>Review what you will receive upon exiting</CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
-            <div className="rounded-lg border border-border p-4">
+            <div className="border-border rounded-lg border p-4">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm text-muted-foreground">Member</p>
-                  <div className="font-medium text-foreground">
+                  <p className="text-muted-foreground text-sm">Member</p>
+                  <div className="text-foreground font-medium">
                     <AddressLink address={userData.address || ''} />
                   </div>
                 </div>
                 <Badge variant={userData.member?.status === 1 ? 'default' : 'secondary'}>
-                  {userData.member
-                    ? MEMBER_STATUS_LABELS[userData.member.status]
-                    : 'Unknown'}
+                  {userData.member ? MEMBER_STATUS_LABELS[userData.member.status] : 'Unknown'}
                 </Badge>
               </div>
             </div>
 
             <div className="space-y-3">
-              <div className="flex items-center justify-between rounded-lg bg-muted p-4">
+              <div className="bg-muted flex items-center justify-between rounded-lg p-4">
                 <div>
-                  <p className="text-sm font-medium text-foreground">Share Balance</p>
-                  <p className="text-xs text-muted-foreground">
+                  <p className="text-foreground text-sm font-medium">Share Balance</p>
+                  <p className="text-muted-foreground text-xs">
                     Your proportional share of the treasury
                   </p>
                 </div>
-                <p className="text-lg font-semibold text-foreground">
-                  {formatToken(shareBalance)}
-                </p>
+                <p className="text-foreground text-lg font-semibold">{formatToken(shareBalance)}</p>
               </div>
 
-              <div className="flex items-center justify-between rounded-lg bg-muted p-4">
+              <div className="bg-muted flex items-center justify-between rounded-lg p-4">
                 <div>
-                  <p className="text-sm font-medium text-foreground">Stake</p>
-                  <p className="text-xs text-muted-foreground">
-                    Your staked tokens
-                  </p>
+                  <p className="text-foreground text-sm font-medium">Stake</p>
+                  <p className="text-muted-foreground text-xs">Your staked tokens</p>
                 </div>
-                <p className="text-lg font-semibold text-foreground">
+                <p className="text-foreground text-lg font-semibold">
                   {stakeKnown ? formatToken(myStake) : 'Unavailable'}
                 </p>
               </div>
 
-              <div className="flex items-center justify-between rounded-lg bg-muted p-4">
+              <div className="bg-muted flex items-center justify-between rounded-lg p-4">
                 <div>
-                  <p className="text-sm font-medium text-foreground">Pending Yield</p>
-                  <p className="text-xs text-muted-foreground">
-                    Unclaimed yield from restaking
-                  </p>
+                  <p className="text-foreground text-sm font-medium">Pending Yield</p>
+                  <p className="text-muted-foreground text-xs">Unclaimed yield from restaking</p>
                 </div>
-                <p className="text-lg font-semibold text-foreground">
-                  {formatToken(pendingYield)}
-                </p>
+                <p className="text-foreground text-lg font-semibold">{formatToken(pendingYield)}</p>
               </div>
             </div>
 
-            <div className="flex items-center justify-between rounded-lg border-2 border-primary/20 bg-primary/5 p-4">
+            <div className="border-primary/20 bg-primary/5 flex items-center justify-between rounded-lg border-2 p-4">
               <div>
-                <p className="text-sm font-semibold text-foreground">Total Exit Amount</p>
-                <p className="text-xs text-muted-foreground">
-                  Withdrawn to your wallet
-                </p>
+                <p className="text-foreground text-sm font-semibold">Total Exit Amount</p>
+                <p className="text-muted-foreground text-xs">Withdrawn to your wallet</p>
               </div>
-              <p className="text-2xl font-bold text-primary">
+              <p className="text-primary text-2xl font-bold">
                 {stakeKnown ? formatToken(totalExitAmount) : 'Unavailable'}
               </p>
             </div>
@@ -270,8 +247,8 @@ export default function ExitPage() {
               </h3>
               <p className="mt-1 text-sm text-red-700 dark:text-red-300">
                 Once you exit the DAO, you will lose your membership, voting weight, and
-                participation in governance. You will need to register again as a new member
-                to rejoin.
+                participation in governance. You will need to register again as a new member to
+                rejoin.
               </p>
             </div>
           </CardContent>
@@ -282,21 +259,19 @@ export default function ExitPage() {
           <Card>
             <CardHeader>
               <CardTitle>Confirm Exit</CardTitle>
-              <CardDescription>
-                Please confirm that you understand the consequences
-              </CardDescription>
+              <CardDescription>Please confirm that you understand the consequences</CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
-              <label className="flex items-start gap-3 rounded-lg border border-border p-4 cursor-pointer hover:bg-accent/50 transition-colors">
+              <label className="border-border hover:bg-accent/50 flex cursor-pointer items-start gap-3 rounded-lg border p-4 transition-colors">
                 <input
                   type="checkbox"
                   checked={confirmed}
                   onChange={(e) => setConfirmed(e.target.checked)}
-                  className="mt-0.5 h-4 w-4 rounded border-input"
+                  className="border-input mt-0.5 h-4 w-4 rounded"
                 />
-                <span className="text-sm text-foreground">
-                  I understand that exiting the DAO is irreversible and I will lose my
-                  membership, voting weight, and governance participation.
+                <span className="text-foreground text-sm">
+                  I understand that exiting the DAO is irreversible and I will lose my membership,
+                  voting weight, and governance participation.
                 </span>
               </label>
 
@@ -330,9 +305,8 @@ export default function ExitPage() {
         <div className="flex items-start gap-2 rounded-lg bg-blue-50 p-4 dark:bg-blue-950/30">
           <InformationCircleIcon className="h-5 w-5 shrink-0 text-blue-600 dark:text-blue-400" />
           <p className="text-sm text-blue-700 dark:text-blue-300">
-            Exiting the DAO withdraws your share balance, staked tokens, and all pending
-            yield in a single transaction. The funds will be sent directly to your connected
-            wallet.
+            Exiting the DAO withdraws your share balance, staked tokens, and all pending yield in a
+            single transaction. The funds will be sent directly to your connected wallet.
           </p>
         </div>
       </div>

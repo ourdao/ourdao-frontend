@@ -126,7 +126,9 @@ describe('useToken (#558, #559, #560)', () => {
   })
 
   it('#560: surfaces error when getBalance rejects, keeps hasSufficientBalance permissive while errored, and recovers on refetch', async () => {
-    mockGetBalance.mockRejectedValueOnce(new Error('Horizon 503')).mockResolvedValue(BigInt(2_000_000))
+    mockGetBalance
+      .mockRejectedValueOnce(new Error('Horizon 503'))
+      .mockResolvedValue(BigInt(2_000_000))
 
     const { result } = renderHook(() => useToken(), { wrapper: createWrapper() })
 

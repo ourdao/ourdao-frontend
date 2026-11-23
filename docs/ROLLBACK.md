@@ -1,20 +1,20 @@
 # Rollback / Roll-Forward Runbook (#275)
 
 What to do when a deploy of `ourdao-frontend` is wrong, in the order you should
-try things, with an explicit account of what *cannot* be rolled back.
+try things, with an explicit account of what _cannot_ be rolled back.
 
 Nobody should be inventing this procedure while the app is broken. Read the
 decision table first, pick a lane, and follow it.
 
 ## Decision table
 
-| What went wrong | Lane | Time to safe |
-|---|---|---|
-| A change shipped behind a [feature flag](FEATURE_FLAGS.md) and the flagged behaviour is bad | **A — flag off** | One rebuild + redeploy |
-| An unflagged commit reached `main` and the last known-good build is still deployable | **B — redeploy the last good build** | One redeploy (2–5 min on Vercel) |
-| You know the cause, and a fix is smaller or safer than a revert | **C — roll forward** | As long as the fix takes |
-| Signed writes are misbehaving for everyone, and the cause isn't a frontend bug | **D — pause the contract** | Seconds, one signature |
-| Anything is wrong **on-chain** (wrong state written, funds moved, a bad contract deploy) | **Not reversible from this repo** | See [What can't be rolled back](#what-cant-be-rolled-back) |
+| What went wrong                                                                             | Lane                                 | Time to safe                                               |
+| ------------------------------------------------------------------------------------------- | ------------------------------------ | ---------------------------------------------------------- |
+| A change shipped behind a [feature flag](FEATURE_FLAGS.md) and the flagged behaviour is bad | **A — flag off**                     | One rebuild + redeploy                                     |
+| An unflagged commit reached `main` and the last known-good build is still deployable        | **B — redeploy the last good build** | One redeploy (2–5 min on Vercel)                           |
+| You know the cause, and a fix is smaller or safer than a revert                             | **C — roll forward**                 | As long as the fix takes                                   |
+| Signed writes are misbehaving for everyone, and the cause isn't a frontend bug              | **D — pause the contract**           | Seconds, one signature                                     |
+| Anything is wrong **on-chain** (wrong state written, funds moved, a bad contract deploy)    | **Not reversible from this repo**    | See [What can't be rolled back](#what-cant-be-rolled-back) |
 
 Rule of thumb: **A, then B, then C.** Prefer the smallest reversible action. Use
 D only when the contract itself is the problem, because pausing stops every
@@ -28,7 +28,7 @@ member, not just the affected flow.
 2. **Check whether the bad behaviour is already behind a flag.** If it is, Lane A
    is strictly faster and doesn't require a revert commit.
 3. **Decide if writes are affected.** If members can sign a transaction that does
-   damage, go to Lane D *first*, investigate afterwards. Reads can wait; funds
+   damage, go to Lane D _first_, investigate afterwards. Reads can wait; funds
    and state can't.
 4. **Open an issue.** Even for a 5-minute revert. The cause, the SHA, and the
    fix belong somewhere durable.

@@ -40,8 +40,9 @@ interface InvokeContractArgs {
 /** The `invokeContract` call carried by the (single) operation of a signed tx. */
 function invokedCall(signedXdr: string) {
   const tx = TransactionBuilder.fromXDR(signedXdr, 'Test SDF Network ; September 2015')
-  const op = (tx as unknown as { operations: Array<{ func: { invokeContract: InvokeContractArgs } }> })
-    .operations[0]
+  const op = (
+    tx as unknown as { operations: Array<{ func: { invokeContract: InvokeContractArgs } }> }
+  ).operations[0]
   const call = op.func.invokeContract
   return { method: call.functionName.toString(), args: call.args }
 }
@@ -83,53 +84,108 @@ describe('daoWrite — method name and ScVal argument types per entrypoint', () 
   }
 
   // [label, call, expected contract function, expected arg ScVal types]
-  const cases: Array<[string, (w: ReturnType<typeof daoWrite>) => Promise<unknown>, string, string[]]> = [
+  const cases: Array<
+    [string, (w: ReturnType<typeof daoWrite>) => Promise<unknown>, string, string[]]
+  > = [
     ['registerMember', (w) => w.registerMember(), 'register_member', ['scvAddress']],
     ['exitDao', (w) => w.exitDao(), 'exit_dao', ['scvAddress']],
     ['claimRewards', (w) => w.claimRewards(), 'claim_rewards', ['scvAddress']],
-    ['requestLoan', (w) => w.requestLoan(BigInt(100)), 'request_loan', ['scvAddress', 'scvI128', 'scvVoid']],
-    ['editLoanProposal', (w) => w.editLoanProposal(1, BigInt(50)), 'edit_loan_proposal', ['scvAddress', 'scvU32', 'scvI128']],
-    ['voteOnLoanProposal', (w) => w.voteOnLoanProposal(1, true), 'vote_on_loan_proposal', ['scvAddress', 'scvU32', 'scvBool']],
+    [
+      'requestLoan',
+      (w) => w.requestLoan(BigInt(100)),
+      'request_loan',
+      ['scvAddress', 'scvI128', 'scvVoid'],
+    ],
+    [
+      'editLoanProposal',
+      (w) => w.editLoanProposal(1, BigInt(50)),
+      'edit_loan_proposal',
+      ['scvAddress', 'scvU32', 'scvI128'],
+    ],
+    [
+      'voteOnLoanProposal',
+      (w) => w.voteOnLoanProposal(1, true),
+      'vote_on_loan_proposal',
+      ['scvAddress', 'scvU32', 'scvBool'],
+    ],
     ['repayLoan', (w) => w.repayLoan(2), 'repay_loan', ['scvAddress', 'scvU32']],
-    ['repayLoanPartial', (w) => w.repayLoanPartial(2, BigInt(10)), 'repay_loan_partial', ['scvAddress', 'scvU32', 'scvI128']],
+    [
+      'repayLoanPartial',
+      (w) => w.repayLoanPartial(2, BigInt(10)),
+      'repay_loan_partial',
+      ['scvAddress', 'scvU32', 'scvI128'],
+    ],
     // Permissionless: no caller argument.
     ['markLoanDefaulted', (w) => w.markLoanDefaulted(3), 'mark_loan_defaulted', ['scvU32']],
-    ['disburseApprovedLoan', (w) => w.disburseApprovedLoan(5), 'disburse_approved_loan', ['scvU32']],
-    ['executeTreasuryProposal', (w) => w.executeTreasuryProposal(6), 'execute_treasury_proposal', ['scvU32']],
+    [
+      'disburseApprovedLoan',
+      (w) => w.disburseApprovedLoan(5),
+      'disburse_approved_loan',
+      ['scvU32'],
+    ],
+    [
+      'executeTreasuryProposal',
+      (w) => w.executeTreasuryProposal(6),
+      'execute_treasury_proposal',
+      ['scvU32'],
+    ],
     [
       'proposeTreasuryWithdrawal',
       (w) => w.proposeTreasuryWithdrawal(BigInt(5), OTHER, 'why', false),
       'propose_treasury_withdrawal',
       ['scvAddress', 'scvI128', 'scvAddress', 'scvString', 'scvBool'],
     ],
-    ['voteOnTreasuryProposal', (w) => w.voteOnTreasuryProposal(4, false), 'vote_on_treasury_proposal', ['scvAddress', 'scvU32', 'scvBool']],
+    [
+      'voteOnTreasuryProposal',
+      (w) => w.voteOnTreasuryProposal(4, false),
+      'vote_on_treasury_proposal',
+      ['scvAddress', 'scvU32', 'scvBool'],
+    ],
     ['stake', (w) => w.stake(BigInt(7)), 'stake', ['scvAddress', 'scvI128']],
     ['unstake', (w) => w.unstake(BigInt(7)), 'unstake', ['scvAddress', 'scvI128']],
     ['registerName', (w) => w.registerName('alice'), 'register_name', ['scvAddress', 'scvString']],
-    ['commitTreasuryVote', (w) => w.commitTreasuryVote(1, bytes), 'commit_treasury_vote', ['scvAddress', 'scvU32', 'scvBytes']],
+    [
+      'commitTreasuryVote',
+      (w) => w.commitTreasuryVote(1, bytes),
+      'commit_treasury_vote',
+      ['scvAddress', 'scvU32', 'scvBytes'],
+    ],
     [
       'revealTreasuryVote',
       (w) => w.revealTreasuryVote(1, true, bytes),
       'reveal_treasury_vote',
       ['scvAddress', 'scvU32', 'scvBool', 'scvBytes'],
     ],
-    ['attachDocument', (w) => w.attachDocument('Loan', 1, bytes), 'attach_document', ['scvAddress', 'scvVec', 'scvU32', 'scvBytes']],
+    [
+      'attachDocument',
+      (w) => w.attachDocument('Loan', 1, bytes),
+      'attach_document',
+      ['scvAddress', 'scvVec', 'scvU32', 'scvBytes'],
+    ],
     ['addAdmin', (w) => w.addAdmin(OTHER), 'add_admin', ['scvAddress', 'scvAddress']],
     ['removeAdmin', (w) => w.removeAdmin(OTHER), 'remove_admin', ['scvAddress', 'scvAddress']],
-    ['setConsensusThreshold', (w) => w.setConsensusThreshold(5100), 'set_consensus_threshold', ['scvAddress', 'scvU32']],
+    [
+      'setConsensusThreshold',
+      (w) => w.setConsensusThreshold(5100),
+      'set_consensus_threshold',
+      ['scvAddress', 'scvU32'],
+    ],
     ['setLoanPolicy', (w) => w.setLoanPolicy(policy), 'set_loan_policy', ['scvAddress', 'scvMap']],
     ['pause', (w) => w.pause(), 'pause', ['scvAddress']],
     ['unpause', (w) => w.unpause(), 'unpause', ['scvAddress']],
   ]
 
-  it.each(cases)('%s invokes the right function with correctly typed args', async (_label, call, method, types) => {
-    await call(daoWrite(WALLET, signXDR))
+  it.each(cases)(
+    '%s invokes the right function with correctly typed args',
+    async (_label, call, method, types) => {
+      await call(daoWrite(WALLET, signXDR))
 
-    expect(signed).toHaveLength(1)
-    const { method: got, args } = invokedCall(signed[0])
-    expect(got).toBe(method)
-    expect(args.map((a) => a.type)).toEqual(types)
-  })
+      expect(signed).toHaveLength(1)
+      const { method: got, args } = invokedCall(signed[0])
+      expect(got).toBe(method)
+      expect(args.map((a) => a.type)).toEqual(types)
+    }
+  )
 
   it('covers every entrypoint daoWrite exposes', () => {
     const exposed = Object.keys(daoWrite(WALLET, signXDR)).sort()
@@ -170,12 +226,22 @@ describe('read()', () => {
   })
 
   it('throws a formatted error when the simulation fails', async () => {
-    mockSimulateTransaction.mockResolvedValue({ id: '1', latestLedger: 1, events: [], error: 'HostError: boom' })
+    mockSimulateTransaction.mockResolvedValue({
+      id: '1',
+      latestLedger: 1,
+      events: [],
+      error: 'HostError: boom',
+    })
     await expect(read('get_total_members')).rejects.toThrow()
   })
 
   it('returns null when the simulation yields no return value', async () => {
-    mockSimulateTransaction.mockResolvedValue({ id: '1', latestLedger: 1, events: [], _parsed: true })
+    mockSimulateTransaction.mockResolvedValue({
+      id: '1',
+      latestLedger: 1,
+      events: [],
+      _parsed: true,
+    })
     await expect(read('get_total_members')).resolves.toBeNull()
   })
 

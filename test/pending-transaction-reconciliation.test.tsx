@@ -83,7 +83,11 @@ function HarnessRaw({ onRender }: { onRender: (h: ReturnType<typeof useWriteActi
   return null
 }
 
-function Harness({ onRender }: { onRender: (h: ReturnType<typeof useMemberRegistration>) => void }) {
+function Harness({
+  onRender,
+}: {
+  onRender: (h: ReturnType<typeof useMemberRegistration>) => void
+}) {
   const hook = useMemberRegistration()
   onRender(hook)
   return null
@@ -95,7 +99,11 @@ function renderHook() {
   let latest: ReturnType<typeof useMemberRegistration> | undefined
   render(
     <QueryClientProvider client={client}>
-      <Harness onRender={(h) => { latest = h }} />
+      <Harness
+        onRender={(h) => {
+          latest = h
+        }}
+      />
     </QueryClientProvider>
   )
   return { latest: () => latest!, invalidateSpy }
@@ -105,7 +113,9 @@ describe('useWriteAction late confirmation (#309)', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     mockWatchTransaction.mockResolvedValue('timeout')
-    mockRegisterMember.mockRejectedValue(new TransactionPendingError('hash-late', 'https://example/tx'))
+    mockRegisterMember.mockRejectedValue(
+      new TransactionPendingError('hash-late', 'https://example/tx')
+    )
   })
   afterEach(() => vi.clearAllMocks())
 
@@ -113,7 +123,9 @@ describe('useWriteAction late confirmation (#309)', () => {
     const { latest } = renderHook()
 
     await act(async () => {
-      await latest().registerMember().catch(() => {})
+      await latest()
+        .registerMember()
+        .catch(() => {})
     })
 
     expect(mockToastError).not.toHaveBeenCalled()
@@ -131,12 +143,20 @@ describe('useWriteAction late confirmation (#309)', () => {
     let latest: ReturnType<typeof useWriteAction> | undefined
     render(
       <QueryClientProvider client={client}>
-        <HarnessRaw onRender={(h) => { latest = h }} />
+        <HarnessRaw
+          onRender={(h) => {
+            latest = h
+          }}
+        />
       </QueryClientProvider>
     )
 
     await act(async () => {
-      await latest!.run('Casting vote', () => Promise.reject(new TransactionPendingError('hash-late', 'https://example/tx'))).catch(() => {})
+      await latest!
+        .run('Casting vote', () =>
+          Promise.reject(new TransactionPendingError('hash-late', 'https://example/tx'))
+        )
+        .catch(() => {})
     })
 
     expect(latest!.isRetryable).toBe(false)
@@ -147,7 +167,9 @@ describe('useWriteAction late confirmation (#309)', () => {
     const { latest } = renderHook()
 
     await act(async () => {
-      await latest().registerMember().catch(() => {})
+      await latest()
+        .registerMember()
+        .catch(() => {})
     })
 
     const calls = mockAnnounce.mock.calls as unknown[][]
@@ -161,7 +183,9 @@ describe('useWriteAction late confirmation (#309)', () => {
     const { latest } = renderHook()
 
     await act(async () => {
-      await latest().registerMember().catch(() => {})
+      await latest()
+        .registerMember()
+        .catch(() => {})
     })
 
     expect(mockWatchTransaction).toHaveBeenCalledOnce()
@@ -172,7 +196,9 @@ describe('useWriteAction late confirmation (#309)', () => {
     const { latest, invalidateSpy } = renderHook()
 
     await act(async () => {
-      await latest().registerMember().catch(() => {})
+      await latest()
+        .registerMember()
+        .catch(() => {})
     })
 
     // Drive the reconciliation callback the way a late confirmation would.
@@ -196,7 +222,9 @@ describe('useWriteAction late confirmation (#309)', () => {
     const { latest } = renderHook()
 
     await act(async () => {
-      await latest().registerMember().catch(() => {})
+      await latest()
+        .registerMember()
+        .catch(() => {})
     })
 
     const handlers = mockWatchTransaction.mock.calls[0][1] as {
@@ -219,7 +247,11 @@ describe('useWriteAction late confirmation (#309)', () => {
     let latest: ReturnType<typeof useMemberRegistration> | undefined
     render(
       <QueryClientProvider client={client}>
-        <Harness onRender={(h) => { latest = h }} />
+        <Harness
+          onRender={(h) => {
+            latest = h
+          }}
+        />
       </QueryClientProvider>
     )
 

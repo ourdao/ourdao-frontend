@@ -13,6 +13,7 @@ PRs against an unassigned issue will be closed with a pointer back to it.
 
 <!-- One `Closes #N` per issue this diff fully fixes. GitHub closes every issue listed
      here on merge, so use `Refs #N` for anything related but not fixed. -->
+
 Closes #<!-- issue number -->
 
 ## Testing

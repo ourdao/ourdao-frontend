@@ -78,7 +78,11 @@ describe('Polling and query gating (#242)', () => {
     mockWalletAddress = 'GALICE'
     mockWalletConnected = true
     mockGetLoans.mockResolvedValue([])
-    mockGetStats.mockResolvedValue({ totalLoans: 0, totalLoanProposals: 0, totalTreasuryProposals: 0 })
+    mockGetStats.mockResolvedValue({
+      totalLoans: 0,
+      totalLoanProposals: 0,
+      totalTreasuryProposals: 0,
+    })
     mockGetEvents.mockResolvedValue([])
     mockGetNotifications.mockResolvedValue([])
   })

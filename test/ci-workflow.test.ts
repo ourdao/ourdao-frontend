@@ -3,7 +3,10 @@ import { resolve } from 'node:path'
 import { describe, expect, it } from 'vitest'
 
 // Normalise CRLF so the checks hold on Windows checkouts (core.autocrlf).
-const ci = readFileSync(resolve(__dirname, '../.github/workflows/ci.yml'), 'utf8').replace(/\r\n/g, '\n')
+const ci = readFileSync(resolve(__dirname, '../.github/workflows/ci.yml'), 'utf8').replace(
+  /\r\n/g,
+  '\n'
+)
 
 // Top-level job bodies keyed by name, from `  name:` to the next one. Commented
 // lines are dropped so the #143 design note doesn't count as configuration.
@@ -65,5 +68,9 @@ describe('CI workflow', () => {
 
   it.each(['lint', 'typecheck'])('keeps %s on a single Node version (#251)', (job) => {
     expect(jobs[job]).not.toContain('matrix')
+  })
+
+  it('enforces format:check in the lint job (#588)', () => {
+    expect(jobs.lint).toContain('npm run format:check')
   })
 })

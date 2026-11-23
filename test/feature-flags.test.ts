@@ -136,10 +136,7 @@ describe('flag registry defaults (#274)', () => {
 
 describe('NEXT_PUBLIC_FEATURE_FLAGS is read statically (#274)', () => {
   it('uses a literal member expression so Next inlines it in the client bundle', () => {
-    const source = readFileSync(
-      resolve(__dirname, '../src/lib/feature-flags.ts'),
-      'utf8'
-    )
+    const source = readFileSync(resolve(__dirname, '../src/lib/feature-flags.ts'), 'utf8')
     // A computed lookup like process.env[FEATURE_FLAGS_ENV_VAR] is NOT inlined
     // by Next's NEXT_PUBLIC_* transform and would read as undefined in the
     // browser, silently disabling every flag. Guard the literal.

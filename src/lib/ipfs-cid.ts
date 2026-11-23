@@ -87,7 +87,12 @@ const linkBytes = (n: Node, links: Links) => (links === 'v0' ? n.multihash : cid
 
 async function leaf(chunk: Uint8Array, rawLeaves: boolean): Promise<Node> {
   if (rawLeaves) {
-    return { multihash: await sha256Multihash(chunk), codec: RAW, tsize: chunk.length, fileSize: chunk.length }
+    return {
+      multihash: await sha256Multihash(chunk),
+      codec: RAW,
+      tsize: chunk.length,
+      fileSize: chunk.length,
+    }
   }
   const length = varint(chunk.length)
   // An empty file has no data field, only its (zero) size.
@@ -95,7 +100,12 @@ async function leaf(chunk: Uint8Array, rawLeaves: boolean): Promise<Node> {
     ? concat(new Uint8Array([0x08, 0x02, 0x12]), length, chunk, new Uint8Array([0x18]), length)
     : new Uint8Array([0x08, 0x02, 0x18, 0x00])
   const block = concat(new Uint8Array([0x0a]), varint(data.length), data)
-  return { multihash: await sha256Multihash(block), codec: DAG_PB, tsize: block.length, fileSize: chunk.length }
+  return {
+    multihash: await sha256Multihash(block),
+    codec: DAG_PB,
+    tsize: block.length,
+    fileSize: chunk.length,
+  }
 }
 
 async function parent(children: Node[], links: Links): Promise<Node> {
@@ -103,8 +113,11 @@ async function parent(children: Node[], links: Links): Promise<Node> {
     const hash = linkBytes(child, links)
     // PBLink: Hash (1), empty Name (2), Tsize (3)
     const link = concat(
-      new Uint8Array([0x0a]), varint(hash.length), hash,
-      new Uint8Array([0x12, 0x00, 0x18]), varint(child.tsize)
+      new Uint8Array([0x0a]),
+      varint(hash.length),
+      hash,
+      new Uint8Array([0x12, 0x00, 0x18]),
+      varint(child.tsize)
     )
     return concat(new Uint8Array([0x12]), varint(link.length), link)
   })

@@ -70,11 +70,12 @@ export async function runAxeWithAllowlist(
     .filter((v): v is NonNullable<typeof v> => v !== null)
 }
 
-export function formatViolations(
-  violations: Awaited<ReturnType<typeof runAxe>>
-): string {
+export function formatViolations(violations: Awaited<ReturnType<typeof runAxe>>): string {
   return violations
-    .map((v) => `- ${v.id} (${v.impact}): ${v.description}\n  ${v.nodes.map((n) => n.target.join(', ')).join(' | ')}`)
+    .map(
+      (v) =>
+        `- ${v.id} (${v.impact}): ${v.description}\n  ${v.nodes.map((n) => n.target.join(', ')).join(' | ')}`
+    )
     .join('\n')
 }
 
@@ -103,10 +104,10 @@ export function assertInteractiveNames(container: HTMLElement): void {
     const labelled = Boolean((html as HTMLInputElement).labels?.length)
     const named = Boolean(
       (ariaLabel && ariaLabel.trim()) ||
-        labelledBy ||
-        labelled ||
-        text ||
-        (typeof value === 'string' && value.trim())
+      labelledBy ||
+      labelled ||
+      text ||
+      (typeof value === 'string' && value.trim())
     )
     if (!named) {
       unnamed.push(
@@ -143,18 +144,12 @@ export function contrastRatio(foreground: string, background: string): number {
   const fg = parse(foreground)
   const bg = parse(background)
   const luminance = ({ r, g, b }: typeof fg) =>
-    0.2126 * channelToLinear(r) +
-    0.7152 * channelToLinear(g) +
-    0.0722 * channelToLinear(b)
+    0.2126 * channelToLinear(r) + 0.7152 * channelToLinear(g) + 0.0722 * channelToLinear(b)
   const lighter = Math.max(luminance(fg), luminance(bg))
   const darker = Math.min(luminance(fg), luminance(bg))
   return (lighter + 0.05) / (darker + 0.05)
 }
 
-export function expectWcagAAContrast(
-  foreground: string,
-  background: string,
-  minimum = 4.5
-): void {
+export function expectWcagAAContrast(foreground: string, background: string, minimum = 4.5): void {
   expect(contrastRatio(foreground, background)).toBeGreaterThanOrEqual(minimum)
 }

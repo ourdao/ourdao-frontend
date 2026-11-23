@@ -63,9 +63,7 @@ function BrandMark() {
   return (
     <Link href="/" className="flex items-center gap-2">
       <OrbitMark className="h-9 w-9" />
-      <span className="text-lg font-semibold tracking-tight text-foreground">
-        OurDAO
-      </span>
+      <span className="text-foreground text-lg font-semibold tracking-tight">OurDAO</span>
     </Link>
   )
 }
@@ -111,7 +109,7 @@ function NavLinks({ onNavigate }: { onNavigate?: () => void }) {
 
 // Names the running build so a bug report can be matched to CHANGELOG.md (#250).
 function BuildLabel() {
-  return <p className="px-6 pt-4 text-xs text-muted-foreground">{buildLabel()}</p>
+  return <p className="text-muted-foreground px-6 pt-4 text-xs">{buildLabel()}</p>
 }
 
 interface AppShellProps {
@@ -151,127 +149,141 @@ export function AppShell({ children }: AppShellProps) {
     // is what lets Radix track and restore focus to this exact button when
     // the drawer closes (#68).
     <Sheet open={mobileOpen} onOpenChange={setMobileOpen}>
-    <div className="min-h-screen bg-background">
-      {/* The skip link is rendered once, globally, by Providers (SkipLink). */}
-      {/* Top bar */}
-      <header className="sticky top-0 z-40 border-b border-border bg-card/80 backdrop-blur">
-        <div className="flex h-16 items-center gap-3 px-4 sm:px-6">
-          <SheetTrigger asChild>
-            <button
-              type="button"
-              className="rounded-lg p-2 text-muted-foreground hover:bg-accent lg:hidden"
-              aria-label="Open navigation"
-            >
-              <Menu className="h-6 w-6" />
-            </button>
-          </SheetTrigger>
-          <BrandMark />
-          <div className="ml-auto flex items-center gap-2 sm:gap-3">
-            <NetworkBadge />
-            <ThemeToggle />
-            <NotificationCenter />
-            <ConnectButton />
+      <div className="bg-background min-h-screen">
+        {/* The skip link is rendered once, globally, by Providers (SkipLink). */}
+        {/* Top bar */}
+        <header className="border-border bg-card/80 sticky top-0 z-40 border-b backdrop-blur">
+          <div className="flex h-16 items-center gap-3 px-4 sm:px-6">
+            <SheetTrigger asChild>
+              <button
+                type="button"
+                className="text-muted-foreground hover:bg-accent rounded-lg p-2 lg:hidden"
+                aria-label="Open navigation"
+              >
+                <Menu className="h-6 w-6" />
+              </button>
+            </SheetTrigger>
+            <BrandMark />
+            <div className="ml-auto flex items-center gap-2 sm:gap-3">
+              <NetworkBadge />
+              <ThemeToggle />
+              <NotificationCenter />
+              <ConnectButton />
+            </div>
           </div>
-        </div>
-      </header>
+        </header>
 
-      {contractIdStatus() === 'unconfigured' && (
-        <div className="flex items-center gap-2 border-b border-amber-200 bg-amber-50 px-4 py-2.5 text-sm text-amber-800 dark:border-amber-900 dark:bg-amber-950/30 dark:text-amber-300 sm:px-6">
-          <TriangleAlert className="h-5 w-5 shrink-0" />
-          <span>
-            No contract configured — set{' '}
-            <code className="rounded bg-amber-100 px-1 py-0.5 font-mono text-xs dark:bg-amber-900/40">
-              NEXT_PUBLIC_CONTRACT_ID
-            </code>{' '}
-            to enable live data. The app is running in preview mode.
-          </span>
-        </div>
-      )}
+        {contractIdStatus() === 'unconfigured' && (
+          <div className="flex items-center gap-2 border-b border-amber-200 bg-amber-50 px-4 py-2.5 text-sm text-amber-800 sm:px-6 dark:border-amber-900 dark:bg-amber-950/30 dark:text-amber-300">
+            <TriangleAlert className="h-5 w-5 shrink-0" />
+            <span>
+              No contract configured — set{' '}
+              <code className="rounded bg-amber-100 px-1 py-0.5 font-mono text-xs dark:bg-amber-900/40">
+                NEXT_PUBLIC_CONTRACT_ID
+              </code>{' '}
+              to enable live data. The app is running in preview mode.
+            </span>
+          </div>
+        )}
 
-      {contractIdStatus() === 'invalid' && (
-        <div
-          data-testid="invalid-contract-id-banner"
-          className="flex items-center gap-2 border-b border-red-200 bg-red-50 px-4 py-2.5 text-sm text-red-800 dark:border-red-900 dark:bg-red-950/30 dark:text-red-300 sm:px-6"
-        >
-          <TriangleAlert className="h-5 w-5 shrink-0" />
-          <span>
-            Invalid{' '}
-            <code className="rounded bg-red-100 px-1 py-0.5 font-mono text-xs dark:bg-red-900/40">
-              NEXT_PUBLIC_CONTRACT_ID
-            </code>
-            {' '}— the value is set but is not a valid Soroban contract address. All reads
-            and writes will fail. Check your{' '}
-            <code className="rounded bg-red-100 px-1 py-0.5 font-mono text-xs dark:bg-red-900/40">
-              .env
-            </code>{' '}
-            file and redeploy.
-          </span>
-        </div>
-      )}
+        {contractIdStatus() === 'invalid' && (
+          <div
+            data-testid="invalid-contract-id-banner"
+            className="flex items-center gap-2 border-b border-red-200 bg-red-50 px-4 py-2.5 text-sm text-red-800 sm:px-6 dark:border-red-900 dark:bg-red-950/30 dark:text-red-300"
+          >
+            <TriangleAlert className="h-5 w-5 shrink-0" />
+            <span>
+              Invalid{' '}
+              <code className="rounded bg-red-100 px-1 py-0.5 font-mono text-xs dark:bg-red-900/40">
+                NEXT_PUBLIC_CONTRACT_ID
+              </code>{' '}
+              — the value is set but is not a valid Soroban contract address. All reads and writes
+              will fail. Check your{' '}
+              <code className="rounded bg-red-100 px-1 py-0.5 font-mono text-xs dark:bg-red-900/40">
+                .env
+              </code>{' '}
+              file and redeploy.
+            </span>
+          </div>
+        )}
 
-      {stats.isPaused && (
-        <div data-testid="dao-paused-banner" role="status" className="flex items-center gap-2 border-b border-red-200 bg-red-50 px-4 py-2.5 text-sm text-red-800 dark:border-red-900 dark:bg-red-950/30 dark:text-red-300 sm:px-6">
-          <TriangleAlert className="h-5 w-5 shrink-0 text-red-600 dark:text-red-400" />
-          <span>
-            The DAO is currently <strong>paused</strong>. All actions are blocked except loan repayments until an admin unpauses it.
-          </span>
-        </div>
-      )}
+        {stats.isPaused && (
+          <div
+            data-testid="dao-paused-banner"
+            role="status"
+            className="flex items-center gap-2 border-b border-red-200 bg-red-50 px-4 py-2.5 text-sm text-red-800 sm:px-6 dark:border-red-900 dark:bg-red-950/30 dark:text-red-300"
+          >
+            <TriangleAlert className="h-5 w-5 shrink-0 text-red-600 dark:text-red-400" />
+            <span>
+              The DAO is currently <strong>paused</strong>. All actions are blocked except loan
+              repayments until an admin unpauses it.
+            </span>
+          </div>
+        )}
 
-      {stats.indexerStale && (
-        <div data-testid="indexer-stale-banner" className="flex items-center gap-2 border-b border-amber-200 bg-amber-50 px-4 py-2.5 text-sm text-amber-800 dark:border-amber-900 dark:bg-amber-950/30 dark:text-amber-300 sm:px-6">
-          <TriangleAlert className="h-5 w-5 shrink-0 text-amber-600 dark:text-amber-400" />
-          <span>
-            Indexer data is stale{stats.secondsSinceUpdate != null ? ` (last updated ${stats.secondsSinceUpdate}s ago)` : ''}{stats.lastIndexedLedger != null ? ` · last ledger #${stats.lastIndexedLedger}` : ''}. Displayed off-chain stats and history may be delayed.
-          </span>
-        </div>
-      )}
-      {stats.indexerError && isBackendConfigured() && !stats.indexerStale && (
-        <div data-testid="backend-unreachable-banner" className="flex items-center gap-2 border-b border-amber-200 bg-amber-50 px-4 py-2.5 text-sm text-amber-800 dark:border-amber-900 dark:bg-amber-950/30 dark:text-amber-300 sm:px-6">
-          <TriangleAlert className="h-5 w-5 shrink-0 text-amber-600 dark:text-amber-400" />
-          <span>
-            Off-chain backend is unreachable. Loan history, proposals, and live aggregates may be unavailable.
-          </span>
-        </div>
-      )}
+        {stats.indexerStale && (
+          <div
+            data-testid="indexer-stale-banner"
+            className="flex items-center gap-2 border-b border-amber-200 bg-amber-50 px-4 py-2.5 text-sm text-amber-800 sm:px-6 dark:border-amber-900 dark:bg-amber-950/30 dark:text-amber-300"
+          >
+            <TriangleAlert className="h-5 w-5 shrink-0 text-amber-600 dark:text-amber-400" />
+            <span>
+              Indexer data is stale
+              {stats.secondsSinceUpdate != null
+                ? ` (last updated ${stats.secondsSinceUpdate}s ago)`
+                : ''}
+              {stats.lastIndexedLedger != null ? ` · last ledger #${stats.lastIndexedLedger}` : ''}.
+              Displayed off-chain stats and history may be delayed.
+            </span>
+          </div>
+        )}
+        {stats.indexerError && isBackendConfigured() && !stats.indexerStale && (
+          <div
+            data-testid="backend-unreachable-banner"
+            className="flex items-center gap-2 border-b border-amber-200 bg-amber-50 px-4 py-2.5 text-sm text-amber-800 sm:px-6 dark:border-amber-900 dark:bg-amber-950/30 dark:text-amber-300"
+          >
+            <TriangleAlert className="h-5 w-5 shrink-0 text-amber-600 dark:text-amber-400" />
+            <span>
+              Off-chain backend is unreachable. Loan history, proposals, and live aggregates may be
+              unavailable.
+            </span>
+          </div>
+        )}
 
-      <div className="mx-auto flex w-full max-w-7xl">
-        {/* Desktop sidebar */}
-        <aside className="sticky top-16 hidden h-[calc(100vh-4rem)] w-60 shrink-0 flex-col border-r border-border bg-card py-4 lg:flex">
-          <NavLinks />
-          <BuildLabel />
-        </aside>
+        <div className="mx-auto flex w-full max-w-7xl">
+          {/* Desktop sidebar */}
+          <aside className="border-border bg-card sticky top-16 hidden h-[calc(100vh-4rem)] w-60 shrink-0 flex-col border-r py-4 lg:flex">
+            <NavLinks />
+            <BuildLabel />
+          </aside>
 
-        {/* Mobile drawer — built on the vendored Radix-based Sheet primitive
+          {/* Mobile drawer — built on the vendored Radix-based Sheet primitive
             instead of a hand-rolled div, so Escape-to-close, focus trapping
             + restoration to the hamburger button, role="dialog"/aria-modal,
             and body scroll lock all come from Radix rather than being
             reimplemented by hand (#68). */}
-        <SheetContent
-          side="left"
-          className="w-64 gap-0 bg-card p-0 lg:hidden"
-        >
-          <SheetTitle className="sr-only">Navigation menu</SheetTitle>
-          <div className="flex h-full flex-col py-4">
-            <div className="mb-2 px-4">
-              <BrandMark />
+          <SheetContent side="left" className="bg-card w-64 gap-0 p-0 lg:hidden">
+            <SheetTitle className="sr-only">Navigation menu</SheetTitle>
+            <div className="flex h-full flex-col py-4">
+              <div className="mb-2 px-4">
+                <BrandMark />
+              </div>
+              <NavLinks onNavigate={() => setMobileOpen(false)} />
+              <BuildLabel />
             </div>
-            <NavLinks onNavigate={() => setMobileOpen(false)} />
-            <BuildLabel />
-          </div>
-        </SheetContent>
+          </SheetContent>
 
-        {/* Main content */}
-        <main
-          id={MAIN_CONTENT_ID}
-          ref={mainRef}
-          tabIndex={-1}
-          className="min-w-0 flex-1 px-4 py-6 focus:outline-none sm:px-6 lg:px-8 [&_h1:focus]:outline-none"
-        >
-          {children}
-        </main>
+          {/* Main content */}
+          <main
+            id={MAIN_CONTENT_ID}
+            ref={mainRef}
+            tabIndex={-1}
+            className="min-w-0 flex-1 px-4 py-6 focus:outline-none sm:px-6 lg:px-8 [&_h1:focus]:outline-none"
+          >
+            {children}
+          </main>
+        </div>
       </div>
-    </div>
     </Sheet>
   )
 }

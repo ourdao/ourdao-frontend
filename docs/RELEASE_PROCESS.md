@@ -23,6 +23,7 @@ We follow [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 All member-visible changes landed in pull requests must include an entry under the `## [Unreleased]` section of [`CHANGELOG.md`](../CHANGELOG.md).
 
 Sections:
+
 - `Added` for new features.
 - `Changed` for changes in existing functionality.
 - `Deprecated` for soon-to-be removed features.
@@ -31,6 +32,7 @@ Sections:
 - `Security` in case of vulnerabilities.
 
 Every release records:
+
 1. Deployed backend commit/version (`ourdao-backend`).
 2. Pinned contract commit (`ourdao-contracts` matching `contract/interface.json`).
 

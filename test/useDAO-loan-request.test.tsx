@@ -30,13 +30,21 @@ vi.mock('react-hot-toast', () => ({
   default: { success: vi.fn(), error: vi.fn(), loading: vi.fn(() => 'id') },
 }))
 
-function LoanRequestHarness({ onRender }: { onRender: (h: ReturnType<typeof useLoanRequest>) => void }) {
+function LoanRequestHarness({
+  onRender,
+}: {
+  onRender: (h: ReturnType<typeof useLoanRequest>) => void
+}) {
   const hook = useLoanRequest()
   onRender(hook)
   return null
 }
 
-function AttachHarness({ onRender }: { onRender: (h: ReturnType<typeof useAttachDocument>) => void }) {
+function AttachHarness({
+  onRender,
+}: {
+  onRender: (h: ReturnType<typeof useAttachDocument>) => void
+}) {
   const hook = useAttachDocument()
   onRender(hook)
   return null
@@ -54,7 +62,13 @@ describe('useLoanRequest', () => {
   it('takes only an amount and resolves to the on-chain proposal id, not the raw invoke result', async () => {
     mockRequestLoan.mockResolvedValue({ hash: 'txhash', returnValue: 7 })
     let latest: ReturnType<typeof useLoanRequest> | undefined
-    renderWithClient(<LoanRequestHarness onRender={(h) => { latest = h }} />)
+    renderWithClient(
+      <LoanRequestHarness
+        onRender={(h) => {
+          latest = h
+        }}
+      />
+    )
 
     let resolved: number | undefined
     await act(async () => {
@@ -72,7 +86,13 @@ describe('useAttachDocument', () => {
   it('encodes the content hash and targets the given proposal kind/id', async () => {
     mockAttachDocument.mockResolvedValue({ hash: 'txhash', returnValue: null })
     let latest: ReturnType<typeof useAttachDocument> | undefined
-    renderWithClient(<AttachHarness onRender={(h) => { latest = h }} />)
+    renderWithClient(
+      <AttachHarness
+        onRender={(h) => {
+          latest = h
+        }}
+      />
+    )
 
     await act(async () => {
       await latest!.attach('Loan', 42, 'QmTestHash')
@@ -88,7 +108,13 @@ describe('useAttachDocument', () => {
   it('rejects when the attach call fails, surfacing the underlying error to the caller', async () => {
     mockAttachDocument.mockRejectedValue(new Error('boom'))
     let latest: ReturnType<typeof useAttachDocument> | undefined
-    renderWithClient(<AttachHarness onRender={(h) => { latest = h }} />)
+    renderWithClient(
+      <AttachHarness
+        onRender={(h) => {
+          latest = h
+        }}
+      />
+    )
 
     await expect(
       act(async () => {

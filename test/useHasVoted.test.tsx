@@ -43,7 +43,13 @@ function renderHasVoted(kind: 'Loan' | 'Treasury', proposalId: number) {
   let latest: ReturnType<typeof useHasVoted> | undefined
   render(
     <QueryClientProvider client={client}>
-      <Harness kind={kind} proposalId={proposalId} onRender={(h) => { latest = h }} />
+      <Harness
+        kind={kind}
+        proposalId={proposalId}
+        onRender={(h) => {
+          latest = h
+        }}
+      />
     </QueryClientProvider>
   )
   return () => latest!
@@ -66,7 +72,7 @@ describe('useHasVoted', () => {
     await waitFor(() => expect(latest().hasVoted).toBe(true))
   })
 
-  it('reports true for a committed-but-unrevealed private treasury vote, matching the contract\'s single boolean', async () => {
+  it("reports true for a committed-but-unrevealed private treasury vote, matching the contract's single boolean", async () => {
     // The contract's has_voted folds "committed" and "revealed" into the same
     // true — there is no separate view to tell them apart (see
     // daoRead.hasVoted's doc comment). The hook just passes that through.

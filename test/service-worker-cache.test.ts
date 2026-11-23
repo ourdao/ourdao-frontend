@@ -32,8 +32,7 @@ const keyOf = (request: RequestLike): string =>
 function createEnv() {
   const stores = new Map<string, Map<string, Response>>()
   const fetchMock = vi.fn(
-    async (request: { url: string }) =>
-      new Response(`network:${request.url}`, { status: 200 })
+    async (request: { url: string }) => new Response(`network:${request.url}`, { status: 200 })
   )
 
   const makeCache = (store: Map<string, Response>) => ({
@@ -108,8 +107,7 @@ function createEnv() {
     flush,
     fetchMock,
     cacheNames: () => [...stores.keys()],
-    totalCached: () =>
-      [...stores.values()].reduce((total, store) => total + store.size, 0),
+    totalCached: () => [...stores.values()].reduce((total, store) => total + store.size, 0),
   }
 }
 

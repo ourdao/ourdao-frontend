@@ -16,7 +16,14 @@ import { ThemeToggle } from '@/components/ThemeToggle'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card'
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardFooter,
+  CardHeader,
+  CardTitle,
+} from '@/components/ui/card'
 import {
   Dialog,
   DialogContent,
@@ -54,7 +61,14 @@ import {
 } from '@/components/ui/navigation-menu'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { Separator } from '@/components/ui/separator'
-import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle, SheetTrigger } from '@/components/ui/sheet'
+import {
+  Sheet,
+  SheetContent,
+  SheetDescription,
+  SheetHeader,
+  SheetTitle,
+  SheetTrigger,
+} from '@/components/ui/sheet'
 import Skeleton, {
   ActivitySkeleton,
   CardSkeleton,
@@ -114,7 +128,12 @@ export const SECTIONS: { file: string; render: () => ReactNode }[] = [
         {BUTTON_VARIANTS.map((v) => (
           <Row key={v}>
             {BUTTON_SIZES.map((s) => (
-              <Button key={s} variant={v} size={s} aria-label={s === 'icon' ? `${v} icon` : undefined}>
+              <Button
+                key={s}
+                variant={v}
+                size={s}
+                aria-label={s === 'icon' ? `${v} icon` : undefined}
+              >
                 {s === 'icon' ? '★' : `${v} ${s}`}
               </Button>
             ))}
@@ -315,7 +334,7 @@ export const SECTIONS: { file: string; render: () => ReactNode }[] = [
         <VirtualizedList
           items={ROWS.slice(0, 3)}
           keyExtractor={(r) => r}
-          renderItem={(r) => <div className="border-b border-border p-2">{r}</div>}
+          renderItem={(r) => <div className="border-border border-b p-2">{r}</div>}
           listAriaLabel="Below threshold"
         />
         <VirtualizedList
@@ -323,7 +342,7 @@ export const SECTIONS: { file: string; render: () => ReactNode }[] = [
           itemHeight={41}
           maxHeight={200}
           keyExtractor={(r) => r}
-          renderItem={(r) => <div className="border-b border-border p-2">{r}</div>}
+          renderItem={(r) => <div className="border-border border-b p-2">{r}</div>}
           listAriaLabel="Virtualized"
         />
       </div>
@@ -333,11 +352,14 @@ export const SECTIONS: { file: string; render: () => ReactNode }[] = [
 
 function Panel({ label, className }: { label: string; className?: string }) {
   return (
-    <section aria-label={label} className={`${className ?? ''} min-w-0 space-y-8 bg-background p-6 text-foreground`}>
+    <section
+      aria-label={label}
+      className={`${className ?? ''} bg-background text-foreground min-w-0 space-y-8 p-6`}
+    >
       <h2 className="text-lg font-semibold">{label}</h2>
       {SECTIONS.map(({ file, render }) => (
         <div key={file} className="space-y-3">
-          <h3 className="font-mono text-sm text-muted-foreground">ui/{file}</h3>
+          <h3 className="text-muted-foreground font-mono text-sm">ui/{file}</h3>
           {render()}
         </div>
       ))}
@@ -347,11 +369,11 @@ function Panel({ label, className }: { label: string; className?: string }) {
 
 export function ComponentCatalogue() {
   return (
-    <main className="min-h-screen bg-background">
-      <header className="flex items-center justify-between border-b border-border p-6">
+    <main className="bg-background min-h-screen">
+      <header className="border-border flex items-center justify-between border-b p-6">
         <div>
-          <h1 className="text-2xl font-semibold text-foreground">UI component catalogue</h1>
-          <p className="text-sm text-muted-foreground">
+          <h1 className="text-foreground text-2xl font-semibold">UI component catalogue</h1>
+          <p className="text-muted-foreground text-sm">
             Development only. The left panel follows the site theme; the right is always dark.
           </p>
         </div>

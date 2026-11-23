@@ -41,7 +41,10 @@ describe('next.config build identity and dev-only routes', () => {
     vi.stubEnv('VERCEL_GIT_COMMIT_SHA', '')
     vi.stubEnv('GITHUB_SHA', 'abc1234def')
     const { default: config } = await import('../next.config')
-    expect(config.env).toEqual({ NEXT_PUBLIC_APP_VERSION: pkg.version, NEXT_PUBLIC_GIT_SHA: 'abc1234def' })
+    expect(config.env).toEqual({
+      NEXT_PUBLIC_APP_VERSION: pkg.version,
+      NEXT_PUBLIC_GIT_SHA: 'abc1234def',
+    })
   })
 
   it('serves page.dev.tsx routes only outside production builds (#253)', async () => {

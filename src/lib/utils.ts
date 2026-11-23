@@ -1,5 +1,6 @@
-import { clsx, type ClassValue } from "clsx"
-import { twMerge } from "tailwind-merge"
+import { clsx, type ClassValue } from 'clsx'
+import { twMerge } from 'tailwind-merge'
+import { z } from 'zod'
 import { logger } from '@/lib/logger'
 
 // clsx alone only concatenates — it doesn't know that e.g. bg-white and
@@ -56,13 +57,13 @@ export function formatToken(
       if (value.includes('.')) {
         throw new Error(
           `formatToken received a fractional string "${value}". ` +
-          'Convert to stroops with parseToken before calling formatToken.'
+            'Convert to stroops with parseToken before calling formatToken.'
         )
       }
       if (/[eE]/.test(value)) {
         throw new Error(
           `formatToken received exponent notation "${value}". ` +
-          'Pass an integer string or BigInt instead.'
+            'Pass an integer string or BigInt instead.'
         )
       }
     }
@@ -129,13 +130,12 @@ export function formatDate(timestamp: number | string | Date): string {
       month: 'short',
       day: 'numeric',
       hour: '2-digit',
-      minute: '2-digit'
+      minute: '2-digit',
     })
   } catch {
     return 'Invalid date'
   }
 }
-
 
 // Format a basis-points consensus threshold (e.g. 5150 → "51.50%").
 // Trims trailing zeros so whole-number thresholds stay clean ("51%", not "51.00%").
@@ -247,4 +247,61 @@ function loadSaltMap(): Record<number, number[]> {
   } catch {
     return {}
   }
+}
+
+const saltBackupSchema = z.object({
+  proposalId: z.number(),
+  address: z.string(),
+  salt: z.string().regex(/^[0-9a-f]{64}$/i, 'Salt must be a 64-character hex string'),
+})
+
+export type SaltBackupInput = z.infer<typeof saltBackupSchema>
+
+/**
+ * Validates and parses an exported salt backup JSON string (#572).
+ *
+ * Enforces:
+ * - Valid JSON matching saltBackupSchema:
+ *   - proposalId: number
+ *   - address: string
+ *   - salt: exactly 64 hexadecimal characters (representing 32 bytes)
+ * - Verification against expected proposalId and address when provided
+ *
+ * Time Complexity: O(1) (fixed 64-character hex string, 32 bytes)
+ * Space Complexity: O(1) (allocates fixed 32-byte Uint8Array)
+ *
+ * @throws {Error} if format is invalid, proposalId mismatches, or address mismatches
+ */
+export function parseSaltBackup(
+  raw: string,
+  expected?: { proposalId?: number; address?: string }
+): Uint8Array {
+  let parsedJson: unknown
+  try {
+    parsedJson = JSON.parse(raw)
+  } catch {
+    throw new Error('Invalid salt file format')
+  }
+
+  const result = saltBackupSchema.safeParse(parsedJson)
+  if (!result.success) {
+    throw new Error('Invalid salt file format')
+  }
+
+  const data = result.data
+
+  if (expected?.proposalId !== undefined && data.proposalId !== expected.proposalId) {
+    throw new Error('Salt file is for a different proposal')
+  }
+
+  if (expected?.address !== undefined && expected.address && data.address !== expected.address) {
+    throw new Error('Salt file is for a different address')
+  }
+
+  const saltArray = new Uint8Array(32)
+  for (let i = 0; i < 32; i++) {
+    saltArray[i] = parseInt(data.salt.slice(i * 2, i * 2 + 2), 16)
+  }
+
+  return saltArray
 }

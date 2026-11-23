@@ -25,38 +25,38 @@ function MemberRow({ member }: { member: BackendMember }) {
     <li>
       <Link
         href={`/members/${encodeURIComponent(member.address)}`}
-        className="flex items-center justify-between gap-4 rounded-lg border border-border p-4 transition-colors hover:bg-accent"
+        className="border-border hover:bg-accent flex items-center justify-between gap-4 rounded-lg border p-4 transition-colors"
       >
         <div className="flex min-w-0 items-center gap-3">
-          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary-600">
+          <div className="bg-primary/10 text-primary-600 flex h-10 w-10 shrink-0 items-center justify-center rounded-full">
             <UsersRound className="h-5 w-5" aria-hidden="true" />
           </div>
           <div className="min-w-0">
             <div className="flex items-center gap-2">
-              <span className="truncate text-sm font-medium text-foreground">{name}</span>
+              <span className="text-foreground truncate text-sm font-medium">{name}</span>
               {member.has_active_loan && (
                 <Badge variant="outline" className="shrink-0">
                   Active loan
                 </Badge>
               )}
             </div>
-            <span className="block truncate font-mono text-xs text-muted-foreground">
+            <span className="text-muted-foreground block truncate font-mono text-xs">
               {member.address}
             </span>
           </div>
         </div>
         <div className="hidden shrink-0 items-center gap-6 text-sm sm:flex">
           <div className="text-right">
-            <p className="text-xs text-muted-foreground">Joined</p>
-            <p className="font-medium text-foreground">
+            <p className="text-muted-foreground text-xs">Joined</p>
+            <p className="text-foreground font-medium">
               {member.joined_ledger != null ? `#${member.joined_ledger}` : '—'}
             </p>
           </div>
           <div className="text-right">
-            <p className="text-xs text-muted-foreground">Staked</p>
-            <p className="font-medium text-foreground">{formatToken(member.stake)}</p>
+            <p className="text-muted-foreground text-xs">Staked</p>
+            <p className="text-foreground font-medium">{formatToken(member.stake)}</p>
           </div>
-          <ChevronRight className="h-4 w-4 text-muted-foreground" aria-hidden="true" />
+          <ChevronRight className="text-muted-foreground h-4 w-4" aria-hidden="true" />
         </div>
       </Link>
     </li>
@@ -101,8 +101,11 @@ export default function MembersPage() {
       ) : members.length === 0 ? (
         <Card>
           <CardContent className="p-12 text-center">
-            <UsersRound className="mx-auto mb-4 h-12 w-12 text-muted-foreground" aria-hidden="true" />
-            <h3 className="mb-2 text-lg font-medium text-foreground">No members yet</h3>
+            <UsersRound
+              className="text-muted-foreground mx-auto mb-4 h-12 w-12"
+              aria-hidden="true"
+            />
+            <h3 className="text-foreground mb-2 text-lg font-medium">No members yet</h3>
             <p className="text-muted-foreground">
               When members join the DAO they will appear here.
             </p>

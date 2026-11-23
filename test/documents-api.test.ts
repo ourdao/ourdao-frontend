@@ -22,10 +22,7 @@ describe('POST /api/documents', () => {
     process.env.NEXT_PUBLIC_APP_ORIGIN = originalAppOrigin
   })
 
-  function createRequest(
-    body: ArrayBuffer,
-    headers: Record<string, string> = {}
-  ): NextRequest {
+  function createRequest(body: ArrayBuffer, headers: Record<string, string> = {}): NextRequest {
     return new NextRequest('http://localhost:3000/api/documents', {
       method: 'POST',
       body,

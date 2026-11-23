@@ -43,12 +43,15 @@ flag that no longer exists — reads as off.
 2. **Gate the change at the boundary**, not scattered through the component:
 
    ```tsx
-   {isFeatureEnabled('fast-repay') ? <FastRepayForm /> : <ExistingRepayForm />}
+   {
+     isFeatureEnabled('fast-repay') ? <FastRepayForm /> : <ExistingRepayForm />
+   }
    ```
 
    A flag that only hides a label, or that switches behaviour inside a branch
    halfway down a render, is not shippable-disabled — every branch is still
    reachable in review and untested in production.
+
 3. **Cover both states in tests.** Assert the default (off) path, and set the
    flag with `vi.stubEnv('NEXT_PUBLIC_FEATURE_FLAGS', …)` + `vi.resetModules()`
    for the on path. See `test/feature-flags.test.ts`.
@@ -85,17 +88,17 @@ don't leave a permanent switch. If the change turns out to be wrong, see
 
 ## Flags in flight
 
-| Flag | Gates | Issue | Added | State |
-|---|---|---|---|---|
-| _(none)_ | — | — | — | — |
+| Flag     | Gates | Issue | Added | State |
+| -------- | ----- | ----- | ----- | ----- |
+| _(none)_ | —     | —     | —     | —     |
 
 An empty table is the normal state. Add a row when you add a flag, and delete
 the row when you remove it.
 
 ## Environment
 
-| Variable | Purpose | Default |
-|---|---|---|
+| Variable                    | Purpose                                                | Default                   |
+| --------------------------- | ------------------------------------------------------ | ------------------------- |
 | `NEXT_PUBLIC_FEATURE_FLAGS` | Comma-separated names of flags to enable in this build | _(empty → all flags off)_ |
 
 This is a build-time value: see

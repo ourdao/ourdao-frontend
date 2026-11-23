@@ -36,28 +36,59 @@
     "calculate_exit_share": { "args": { "addr": "Address" }, "returns": "i128" },
     "resolve_name": { "args": { "name": "string" }, "returns": "Option<Address>" },
     "name_of": { "args": { "addr": "Address" }, "returns": "Option<string>" },
-    "get_document": { "args": { "kind": "ProposalKind", "id": "u32" }, "returns": "Option<BytesN<32>>" },
-    "has_voted": { "args": { "kind": "ProposalKind", "proposal_id": "u32", "voter": "Address" }, "returns": "bool" }
+    "get_document": {
+      "args": { "kind": "ProposalKind", "id": "u32" },
+      "returns": "Option<BytesN<32>>"
+    },
+    "has_voted": {
+      "args": { "kind": "ProposalKind", "proposal_id": "u32", "voter": "Address" },
+      "returns": "bool"
+    }
   },
   "writes": {
     "register_member": { "args": { "addr": "Address" } },
     "exit_dao": { "args": { "addr": "Address" } },
     "claim_rewards": { "args": { "addr": "Address" } },
     "request_loan": { "args": { "addr": "Address", "amount": "i128" } },
-    "edit_loan_proposal": { "args": { "addr": "Address", "proposal_id": "u32", "new_amount": "i128" } },
-    "vote_on_loan_proposal": { "args": { "addr": "Address", "proposal_id": "u32", "support": "bool" } },
+    "edit_loan_proposal": {
+      "args": { "addr": "Address", "proposal_id": "u32", "new_amount": "i128" }
+    },
+    "vote_on_loan_proposal": {
+      "args": { "addr": "Address", "proposal_id": "u32", "support": "bool" }
+    },
     "repay_loan": { "args": { "addr": "Address", "loan_id": "u32" } },
     "mark_loan_defaulted": { "args": { "loan_id": "u32" } },
     "disburse_approved_loan": { "args": { "proposal_id": "u32" } },
     "execute_treasury_proposal": { "args": { "proposal_id": "u32" } },
-    "propose_treasury_withdrawal": { "args": { "addr": "Address", "amount": "i128", "destination": "Address", "reason": "string", "is_private": "bool" } },
-    "vote_on_treasury_proposal": { "args": { "addr": "Address", "proposal_id": "u32", "support": "bool" } },
+    "propose_treasury_withdrawal": {
+      "args": {
+        "addr": "Address",
+        "amount": "i128",
+        "destination": "Address",
+        "reason": "string",
+        "is_private": "bool"
+      }
+    },
+    "vote_on_treasury_proposal": {
+      "args": { "addr": "Address", "proposal_id": "u32", "support": "bool" }
+    },
     "stake": { "args": { "addr": "Address", "amount": "i128" } },
     "unstake": { "args": { "addr": "Address", "amount": "i128" } },
     "register_name": { "args": { "addr": "Address", "name": "string" } },
-    "commit_treasury_vote": { "args": { "addr": "Address", "proposal_id": "u32", "commitment": "BytesN<32>" } },
-    "reveal_treasury_vote": { "args": { "addr": "Address", "proposal_id": "u32", "support": "bool", "salt": "BytesN<32>" } },
-    "attach_document": { "args": { "addr": "Address", "kind": "ProposalKind", "proposal_id": "u32", "content_hash": "BytesN<32>" } },
+    "commit_treasury_vote": {
+      "args": { "addr": "Address", "proposal_id": "u32", "commitment": "BytesN<32>" }
+    },
+    "reveal_treasury_vote": {
+      "args": { "addr": "Address", "proposal_id": "u32", "support": "bool", "salt": "BytesN<32>" }
+    },
+    "attach_document": {
+      "args": {
+        "addr": "Address",
+        "kind": "ProposalKind",
+        "proposal_id": "u32",
+        "content_hash": "BytesN<32>"
+      }
+    },
     "add_admin": { "args": { "caller": "Address", "admin": "Address" } },
     "remove_admin": { "args": { "caller": "Address", "admin": "Address" } },
     "set_consensus_threshold": { "args": { "caller": "Address", "threshold_bps": "u32" } },

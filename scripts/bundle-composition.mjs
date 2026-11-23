@@ -12,18 +12,18 @@
 //
 // Deliberately dependency-free: the base64-VLQ decode below is the only piece
 // that would otherwise want a source-map library, and it is small enough to own.
-import { existsSync, readdirSync, readFileSync } from "node:fs";
-import { dirname, extname, join } from "node:path";
-import { gzipSync } from "node:zlib";
+import { existsSync, readdirSync, readFileSync } from 'node:fs'
+import { dirname, extname, join } from 'node:path'
+import { gzipSync } from 'node:zlib'
 
-const B64 = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
+const B64 = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/'
 
 /** Index -> 6-bit value, or -1 for a character that is not base64. */
 const B64_INDEX = (() => {
-  const table = new Int8Array(256).fill(-1);
-  for (let i = 0; i < B64.length; i += 1) table[B64.charCodeAt(i)] = i;
-  return table;
-})();
+  const table = new Int8Array(256).fill(-1)
+  for (let i = 0; i < B64.length; i += 1) table[B64.charCodeAt(i)] = i
+  return table
+})()
 
 /**
  * Decode one base64-VLQ run into its signed integers.
@@ -32,25 +32,25 @@ const B64_INDEX = (() => {
  * the sign in the least significant bit.
  */
 export function decodeVlq(segment) {
-  const values = [];
-  let value = 0;
-  let shift = 0;
+  const values = []
+  let value = 0
+  let shift = 0
   for (let i = 0; i < segment.length; i += 1) {
-    const digit = B64_INDEX[segment.charCodeAt(i)];
-    if (digit === -1) throw new Error(`Invalid base64 character in "${segment}"`);
-    const hasContinuation = (digit & 32) !== 0;
-    value += (digit & 31) << shift;
+    const digit = B64_INDEX[segment.charCodeAt(i)]
+    if (digit === -1) throw new Error(`Invalid base64 character in "${segment}"`)
+    const hasContinuation = (digit & 32) !== 0
+    value += (digit & 31) << shift
     if (hasContinuation) {
-      shift += 5;
-      continue;
+      shift += 5
+      continue
     }
-    const negative = (value & 1) === 1;
-    value >>= 1;
-    values.push(negative ? (value === 0 ? -0x80000000 : -value) : value);
-    value = 0;
-    shift = 0;
+    const negative = (value & 1) === 1
+    value >>= 1
+    values.push(negative ? (value === 0 ? -0x80000000 : -value) : value)
+    value = 0
+    shift = 0
   }
-  return values;
+  return values
 }
 
 /**
@@ -61,30 +61,30 @@ export function decodeVlq(segment) {
  * position with no source of its own and inherits the previous one.
  */
 export function parseMappings(mappings) {
-  const lines = [];
-  let sourceIndex = 0;
-  let sourceLine = 0;
-  let sourceColumn = 0;
+  const lines = []
+  let sourceIndex = 0
+  let sourceLine = 0
+  let sourceColumn = 0
 
-  for (const lineText of mappings.split(";")) {
-    const segments = [];
-    let generatedColumn = 0;
-    for (const segmentText of lineText.split(",")) {
-      if (!segmentText) continue;
-      const fields = decodeVlq(segmentText);
-      generatedColumn += fields[0];
+  for (const lineText of mappings.split(';')) {
+    const segments = []
+    let generatedColumn = 0
+    for (const segmentText of lineText.split(',')) {
+      if (!segmentText) continue
+      const fields = decodeVlq(segmentText)
+      generatedColumn += fields[0]
       if (fields.length === 1) {
-        segments.push({ generatedColumn, source: undefined });
-        continue;
+        segments.push({ generatedColumn, source: undefined })
+        continue
       }
-      sourceIndex += fields[1];
-      sourceLine += fields[2];
-      sourceColumn += fields[3];
-      segments.push({ generatedColumn, sourceIndex, sourceLine, sourceColumn });
+      sourceIndex += fields[1]
+      sourceLine += fields[2]
+      sourceColumn += fields[3]
+      segments.push({ generatedColumn, sourceIndex, sourceLine, sourceColumn })
     }
-    lines.push(segments);
+    lines.push(segments)
   }
-  return lines;
+  return lines
 }
 
 /**
@@ -100,53 +100,53 @@ export function parseMappings(mappings) {
  * whichever source the previous segment established.
  */
 export function attributeBytes(code, map) {
-  const perSource = new Map();
-  const sources = map.sources ?? [];
-  const nameOf = (index) => sources[index] ?? "?";
+  const perSource = new Map()
+  const sources = map.sources ?? []
+  const nameOf = (index) => sources[index] ?? '?'
   const charge = (name, text) => {
-    if (!text) return;
-    perSource.set(name, (perSource.get(name) ?? 0) + Buffer.byteLength(text));
-  };
+    if (!text) return
+    perSource.set(name, (perSource.get(name) ?? 0) + Buffer.byteLength(text))
+  }
 
-  const mappings = parseMappings(map.mappings ?? "");
+  const mappings = parseMappings(map.mappings ?? '')
   // Split keeping the newlines: the map indexes generated lines directly.
-  const codeLines = code.split("\n");
+  const codeLines = code.split('\n')
 
   // A line with no mappings of its own belongs to whatever source the last
   // mapped line established, so this has to survive across lines.
-  let inherited = null;
+  let inherited = null
 
   for (let line = 0; line < codeLines.length; line += 1) {
-    const text = codeLines[line];
-    const segments = mappings[line] ?? [];
+    const text = codeLines[line]
+    const segments = mappings[line] ?? []
     // The separator after this line, which belongs to the line. split('\n')
     // leaves a final empty element that has no separator of its own.
-    const newline = line < codeLines.length - 1 ? '\n' : '';
+    const newline = line < codeLines.length - 1 ? '\n' : ''
 
     for (let i = 0; i < segments.length; i += 1) {
-      const segment = segments[i];
-      const name = segment.sourceIndex === undefined ? inherited : nameOf(segment.sourceIndex);
-      if (name) inherited = name;
+      const segment = segments[i]
+      const name = segment.sourceIndex === undefined ? inherited : nameOf(segment.sourceIndex)
+      if (name) inherited = name
 
-      const end = segments[i + 1] ? segments[i + 1].generatedColumn : text.length;
-      const isLast = i === segments.length - 1;
-      charge(name ?? '?', text.slice(segment.generatedColumn, end) + (isLast ? newline : ''));
+      const end = segments[i + 1] ? segments[i + 1].generatedColumn : text.length
+      const isLast = i === segments.length - 1
+      charge(name ?? '?', text.slice(segment.generatedColumn, end) + (isLast ? newline : ''))
     }
 
-    if (segments.length === 0 && inherited) charge(inherited, text + newline);
+    if (segments.length === 0 && inherited) charge(inherited, text + newline)
   }
 
-  return perSource;
+  return perSource
 }
 
 /** `.../node_modules/@scope/name/x.js` -> `@scope/name`; anything else -> null. */
 export function packageOfSource(source) {
-  const at = source.lastIndexOf("node_modules/");
-  if (at === -1) return null;
-  const rest = source.slice(at + "node_modules/".length);
-  const parts = rest.split("/");
-  if (rest.startsWith("@") && parts.length >= 2) return `${parts[0]}/${parts[1]}`;
-  return parts[0] ?? null;
+  const at = source.lastIndexOf('node_modules/')
+  if (at === -1) return null
+  const rest = source.slice(at + 'node_modules/'.length)
+  const parts = rest.split('/')
+  if (rest.startsWith('@') && parts.length >= 2) return `${parts[0]}/${parts[1]}`
+  return parts[0] ?? null
 }
 
 /**
@@ -154,43 +154,43 @@ export function packageOfSource(source) {
  * assets and anything the map did not attribute.
  */
 export function rollUp(perSource) {
-  const buckets = new Map();
-  const bump = (name, bytes) => buckets.set(name, (buckets.get(name) ?? 0) + bytes);
+  const buckets = new Map()
+  const bump = (name, bytes) => buckets.set(name, (buckets.get(name) ?? 0) + bytes)
 
   for (const [source, bytes] of perSource) {
-    const pkg = packageOfSource(source);
+    const pkg = packageOfSource(source)
     if (pkg) {
-      bump(pkg, bytes);
-      continue;
+      bump(pkg, bytes)
+      continue
     }
-    if (source.includes("/public/") || source.includes("[project]/public")) {
-      bump("(public assets)", bytes);
-      continue;
+    if (source.includes('/public/') || source.includes('[project]/public')) {
+      bump('(public assets)', bytes)
+      continue
     }
-    if (source.startsWith("?") || source === "") {
-      bump("(unattributed)", bytes);
-      continue;
+    if (source.startsWith('?') || source === '') {
+      bump('(unattributed)', bytes)
+      continue
     }
-    if (source.includes("[project]/src/") || source.includes("[project]/src")) {
-      bump("(app code)", bytes);
-      continue;
+    if (source.includes('[project]/src/') || source.includes('[project]/src')) {
+      bump('(app code)', bytes)
+      continue
     }
     // A runtime or framework chunk Turbopack attributes to something else.
-    bump("(framework)", bytes);
+    bump('(framework)', bytes)
   }
-  return buckets;
+  return buckets
 }
 
 function walk(dir, out = []) {
   for (const entry of readdirSync(dir, { withFileTypes: true })) {
-    const full = join(dir, entry.name);
-    if (entry.isDirectory()) walk(full, out);
-    else if ([".js", ".css"].includes(extname(entry.name))) out.push(full);
+    const full = join(dir, entry.name)
+    if (entry.isDirectory()) walk(full, out)
+    else if (['.js', '.css'].includes(extname(entry.name))) out.push(full)
   }
-  return out;
+  return out
 }
 
-const SOURCE_MAPPING_URL = /\/\/#\s*sourceMappingURL=([^\s'"]+)/;
+const SOURCE_MAPPING_URL = /\/\/#\s*sourceMappingURL=([^\s'"]+)/
 
 /**
  * Find the map for a chunk.
@@ -201,13 +201,13 @@ const SOURCE_MAPPING_URL = /\/\/#\s*sourceMappingURL=([^\s'"]+)/;
  * tools that emit adjacent maps.
  */
 export function resolveMapPath(file, code) {
-  const match = SOURCE_MAPPING_URL.exec(code);
+  const match = SOURCE_MAPPING_URL.exec(code)
   if (match) {
-    const referenced = join(dirname(file), match[1]);
-    if (existsSync(referenced)) return referenced;
+    const referenced = join(dirname(file), match[1])
+    if (existsSync(referenced)) return referenced
   }
-  const adjacent = `${file}.map`;
-  return existsSync(adjacent) ? adjacent : null;
+  const adjacent = `${file}.map`
+  return existsSync(adjacent) ? adjacent : null
 }
 
 /**
@@ -216,41 +216,41 @@ export function resolveMapPath(file, code) {
  * not be attributed because no source map was emitted for them.
  */
 export function analyse(staticDir) {
-  const files = walk(staticDir);
-  const perSource = new Map();
-  const perFile = new Map();
-  const unmapped = [];
+  const files = walk(staticDir)
+  const perSource = new Map()
+  const perFile = new Map()
+  const unmapped = []
 
   for (const file of files) {
-    const text = readFileSync(file, "utf8");
-    const label = file.slice(staticDir.length + 1);
-    const mapPath = resolveMapPath(file, text);
-    let map = null;
+    const text = readFileSync(file, 'utf8')
+    const label = file.slice(staticDir.length + 1)
+    const mapPath = resolveMapPath(file, text)
+    let map = null
     if (mapPath) {
       try {
-        map = JSON.parse(readFileSync(mapPath, "utf8"));
+        map = JSON.parse(readFileSync(mapPath, 'utf8'))
       } catch {
-        map = null;
+        map = null
       }
     }
     if (!map) {
-      unmapped.push({ file: label, bytes: Buffer.byteLength(text) });
-      perFile.set(label, text.length);
-      continue;
+      unmapped.push({ file: label, bytes: Buffer.byteLength(text) })
+      perFile.set(label, text.length)
+      continue
     }
     for (const [source, bytes] of attributeBytes(text, map)) {
-      perSource.set(source, (perSource.get(source) ?? 0) + bytes);
+      perSource.set(source, (perSource.get(source) ?? 0) + bytes)
     }
-    perFile.set(label, text.length);
+    perFile.set(label, text.length)
   }
 
-  const packages = rollUp(perSource);
-  const unmappedBytes = unmapped.reduce((sum, entry) => sum + entry.bytes, 0);
+  const packages = rollUp(perSource)
+  const unmappedBytes = unmapped.reduce((sum, entry) => sum + entry.bytes, 0)
   if (unmappedBytes > 0) {
-    packages.set("(unmapped files)", (packages.get("(unmapped files)") ?? 0) + unmappedBytes);
+    packages.set('(unmapped files)', (packages.get('(unmapped files)') ?? 0) + unmappedBytes)
   }
 
-  const totalBytes = [...packages.values()].reduce((a, b) => a + b, 0);
+  const totalBytes = [...packages.values()].reduce((a, b) => a + b, 0)
 
   const rows = [...packages.entries()]
     .map(([name, bytes]) => ({
@@ -259,19 +259,19 @@ export function analyse(staticDir) {
       gzipBytes: gzipSync(Buffer.from(String(bytes)), { level: 9 }).length,
       share: totalBytes === 0 ? 0 : bytes / totalBytes,
     }))
-    .sort((a, b) => b.bytes - a.bytes);
+    .sort((a, b) => b.bytes - a.bytes)
 
   return {
     totalBytes,
     packages: rows,
-    shippedPackages: new Set([...packages.keys()].filter((name) => !name.startsWith("("))),
+    shippedPackages: new Set([...packages.keys()].filter((name) => !name.startsWith('('))),
     topSources: [...perSource.entries()]
       .sort((a, b) => b[1] - a[1])
       .slice(0, 25)
       .map(([source, bytes]) => ({ source, bytes })),
     unmappedFiles: unmapped,
     perFile: Object.fromEntries(perFile),
-  };
+  }
 }
 
 /**
@@ -284,28 +284,28 @@ export function analyse(staticDir) {
  * hand-written allowlist of module paths.
  */
 export function findShippedPackages(staticDir, forbidden = []) {
-  if (!existsSync(staticDir)) return null;
-  const present = new Set();
-  let mappedChunks = 0;
+  if (!existsSync(staticDir)) return null
+  const present = new Set()
+  let mappedChunks = 0
   for (const file of walk(staticDir)) {
-    const text = readFileSync(file, "utf8");
-    const mapPath = resolveMapPath(file, text);
-    if (!mapPath) continue;
-    let map;
+    const text = readFileSync(file, 'utf8')
+    const mapPath = resolveMapPath(file, text)
+    if (!mapPath) continue
+    let map
     try {
-      map = JSON.parse(readFileSync(mapPath, "utf8"));
+      map = JSON.parse(readFileSync(mapPath, 'utf8'))
     } catch {
-      continue;
+      continue
     }
-    mappedChunks += 1;
+    mappedChunks += 1
     for (const source of map.sources ?? []) {
-      const name = packageOfSource(source);
-      if (name) present.add(name);
+      const name = packageOfSource(source)
+      if (name) present.add(name)
     }
   }
   // `mappedChunks` is reported so a build without source maps (the default;
   // ANALYZE_BUNDLE=1 enables them) cannot be mistaken for "nothing shipped".
-  return { found: forbidden.filter((name) => present.has(name)), mappedChunks };
+  return { found: forbidden.filter((name) => present.has(name)), mappedChunks }
 }
 
 /**
@@ -315,22 +315,22 @@ export function findShippedPackages(staticDir, forbidden = []) {
  * versions" without needing a build, and catches a duplicate that happens to be
  * fully tree-shaken away.
  */
-export function findDuplicateVersions(lockfilePath = "package-lock.json") {
-  if (!existsSync(lockfilePath)) return [];
-  const lock = JSON.parse(readFileSync(lockfilePath, "utf8"));
-  const versions = new Map();
+export function findDuplicateVersions(lockfilePath = 'package-lock.json') {
+  if (!existsSync(lockfilePath)) return []
+  const lock = JSON.parse(readFileSync(lockfilePath, 'utf8'))
+  const versions = new Map()
   for (const [path, entry] of Object.entries(lock.packages ?? {})) {
-    const at = path.lastIndexOf("node_modules/");
-    if (at === -1 || !entry.version) continue;
-    const name = packageOfSource(path);
-    if (!name) continue;
-    if (!versions.has(name)) versions.set(name, new Set());
-    versions.get(name).add(entry.version);
+    const at = path.lastIndexOf('node_modules/')
+    if (at === -1 || !entry.version) continue
+    const name = packageOfSource(path)
+    if (!name) continue
+    if (!versions.has(name)) versions.set(name, new Set())
+    versions.get(name).add(entry.version)
   }
   return [...versions.entries()]
     .filter(([, set]) => set.size > 1)
     .map(([name, set]) => ({ name, versions: [...set].sort() }))
-    .sort((a, b) => a.name.localeCompare(b.name));
+    .sort((a, b) => a.name.localeCompare(b.name))
 }
 
 // --- CLI ---------------------------------------------------------------------
@@ -341,33 +341,33 @@ export function findDuplicateVersions(lockfilePath = "package-lock.json") {
 // says the optional HOT wallet SDK is unreachable (#478).
 const invokedDirectly =
   process.argv[1] &&
-  new URL(import.meta.url).pathname === new URL(`file://${process.argv[1]}`).pathname;
+  new URL(import.meta.url).pathname === new URL(`file://${process.argv[1]}`).pathname
 
 if (invokedDirectly) {
-  const [command, ...packages] = process.argv.slice(2);
-  const staticDir = process.env.STATIC_DIR ?? ".next/static";
+  const [command, ...packages] = process.argv.slice(2)
+  const staticDir = process.env.STATIC_DIR ?? '.next/static'
 
-  if (command !== "assert-absent" || packages.length === 0) {
-    console.error("usage: node scripts/bundle-composition.mjs assert-absent <pkg...>");
-    process.exit(2);
+  if (command !== 'assert-absent' || packages.length === 0) {
+    console.error('usage: node scripts/bundle-composition.mjs assert-absent <pkg...>')
+    process.exit(2)
   }
 
-  const result = findShippedPackages(staticDir, packages);
+  const result = findShippedPackages(staticDir, packages)
   if (result === null) {
-    console.error(`${staticDir} not found -- run \`npm run build\` first.`);
-    process.exit(2);
+    console.error(`${staticDir} not found -- run \`npm run build\` first.`)
+    process.exit(2)
   }
   if (result.mappedChunks === 0) {
     console.error(
       `no source maps under ${staticDir} -- rebuild with ANALYZE_BUNDLE=1 so chunks can be attributed.`
-    );
-    process.exit(2);
+    )
+    process.exit(2)
   }
   if (result.found.length > 0) {
-    console.error(`Forbidden packages shipped to the client: ${result.found.join(", ")}`);
-    process.exit(1);
+    console.error(`Forbidden packages shipped to the client: ${result.found.join(', ')}`)
+    process.exit(1)
   }
   console.log(
-    `None of ${packages.join(", ")} is in the client bundle (${result.mappedChunks} mapped chunks).`
-  );
+    `None of ${packages.join(', ')} is in the client bundle (${result.mappedChunks} mapped chunks).`
+  )
 }

@@ -13,17 +13,25 @@ export function LandingBottomCTA() {
   const userData = useUserData()
 
   return (
-    <div className="flex flex-col sm:flex-row gap-4 justify-center">
+    <div className="flex flex-col justify-center gap-4 sm:flex-row">
       {userData.isConnected ? (
         userData.isMember ? (
-          <Button asChild size="lg" className="w-full sm:w-auto bg-white text-blue-600 hover:bg-gray-50 px-8 py-3 text-base font-semibold">
+          <Button
+            asChild
+            size="lg"
+            className="w-full bg-white px-8 py-3 text-base font-semibold text-blue-600 hover:bg-gray-50 sm:w-auto"
+          >
             <Link href="/dashboard">
               Access Dashboard
               <ArrowRight className="ml-2 h-5 w-5" />
             </Link>
           </Button>
         ) : (
-          <Button asChild size="lg" className="w-full sm:w-auto bg-white text-blue-600 hover:bg-gray-50 px-8 py-3 text-base font-semibold">
+          <Button
+            asChild
+            size="lg"
+            className="w-full bg-white px-8 py-3 text-base font-semibold text-blue-600 hover:bg-gray-50 sm:w-auto"
+          >
             <Link href="/register">
               Become a Member
               <ArrowRight className="ml-2 h-5 w-5" />
@@ -34,10 +42,10 @@ export function LandingBottomCTA() {
         <>
           <ConnectButton.Custom>
             {({ openConnectModal }) => (
-              <Button 
-                onClick={openConnectModal} 
-                size="lg" 
-                className="w-full sm:w-auto bg-white text-blue-600 hover:bg-gray-50 px-8 py-3 text-base font-semibold"
+              <Button
+                onClick={openConnectModal}
+                size="lg"
+                className="w-full bg-white px-8 py-3 text-base font-semibold text-blue-600 hover:bg-gray-50 sm:w-auto"
               >
                 Connect Wallet
                 <ArrowRight className="ml-2 h-5 w-5" />
@@ -47,7 +55,7 @@ export function LandingBottomCTA() {
           <Button
             variant="outline"
             size="lg"
-            className="w-full sm:w-auto bg-transparent border-white/30 text-white hover:bg-white/10 px-8 py-3 text-base font-semibold"
+            className="w-full border-white/30 bg-transparent px-8 py-3 text-base font-semibold text-white hover:bg-white/10 sm:w-auto"
           >
             Learn More
           </Button>

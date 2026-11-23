@@ -70,7 +70,9 @@ describe('write-hook query invalidation', () => {
     const invalidateSpy = vi.spyOn(client, 'invalidateQueries')
 
     let latest: ReturnType<typeof useMemberRegistration> | undefined
-    renderWithClient(client, useMemberRegistration, (h) => { latest = h })
+    renderWithClient(client, useMemberRegistration, (h) => {
+      latest = h
+    })
 
     await act(async () => {
       await latest!.registerMember()
@@ -102,7 +104,9 @@ describe('write-hook query invalidation', () => {
         .mockImplementation(() => refetchInFlight)
 
       let latest: ReturnType<typeof useMemberRegistration> | undefined
-      renderWithClient(client, useMemberRegistration, (h) => { latest = h })
+      renderWithClient(client, useMemberRegistration, (h) => {
+        latest = h
+      })
 
       let settled = false
       let write!: Promise<unknown>
@@ -134,14 +138,21 @@ describe('write-hook query invalidation', () => {
       })
 
       let latest: ReturnType<typeof useStaking> | undefined
-      renderWithClient(client, useStaking, (h) => { latest = h })
+      renderWithClient(client, useStaking, (h) => {
+        latest = h
+      })
 
       await act(async () => {
         await latest!.stake(BigInt(100))
       })
 
       expect(invalidateSpy).toHaveBeenCalledTimes(calls.length)
-      expect(calls.map((k) => k[0]).sort()).toEqual(['backendStats', 'daoStats', 'stake', 'userData'])
+      expect(calls.map((k) => k[0]).sort()).toEqual([
+        'backendStats',
+        'daoStats',
+        'stake',
+        'userData',
+      ])
     })
   })
 
@@ -151,7 +162,9 @@ describe('write-hook query invalidation', () => {
     const invalidateSpy = vi.spyOn(client, 'invalidateQueries')
 
     let latest: ReturnType<typeof useMemberRegistration> | undefined
-    renderWithClient(client, useMemberRegistration, (h) => { latest = h })
+    renderWithClient(client, useMemberRegistration, (h) => {
+      latest = h
+    })
 
     await expect(
       act(async () => {
@@ -171,7 +184,9 @@ describe('write-hook query invalidation', () => {
     const invalidateSpy = vi.spyOn(client, 'invalidateQueries')
 
     let latest: ReturnType<typeof useVoting> | undefined
-    renderWithClient(client, useVoting, (h) => { latest = h })
+    renderWithClient(client, useVoting, (h) => {
+      latest = h
+    })
 
     await act(async () => {
       await latest!.voteOnProposal(7, true)
@@ -196,7 +211,9 @@ describe('write-hook query invalidation', () => {
     client.setQueryData(['hasVoted', 'Loan', 7, 'GALICE'], false)
 
     let latest: ReturnType<typeof useVoting> | undefined
-    renderWithClient(client, useVoting, (h) => { latest = h })
+    renderWithClient(client, useVoting, (h) => {
+      latest = h
+    })
     const vote = latest!.voteOnProposal(7, true)
 
     await waitFor(() => {
@@ -219,22 +236,28 @@ describe('write-hook query invalidation', () => {
     client.setQueryData(['hasVoted', 'Treasury', 12, 'GALICE'], false)
 
     let latest: ReturnType<typeof useTreasuryVoting> | undefined
-    renderWithClient(client, useTreasuryVoting, (h) => { latest = h })
+    renderWithClient(client, useTreasuryVoting, (h) => {
+      latest = h
+    })
     const vote = latest!.voteOnTreasury(12, true)
 
-    await waitFor(() => expect(client.getQueryData(['hasVoted', 'Treasury', 12, 'GALICE'])).toBe(true))
+    await waitFor(() =>
+      expect(client.getQueryData(['hasVoted', 'Treasury', 12, 'GALICE'])).toBe(true)
+    )
     rejectVote(new Error('NotEligible'))
     await expect(vote).rejects.toThrow('NotEligible')
     expect(client.getQueryData(['hasVoted', 'Treasury', 12, 'GALICE'])).toBe(false)
   })
 
-  it('staking invalidates the connected address\'s own stake, its voting weight, and daoStats', async () => {
+  it("staking invalidates the connected address's own stake, its voting weight, and daoStats", async () => {
     mockStake.mockResolvedValue({ hash: 'tx3', returnValue: null })
     const client = makeClient()
     const invalidateSpy = vi.spyOn(client, 'invalidateQueries')
 
     let latest: ReturnType<typeof useStaking> | undefined
-    renderWithClient(client, useStaking, (h) => { latest = h })
+    renderWithClient(client, useStaking, (h) => {
+      latest = h
+    })
 
     await act(async () => {
       await latest!.stake(BigInt(100))
@@ -256,15 +279,16 @@ describe('write-hook query invalidation', () => {
     const invalidateSpy = vi.spyOn(client, 'invalidateQueries')
 
     let latest: ReturnType<typeof useAttachDocument> | undefined
-    renderWithClient(client, useAttachDocument, (h) => { latest = h })
+    renderWithClient(client, useAttachDocument, (h) => {
+      latest = h
+    })
 
     await act(async () => {
       await latest!.attach('Loan', 3, 'QmHash')
     })
 
     await waitFor(
-      () =>
-        expect(invalidateSpy).toHaveBeenCalledWith({ queryKey: ['document', 'Loan', 3] }),
+      () => expect(invalidateSpy).toHaveBeenCalledWith({ queryKey: ['document', 'Loan', 3] }),
       { timeout: 2000 }
     )
     // The proposal rows themselves show whether documents exist, so they have

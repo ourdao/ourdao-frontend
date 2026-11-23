@@ -21,7 +21,11 @@ let mockEligibility: {
 
 // Mutable so a test can put the wallet back into its pre-restore state, which
 // is what a hard refresh looks like for the first few renders (#307).
-let mockUserData: Record<string, unknown> = { isConnected: true, isMember: true, hasActiveLoan: false }
+let mockUserData: Record<string, unknown> = {
+  isConnected: true,
+  isMember: true,
+  hasActiveLoan: false,
+}
 
 vi.mock('next/navigation', () => ({
   useRouter: () => ({ push: mockPush }),
@@ -109,7 +113,9 @@ describe('RequestLoanPage', () => {
       render(<RequestLoanPage />)
 
       expect(screen.queryByText('Access Restricted')).not.toBeInTheDocument()
-      expect(screen.queryByText(/You must be a DAO member to request loans/)).not.toBeInTheDocument()
+      expect(
+        screen.queryByText(/You must be a DAO member to request loans/)
+      ).not.toBeInTheDocument()
     })
 
     it('redirects to / once the restore settles and there is genuinely no wallet', async () => {
@@ -154,7 +160,9 @@ describe('RequestLoanPage', () => {
 
     fireEvent.click(screen.getByRole('button', { name: /Submit Request/ }))
 
-    await waitFor(() => expect(mockToastError).toHaveBeenCalledWith('Please enter a valid loan amount'))
+    await waitFor(() =>
+      expect(mockToastError).toHaveBeenCalledWith('Please enter a valid loan amount')
+    )
     expect(mockRequestLoan).not.toHaveBeenCalled()
   })
 
@@ -191,7 +199,9 @@ describe('RequestLoanPage', () => {
       fireEvent.click(screen.getByRole('button', { name: /Submit Request/ }))
 
       await waitFor(() =>
-        expect(mockToastError).toHaveBeenCalledWith('Amount exceeds the current maximum loan of 1000')
+        expect(mockToastError).toHaveBeenCalledWith(
+          'Amount exceeds the current maximum loan of 1000'
+        )
       )
       expect(mockRequestLoan).not.toHaveBeenCalled()
     })
@@ -204,7 +214,9 @@ describe('RequestLoanPage', () => {
 
       fireEvent.click(screen.getByRole('button', { name: /Submit Request/ }))
 
-      await waitFor(() => expect(mockRequestLoan).toHaveBeenCalledWith(BigInt(1000) * BigInt(10 ** 7)))
+      await waitFor(() =>
+        expect(mockRequestLoan).toHaveBeenCalledWith(BigInt(1000) * BigInt(10 ** 7))
+      )
     })
   })
 
@@ -304,7 +316,9 @@ describe('RequestLoanPage', () => {
     )
     // The loan itself still succeeded — the page still reports success and
     // schedules the redirect rather than treating the whole submission as failed.
-    await waitFor(() => expect(mockToastSuccess).toHaveBeenCalledWith('Loan request submitted successfully!'))
+    await waitFor(() =>
+      expect(mockToastSuccess).toHaveBeenCalledWith('Loan request submitted successfully!')
+    )
   })
 
   // #392 — the wizard used to check only `hasActiveLoan`, so a member who did
@@ -325,7 +339,11 @@ describe('RequestLoanPage', () => {
 
     it('says when the member becomes eligible for a waiting-period blocker', () => {
       mockEligibility = {
-        eligibility: { eligible: false, reason: 'cooling-down', eligibleAt: Math.floor(Date.now() / 1000) + 3600 },
+        eligibility: {
+          eligible: false,
+          reason: 'cooling-down',
+          eligibleAt: Math.floor(Date.now() / 1000) + 3600,
+        },
         isLoading: false,
         isError: false,
       }

@@ -1,10 +1,8 @@
 import { type Page } from '@playwright/test'
 
-export const MOCK_WALLET_ADDRESS =
-  'GBBD47IF6LWK7P7MDEVSCWR7DPUWV3NY3DTQEVFL4NAT4AQH3ZLLFLA5'
+export const MOCK_WALLET_ADDRESS = 'GBBD47IF6LWK7P7MDEVSCWR7DPUWV3NY3DTQEVFL4NAT4AQH3ZLLFLA5'
 
-export const MOCK_CONTRACT_ID =
-  'CAAQCAIBAEAQCAIBAEAQCAIBAEAQCAIBAEAQCAIBAEAQCAIBAEAQC526'
+export const MOCK_CONTRACT_ID = 'CAAQCAIBAEAQCAIBAEAQCAIBAEAQCAIBAEAQCAIBAEAQCAIBAEAQC526'
 
 export const MOCK_NETWORK_PASSPHRASE = 'Test SDF Network ; September 2015'
 export const MOCK_NETWORK = 'TESTNET'
@@ -53,10 +51,8 @@ export async function injectFreighter(
         signMessage: () => Promise.resolve('bW9jay1zaWduYXR1cmU='),
       }
 
-      ;(window as unknown as { freighter?: typeof freighterStub }).freighter =
-        freighterStub
-      ;(window as unknown as { freighterApi?: typeof freighterStub }).freighterApi =
-        freighterStub
+      ;(window as unknown as { freighter?: typeof freighterStub }).freighter = freighterStub
+      ;(window as unknown as { freighterApi?: typeof freighterStub }).freighterApi = freighterStub
 
       // Message-based communication used by @stellar/freighter-api
       window.addEventListener('message', (event) => {
@@ -380,10 +376,7 @@ export async function setupMockRpcAndBackend(
  * - Injected Freighter mock
  * - Injected RPC and backend route mocks
  */
-export async function setupE2ETest(
-  page: Page,
-  options: SetupMockOptions = {}
-): Promise<void> {
+export async function setupE2ETest(page: Page, options: SetupMockOptions = {}): Promise<void> {
   await page.emulateMedia({ colorScheme: 'light', reducedMotion: 'reduce' })
   await page.addInitScript(() => {
     window.localStorage.setItem('theme', 'light')

@@ -6,12 +6,7 @@ import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { ConnectButton } from '@/components/ConnectButton'
 import Link from 'next/link'
-import {
-  UserIcon,
-  CurrencyDollarIcon,
-  ArrowLeftIcon,
-  CheckCircleIcon,
-} from '@/lib/icons'
+import { UserIcon, CurrencyDollarIcon, ArrowLeftIcon, CheckCircleIcon } from '@/lib/icons'
 import { useDAOStats, useUserData, useMemberRegistration, useToken } from '@/hooks/useDAO'
 import { useRedirectIfMember } from '@/hooks/useRequireMember'
 import { CardSkeleton } from '@/components/ui/skeleton'
@@ -29,7 +24,7 @@ export default function RegisterPage() {
   const hasSufficientBalance = token.isError || token.balance >= membershipFee
   // #656: show "Unavailable" rather than a zero balance when the read fails.
   const balanceLabel = token.isError ? 'Unavailable' : token.format(token.balance)
-  
+
   const [formData, setFormData] = useState({
     acceptTerms: false,
   })
@@ -58,26 +53,26 @@ export default function RegisterPage() {
   }, [error])
 
   const handleInputChange = (field: string, value: string | boolean) => {
-    setFormData(prev => ({ ...prev, [field]: value }))
+    setFormData((prev) => ({ ...prev, [field]: value }))
   }
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    
-  // Don't show "Connect Your Wallet" until the restore attempt has settled —
-  // during the window it would read true for a wallet that is in fact connected
-  // (#307).
-  if (isResolving) {
-    return (
-      <div className="min-h-screen bg-gradient-to-br from-background to-blue-50 dark:from-background dark:to-blue-950/20 flex items-center justify-center p-4">
-        <div className="w-full max-w-md">
-          <CardSkeleton />
-        </div>
-      </div>
-    )
-  }
 
-  if (!userData.isConnected) {
+    // Don't show "Connect Your Wallet" until the restore attempt has settled —
+    // during the window it would read true for a wallet that is in fact connected
+    // (#307).
+    if (isResolving) {
+      return (
+        <div className="from-background dark:from-background flex min-h-screen items-center justify-center bg-gradient-to-br to-blue-50 p-4 dark:to-blue-950/20">
+          <div className="w-full max-w-md">
+            <CardSkeleton />
+          </div>
+        </div>
+      )
+    }
+
+    if (!userData.isConnected) {
       toast.error('Please connect your wallet first')
       return
     }
@@ -100,16 +95,19 @@ export default function RegisterPage() {
         return (
           <div className="space-y-6">
             <div className="text-center">
-              <UserIcon className="h-16 w-16 text-primary-600 mx-auto mb-4" />
-              <h2 className="text-2xl font-bold text-foreground mb-2">Welcome to OurDAO</h2>
+              <UserIcon className="text-primary-600 mx-auto mb-4 h-16 w-16" />
+              <h2 className="text-foreground mb-2 text-2xl font-bold">Welcome to OurDAO</h2>
               <p className="text-muted-foreground">
-                Join our community of {stats.activeMembers} active members and access advanced DeFi lending features.
+                Join our community of {stats.activeMembers} active members and access advanced DeFi
+                lending features.
               </p>
             </div>
-            
-            <div className="bg-blue-50 border border-blue-200 dark:bg-blue-950/30 dark:border-blue-900 rounded-lg p-4">
-              <h3 className="font-semibold text-blue-900 dark:text-blue-300 mb-2">Membership Benefits</h3>
-              <ul className="text-sm text-blue-800 dark:text-blue-400 space-y-1">
+
+            <div className="rounded-lg border border-blue-200 bg-blue-50 p-4 dark:border-blue-900 dark:bg-blue-950/30">
+              <h3 className="mb-2 font-semibold text-blue-900 dark:text-blue-300">
+                Membership Benefits
+              </h3>
+              <ul className="space-y-1 text-sm text-blue-800 dark:text-blue-400">
                 <li>• Request loans with competitive interest rates</li>
                 <li>• Vote on proposals and governance decisions</li>
                 <li>• Earn yield from treasury optimization</li>
@@ -118,17 +116,19 @@ export default function RegisterPage() {
               </ul>
             </div>
 
-            <div className="bg-muted rounded-lg p-4 space-y-2">
-              <div className="flex justify-between items-center">
+            <div className="bg-muted space-y-2 rounded-lg p-4">
+              <div className="flex items-center justify-between">
                 <span className="text-foreground">Membership Fee:</span>
-                <span className="text-xl font-bold text-foreground">
+                <span className="text-foreground text-xl font-bold">
                   {token.format(stats.membershipFee)}
                 </span>
               </div>
               {userData.isConnected && (
-                <div className="flex justify-between items-center text-sm border-t border-border pt-2">
+                <div className="border-border flex items-center justify-between border-t pt-2 text-sm">
                   <span className="text-muted-foreground">Your {token.symbol} Balance:</span>
-                  <span className={`font-medium ${hasSufficientBalance ? 'text-foreground' : 'text-red-500 dark:text-red-400'}`}>
+                  <span
+                    className={`font-medium ${hasSufficientBalance ? 'text-foreground' : 'text-red-500 dark:text-red-400'}`}
+                  >
                     {balanceLabel}
                   </span>
                 </div>
@@ -146,36 +146,38 @@ export default function RegisterPage() {
         return (
           <div className="space-y-6">
             <div className="text-center">
-              <CurrencyDollarIcon className="h-16 w-16 text-primary-600 mx-auto mb-4" />
-              <h2 className="text-2xl font-bold text-foreground mb-2">Complete Registration</h2>
+              <CurrencyDollarIcon className="text-primary-600 mx-auto mb-4 h-16 w-16" />
+              <h2 className="text-foreground mb-2 text-2xl font-bold">Complete Registration</h2>
               <p className="text-muted-foreground">
                 Review your information and complete the membership registration.
               </p>
             </div>
 
-            <div className="border border-border rounded-lg p-4 space-y-3">
-              <h3 className="font-semibold text-foreground">Registration Summary</h3>
-              
+            <div className="border-border space-y-3 rounded-lg border p-4">
+              <h3 className="text-foreground font-semibold">Registration Summary</h3>
+
               <div className="space-y-2 text-sm">
                 <div className="flex justify-between">
                   <span className="text-muted-foreground">Wallet Address:</span>
                   <span className="font-mono">{userData.address}</span>
                 </div>
 
-                <div className="flex justify-between border-t border-border pt-2">
-                  <span className="font-medium text-foreground">Membership Fee:</span>
+                <div className="border-border flex justify-between border-t pt-2">
+                  <span className="text-foreground font-medium">Membership Fee:</span>
                   <span className="font-bold">{token.format(stats.membershipFee)}</span>
                 </div>
 
                 <div className="flex justify-between text-sm">
                   <span className="text-muted-foreground">Your Balance:</span>
-                  <span className={`font-medium ${hasSufficientBalance ? 'text-foreground' : 'text-red-500 dark:text-red-400'}`}>
+                  <span
+                    className={`font-medium ${hasSufficientBalance ? 'text-foreground' : 'text-red-500 dark:text-red-400'}`}
+                  >
                     {balanceLabel}
                   </span>
                 </div>
 
                 {!hasSufficientBalance && (
-                  <p className="text-xs text-red-500 dark:text-red-400 pt-1">
+                  <p className="pt-1 text-xs text-red-500 dark:text-red-400">
                     Insufficient balance to complete registration.
                   </p>
                 )}
@@ -187,11 +189,11 @@ export default function RegisterPage() {
                 <input
                   type="checkbox"
                   id="acceptTerms"
-                  className="mt-1 h-4 w-4 text-primary-600 focus:ring-primary-500 border-input rounded"
+                  className="text-primary-600 focus:ring-primary-500 border-input mt-1 h-4 w-4 rounded"
                   checked={formData.acceptTerms}
                   onChange={(e) => handleInputChange('acceptTerms', e.target.checked)}
                 />
-                <label htmlFor="acceptTerms" className="ml-2 text-sm text-foreground">
+                <label htmlFor="acceptTerms" className="text-foreground ml-2 text-sm">
                   I accept the{' '}
                   <a href="/terms" className="text-primary-600 hover:text-primary-500">
                     Terms and Conditions
@@ -210,34 +212,27 @@ export default function RegisterPage() {
 
   const renderStepIndicator = () => {
     return (
-      <div className="flex items-center justify-center space-x-4 mb-8">
+      <div className="mb-8 flex items-center justify-center space-x-4">
         {Array.from({ length: maxSteps }, (_, i) => {
           const stepNumber = i + 1
           const isCompleted = stepNumber < step
           const isCurrent = stepNumber === step
-          
+
           return (
             <div key={stepNumber} className="flex items-center">
               <div
-                className={`
-                  w-10 h-10 rounded-full flex items-center justify-center text-sm font-medium
-                  ${
-                    isCompleted
-                      ? 'bg-green-500 text-white'
-                      : isCurrent
+                className={`flex h-10 w-10 items-center justify-center rounded-full text-sm font-medium ${
+                  isCompleted
+                    ? 'bg-green-500 text-white'
+                    : isCurrent
                       ? 'bg-primary-600 text-white'
                       : 'bg-muted text-muted-foreground'
-                  }
-                `}
+                } `}
               >
                 {isCompleted ? <CheckCircleIcon className="h-6 w-6" /> : stepNumber}
               </div>
               {stepNumber < maxSteps && (
-                <div
-                  className={`w-8 h-0.5 ${
-                    stepNumber < step ? 'bg-green-500' : 'bg-muted'
-                  }`}
-                />
+                <div className={`h-0.5 w-8 ${stepNumber < step ? 'bg-green-500' : 'bg-muted'}`} />
               )}
             </div>
           )
@@ -248,13 +243,11 @@ export default function RegisterPage() {
 
   if (!userData.isConnected) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-background to-blue-50 dark:from-background dark:to-blue-950/20 flex items-center justify-center p-4">
+      <div className="from-background dark:from-background flex min-h-screen items-center justify-center bg-gradient-to-br to-blue-50 p-4 dark:to-blue-950/20">
         <Card className="w-full max-w-md">
           <CardHeader className="text-center">
             <CardTitle>Connect Your Wallet</CardTitle>
-            <CardDescription>
-              Connect your wallet to register for DAO membership
-            </CardDescription>
+            <CardDescription>Connect your wallet to register for DAO membership</CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
             <ConnectButton.Custom>
@@ -265,7 +258,7 @@ export default function RegisterPage() {
               )}
             </ConnectButton.Custom>
             <div className="text-center">
-              <Link href="/" className="text-sm text-muted-foreground hover:text-foreground">
+              <Link href="/" className="text-muted-foreground hover:text-foreground text-sm">
                 ← Back to Home
               </Link>
             </div>
@@ -276,27 +269,31 @@ export default function RegisterPage() {
   }
 
   return (
-    <main id={MAIN_CONTENT_ID} tabIndex={-1} className="min-h-screen bg-gradient-to-br from-background to-blue-50 py-12 px-4 focus:outline-none dark:from-background dark:to-blue-950/20 sm:px-6 lg:px-8">
-      <div className="max-w-2xl mx-auto">
+    <main
+      id={MAIN_CONTENT_ID}
+      tabIndex={-1}
+      className="from-background dark:from-background min-h-screen bg-gradient-to-br to-blue-50 px-4 py-12 focus:outline-none sm:px-6 lg:px-8 dark:to-blue-950/20"
+    >
+      <div className="mx-auto max-w-2xl">
         <div className="mb-8">
           <Link
             href="/"
-            className="inline-flex items-center text-sm text-muted-foreground hover:text-foreground mb-4"
+            className="text-muted-foreground hover:text-foreground mb-4 inline-flex items-center text-sm"
           >
-            <ArrowLeftIcon className="h-4 w-4 mr-1" />
+            <ArrowLeftIcon className="mr-1 h-4 w-4" />
             Back to Home
           </Link>
-          <h1 className="text-3xl font-bold text-foreground text-center">Join the DAO</h1>
+          <h1 className="text-foreground text-center text-3xl font-bold">Join the DAO</h1>
         </div>
 
         <Card>
           <CardContent className="p-8">
             {renderStepIndicator()}
-            
+
             <form onSubmit={handleSubmit}>
               {renderStepContent()}
-              
-              <div className="flex justify-between mt-8">
+
+              <div className="mt-8 flex justify-between">
                 <Button
                   type="button"
                   variant="outline"
@@ -305,7 +302,7 @@ export default function RegisterPage() {
                 >
                   Previous
                 </Button>
-                
+
                 {step < maxSteps ? (
                   <Button
                     type="button"
@@ -318,10 +315,16 @@ export default function RegisterPage() {
                   <Button
                     type="submit"
                     loading={isPending}
-                    disabled={!formData.acceptTerms || !userData.isConnected || !hasSufficientBalance}
+                    disabled={
+                      !formData.acceptTerms || !userData.isConnected || !hasSufficientBalance
+                    }
                     className="min-w-[120px]"
                   >
-                    {!hasSufficientBalance ? 'Insufficient Balance' : isPending ? 'Registering...' : 'Register Now'}
+                    {!hasSufficientBalance
+                      ? 'Insufficient Balance'
+                      : isPending
+                        ? 'Registering...'
+                        : 'Register Now'}
                   </Button>
                 )}
               </div>
@@ -334,8 +337,8 @@ export default function RegisterPage() {
           <Card className="mt-6 border-green-200 bg-green-50 dark:border-green-900 dark:bg-green-950/30">
             <CardContent className="p-4">
               <div className="flex items-center">
-                <CheckCircleIcon className="h-5 w-5 text-green-600 dark:text-green-400 mr-2" />
-                <span className="text-green-800 dark:text-green-300 font-medium">
+                <CheckCircleIcon className="mr-2 h-5 w-5 text-green-600 dark:text-green-400" />
+                <span className="font-medium text-green-800 dark:text-green-300">
                   Registration successful! Redirecting to dashboard...
                 </span>
               </div>

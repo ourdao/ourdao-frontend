@@ -11,7 +11,10 @@ vi.mock('@stellar/freighter-api', () => ({
   isAllowed: vi.fn().mockResolvedValue({ isAllowed: true }),
   requestAccess: vi.fn(),
   getAddress: vi.fn().mockResolvedValue({ address: 'ACCOUNT_SIGNER' }),
-  getNetwork: vi.fn().mockResolvedValue({ network: 'TESTNET', networkPassphrase: 'Test SDF Network ; September 2015' }),
+  getNetwork: vi.fn().mockResolvedValue({
+    network: 'TESTNET',
+    networkPassphrase: 'Test SDF Network ; September 2015',
+  }),
   signTransaction: vi.fn(),
   isConnected: vi.fn().mockResolvedValue({ isConnected: true, version: '2.5.0' }),
   WatchWalletChanges: vi.fn().mockImplementation(function () {
@@ -33,7 +36,7 @@ vi.mock('@/lib/dao-client', () => ({
     registerMember: async () => {
       await signer('XDR_TX')
       return { hash: '0x123', returnValue: null }
-    }
+    },
   })),
   InvokeError: class InvokeError extends Error {
     retryable = true
@@ -48,13 +51,20 @@ vi.mock('@/lib/dao-client', () => ({
   watchTransaction: vi.fn().mockResolvedValue('timeout'),
 }))
 
-function TestWriteHarness({ onRender }: { onRender: (w: ReturnType<typeof useWriteAction>) => void }) {
+function TestWriteHarness({
+  onRender,
+}: {
+  onRender: (w: ReturnType<typeof useWriteAction>) => void
+}) {
   const write = useWriteAction()
   onRender(write)
   return null
 }
 
-function renderWriteProvider(queryClient: QueryClient, onRender: (w: ReturnType<typeof useWriteAction>) => void) {
+function renderWriteProvider(
+  queryClient: QueryClient,
+  onRender: (w: ReturnType<typeof useWriteAction>) => void
+) {
   return render(
     <QueryClientProvider client={queryClient}>
       <WalletProvider>
@@ -83,7 +93,9 @@ describe('Issue #221 — Bounded signature request & cancellation', () => {
     const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } })
     let writeHook: ReturnType<typeof useWriteAction> | undefined
 
-    renderWriteProvider(qc, (w) => { writeHook = w })
+    renderWriteProvider(qc, (w) => {
+      writeHook = w
+    })
 
     await waitFor(() => expect(writeHook?.address).toBe('ACCOUNT_SIGNER'))
 
@@ -112,7 +124,9 @@ describe('Issue #221 — Bounded signature request & cancellation', () => {
     const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } })
     let writeHook: ReturnType<typeof useWriteAction> | undefined
 
-    renderWriteProvider(qc, (w) => { writeHook = w })
+    renderWriteProvider(qc, (w) => {
+      writeHook = w
+    })
 
     await waitFor(() => expect(writeHook?.address).toBe('ACCOUNT_SIGNER'))
 
@@ -131,4 +145,4 @@ describe('Issue #221 — Bounded signature request & cancellation', () => {
     expect(writeHook?.isPending).toBe(false)
     expect(writeHook?.isRetryable).toBe(true)
   })
-});
+})

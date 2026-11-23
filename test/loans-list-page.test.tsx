@@ -43,7 +43,9 @@ vi.mock('@/lib/dao-client', () => ({
     getPendingYield: (...a: unknown[]) => mockGetPendingYield(...a),
     getLoanProposal: (...a: unknown[]) => mockGetLoanProposal(...a),
   },
-  daoWrite: () => ({ voteOnLoanProposal: vi.fn().mockResolvedValue({ hash: 'tx', returnValue: null }) }),
+  daoWrite: () => ({
+    voteOnLoanProposal: vi.fn().mockResolvedValue({ hash: 'tx', returnValue: null }),
+  }),
 }))
 
 vi.mock('@/lib/backend', () => ({

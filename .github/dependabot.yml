@@ -1,12 +1,12 @@
 version: 2
 updates:
-  - package-ecosystem: "npm"
-    directory: "/"
+  - package-ecosystem: 'npm'
+    directory: '/'
     schedule:
-      interval: "weekly"
+      interval: 'weekly'
     open-pull-requests-limit: 10
     labels:
-      - "dependencies"
+      - 'dependencies'
     # Security-update PRs (one per advisory, opened automatically once
     # Dependabot security updates are enabled on the repo) are NOT covered by
     # this group -- they stay separate and ungrouped so a patched advisory is
@@ -17,28 +17,28 @@ updates:
     groups:
       routine-dependencies:
         update-types:
-          - "minor"
-          - "patch"
+          - 'minor'
+          - 'patch'
     # Major upgrades of these stay out of automated PRs. eslint is pinned to 9
     # (#544), so an ignored major here keeps Dependabot from reopening an
     # eslint 10 PR.
     ignore:
-      - dependency-name: "@stellar/freighter-api"
-        update-types: ["version-update:semver-major"]
-      - dependency-name: "@stellar/stellar-sdk"
-        update-types: ["version-update:semver-major"]
-      - dependency-name: "eslint"
-        update-types: ["version-update:semver-major"]
+      - dependency-name: '@stellar/freighter-api'
+        update-types: ['version-update:semver-major']
+      - dependency-name: '@stellar/stellar-sdk'
+        update-types: ['version-update:semver-major']
+      - dependency-name: 'eslint'
+        update-types: ['version-update:semver-major']
 
-  - package-ecosystem: "github-actions"
-    directory: "/"
+  - package-ecosystem: 'github-actions'
+    directory: '/'
     schedule:
-      interval: "weekly"
+      interval: 'weekly'
     open-pull-requests-limit: 5
     labels:
-      - "dependencies"
-      - "github-actions"
+      - 'dependencies'
+      - 'github-actions'
     groups:
       github-actions:
         patterns:
-          - "*"
+          - '*'

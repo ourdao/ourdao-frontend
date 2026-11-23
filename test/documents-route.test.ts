@@ -44,8 +44,7 @@ describe('POST /api/documents', () => {
         : pinata()
     )
   }
-  const pinataCalls = () =>
-    fetchMock.mock.calls.filter(([url]) => String(url).includes('pinata'))
+  const pinataCalls = () => fetchMock.mock.calls.filter(([url]) => String(url).includes('pinata'))
 
   beforeEach(() => {
     resetRateLimits()
@@ -100,7 +99,9 @@ describe('POST /api/documents', () => {
   })
 
   it('pins the body and returns the verified hash', async () => {
-    mockPinata(() => Promise.resolve(new Response(JSON.stringify({ IpfsHash: validCID }), { status: 200 })))
+    mockPinata(() =>
+      Promise.resolve(new Response(JSON.stringify({ IpfsHash: validCID }), { status: 200 }))
+    )
     const res = await POST(upload(validBytes))
     expect(res.status).toBe(200)
     expect(await res.json()).toEqual({ hash: validCID })
@@ -147,7 +148,9 @@ describe('POST /api/documents', () => {
       maxBytes.set(chunk, i * 1024 * 1024)
     }
     const maxCID = (await computeIPFSCIDs(maxBytes)).cidV0
-    mockPinata(() => Promise.resolve(new Response(JSON.stringify({ IpfsHash: maxCID }), { status: 200 })))
+    mockPinata(() =>
+      Promise.resolve(new Response(JSON.stringify({ IpfsHash: maxCID }), { status: 200 }))
+    )
 
     const res = await POST(upload(chunkedStream(Array.from({ length: 16 }, () => chunk))))
     expect(res.status).toBe(200)
@@ -162,7 +165,8 @@ describe('POST /api/documents', () => {
   })
 
   it("does not echo the provider's error body; logs it server-side with a request id", async () => {
-    const secret = '{"account":"acct_9f2","plan":"free","quota_used":"99%","request_id":"pinata-internal-1"}'
+    const secret =
+      '{"account":"acct_9f2","plan":"free","quota_used":"99%","request_id":"pinata-internal-1"}'
     mockPinata(() => Promise.resolve(new Response(secret, { status: 401 })))
     const res = await POST(upload(validBytes))
     expect(res.status).toBe(502)
@@ -182,28 +186,40 @@ describe('POST /api/documents', () => {
   })
 
   it('returns 502 when provider 2xx response is missing IpfsHash', async () => {
-    mockPinata(() => Promise.resolve(new Response(JSON.stringify({ other: 'value' }), { status: 200 })))
+    mockPinata(() =>
+      Promise.resolve(new Response(JSON.stringify({ other: 'value' }), { status: 200 }))
+    )
     const res = await POST(upload(validBytes))
     expect(res.status).toBe(502)
     expect((await res.json()).error).toBe('Pinning provider response missing IpfsHash')
   })
 
   it('returns 502 when provider returned CID is malformed', async () => {
-    mockPinata(() => Promise.resolve(new Response(JSON.stringify({ IpfsHash: 'invalid-cid-format' }), { status: 200 })))
+    mockPinata(() =>
+      Promise.resolve(
+        new Response(JSON.stringify({ IpfsHash: 'invalid-cid-format' }), { status: 200 })
+      )
+    )
     const res = await POST(upload(validBytes))
     expect(res.status).toBe(502)
-    expect((await res.json()).error).toBe('Pinning provider returned invalid or mismatched IPFS hash')
+    expect((await res.json()).error).toBe(
+      'Pinning provider returned invalid or mismatched IPFS hash'
+    )
   })
 
   it('returns 502 when provider returned CID does not match the uploaded bytes', async () => {
     // Valid CID format for DIFFERENT bytes
     const otherBytes = new Uint8Array(MIN_UPLOAD_BYTES).fill(99)
     const mismatchedCID = (await computeIPFSCIDs(otherBytes)).cidV0
-    mockPinata(() => Promise.resolve(new Response(JSON.stringify({ IpfsHash: mismatchedCID }), { status: 200 })))
+    mockPinata(() =>
+      Promise.resolve(new Response(JSON.stringify({ IpfsHash: mismatchedCID }), { status: 200 }))
+    )
 
     const res = await POST(upload(validBytes))
     expect(res.status).toBe(502)
-    expect((await res.json()).error).toBe('Pinning provider returned invalid or mismatched IPFS hash')
+    expect((await res.json()).error).toBe(
+      'Pinning provider returned invalid or mismatched IPFS hash'
+    )
   })
 
   describe('Rate limiting', () => {
@@ -220,12 +236,16 @@ describe('POST /api/documents', () => {
       // Exhaust IP budget (10 allowed requests)
       for (let i = 0; i < 10; i++) {
         // A distinct member per request, so only the IP budget is exhausted
-        const res = await POST(upload(validBytes, { ...ipHeaders, 'x-stellar-address': `GMEMBER${i}` }))
+        const res = await POST(
+          upload(validBytes, { ...ipHeaders, 'x-stellar-address': `GMEMBER${i}` })
+        )
         expect(res.status).toBe(200)
       }
 
       // 11th request must fail with 429
-      const rateLimitedRes = await POST(upload(validBytes, { ...ipHeaders, 'x-stellar-address': 'GMEMBER10' }))
+      const rateLimitedRes = await POST(
+        upload(validBytes, { ...ipHeaders, 'x-stellar-address': 'GMEMBER10' })
+      )
       expect(rateLimitedRes.status).toBe(429)
       expect(rateLimitedRes.headers.get('Retry-After')).toBeDefined()
       expect(Number(rateLimitedRes.headers.get('Retry-After'))).toBeGreaterThan(0)

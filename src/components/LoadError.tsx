@@ -19,11 +19,11 @@ export function LoadError({ what, onRetry, className }: LoadErrorProps) {
     <div
       role="alert"
       data-testid="load-error"
-      className={`flex flex-col items-center gap-3 rounded-lg border border-destructive/40 bg-destructive/10 p-6 text-center ${className ?? ''}`}
+      className={`border-destructive/40 bg-destructive/10 flex flex-col items-center gap-3 rounded-lg border p-6 text-center ${className ?? ''}`}
     >
-      <TriangleAlert className="h-6 w-6 text-destructive" aria-hidden="true" />
-      <p className="text-sm font-medium text-foreground">Couldn&apos;t load {what}.</p>
-      <p className="text-xs text-muted-foreground">
+      <TriangleAlert className="text-destructive h-6 w-6" aria-hidden="true" />
+      <p className="text-foreground text-sm font-medium">Couldn&apos;t load {what}.</p>
+      <p className="text-muted-foreground text-xs">
         This is a loading problem, not an empty list. Check your connection and try again.
       </p>
       {onRetry && (

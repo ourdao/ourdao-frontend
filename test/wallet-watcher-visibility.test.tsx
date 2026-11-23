@@ -41,7 +41,10 @@ function Harness({ onRender }: { onRender: (w: ReturnType<typeof useWallet>) => 
   return null
 }
 
-function renderProvider(queryClient: QueryClient, onRender: (w: ReturnType<typeof useWallet>) => void) {
+function renderProvider(
+  queryClient: QueryClient,
+  onRender: (w: ReturnType<typeof useWallet>) => void
+) {
   return render(
     <QueryClientProvider client={queryClient}>
       <WalletProvider>
@@ -60,7 +63,10 @@ describe('Issue #218 — Wallet Watcher Visibility & State Updates', () => {
     vi.mocked(freighter.WatchWalletChanges).mockClear()
     vi.mocked(freighter.isAllowed).mockResolvedValue({ isAllowed: true } as never)
     vi.mocked(freighter.getAddress).mockResolvedValue({ address: 'ACCOUNT_A' } as never)
-    vi.mocked(freighter.getNetwork).mockResolvedValue({ network: 'TESTNET', networkPassphrase: 'Test SDF' } as never)
+    vi.mocked(freighter.getNetwork).mockResolvedValue({
+      network: 'TESTNET',
+      networkPassphrase: 'Test SDF',
+    } as never)
     originalHidden = document.hidden
   })
 
@@ -72,7 +78,9 @@ describe('Issue #218 — Wallet Watcher Visibility & State Updates', () => {
   it('pauses the watcher when document is hidden and resumes on visibility', async () => {
     const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } })
     let latest: ReturnType<typeof useWallet> | undefined
-    renderProvider(qc, (w) => { latest = w })
+    renderProvider(qc, (w) => {
+      latest = w
+    })
 
     await waitFor(() => expect(latest?.address).toBe('ACCOUNT_A'))
     expect(freighter.WatchWalletChanges).toHaveBeenCalled()
@@ -94,4 +102,4 @@ describe('Issue #218 — Wallet Watcher Visibility & State Updates', () => {
 
     await waitFor(() => expect(latest?.address).toBe('ACCOUNT_SWITCHED'))
   })
-});
+})

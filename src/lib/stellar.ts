@@ -9,8 +9,7 @@ import { rpc, Networks, StrKey } from '@stellar/stellar-sdk'
  * box against public testnet. Point NEXT_PUBLIC_CONTRACT_ID at a deployed
  * OurDAO contract to enable live reads/writes.
  */
-export const NETWORK_PASSPHRASE =
-  process.env.NEXT_PUBLIC_NETWORK_PASSPHRASE || Networks.TESTNET
+export const NETWORK_PASSPHRASE = process.env.NEXT_PUBLIC_NETWORK_PASSPHRASE || Networks.TESTNET
 
 export const SOROBAN_RPC_URL =
   process.env.NEXT_PUBLIC_SOROBAN_RPC_URL || 'https://soroban-testnet.stellar.org'
@@ -218,13 +217,19 @@ export function validateStellarAddress(value: string): AddressValidationResult {
     return { valid: false, error: 'Muxed address must be exactly 69 characters' }
   }
   if (/[0189]/.test(value)) {
-    return { valid: false, error: 'Address contains invalid characters (0, 1, 8, 9 are not valid in base32)' }
+    return {
+      valid: false,
+      error: 'Address contains invalid characters (0, 1, 8, 9 are not valid in base32)',
+    }
   }
   if (value !== value.toUpperCase()) {
     return { valid: false, error: 'Address must be uppercase' }
   }
   if (!/^[GCM]/.test(value)) {
-    return { valid: false, error: 'Address must start with G (account), C (contract), or M (muxed)' }
+    return {
+      valid: false,
+      error: 'Address must start with G (account), C (contract), or M (muxed)',
+    }
   }
 
   return { valid: false, error: 'Invalid address format' }
@@ -246,5 +251,4 @@ export function validateStellarAddress(value: string): AddressValidationResult {
  * add-admin, notification activity-log address extraction), so the base32
  * character class only has to be correct in one place (#66).
  */
-export const isStellarAddress = (value: string): boolean =>
-  validateStellarAddress(value).valid
+export const isStellarAddress = (value: string): boolean => validateStellarAddress(value).valid

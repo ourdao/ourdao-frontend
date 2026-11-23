@@ -52,7 +52,10 @@ export function getClientIp(req: NextRequest): string {
 }
 
 export function getMemberAddress(req: NextRequest): string | null {
-  const address = req.headers.get('x-member-address') || req.headers.get('x-user-address') || req.headers.get('x-stellar-address')
+  const address =
+    req.headers.get('x-member-address') ||
+    req.headers.get('x-user-address') ||
+    req.headers.get('x-stellar-address')
   return address ? address.trim() : null
 }
 
@@ -89,9 +92,7 @@ export function checkRateLimit(req: NextRequest): RateLimitResult {
   }
 
   // Check per-IP rate limit
-  const ipTimestamps = (ipStore.get(ip) || []).filter(
-    (ts) => now - ts < config.ipWindowMs
-  )
+  const ipTimestamps = (ipStore.get(ip) || []).filter((ts) => now - ts < config.ipWindowMs)
   ipStore.set(ip, ipTimestamps)
 
   if (ipTimestamps.length >= config.ipMaxRequests) {

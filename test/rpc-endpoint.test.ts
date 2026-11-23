@@ -21,8 +21,12 @@ describe('RPC endpoint validation', () => {
   })
 
   it('allows plain HTTP in non-production builds (development/test)', () => {
-    expect(() => validateRpcEndpoint('http://remote-rpc.internal:8000', 'development', false)).not.toThrow()
-    expect(() => validateRpcEndpoint('http://remote-rpc.internal:8000', 'test', false)).not.toThrow()
+    expect(() =>
+      validateRpcEndpoint('http://remote-rpc.internal:8000', 'development', false)
+    ).not.toThrow()
+    expect(() =>
+      validateRpcEndpoint('http://remote-rpc.internal:8000', 'test', false)
+    ).not.toThrow()
   })
 
   it('rejects plain HTTP for non-loopback in production builds', () => {
@@ -38,6 +42,8 @@ describe('RPC endpoint validation', () => {
   })
 
   it('always accepts HTTPS endpoints', () => {
-    expect(() => validateRpcEndpoint('https://soroban-testnet.stellar.org', 'production', false)).not.toThrow()
+    expect(() =>
+      validateRpcEndpoint('https://soroban-testnet.stellar.org', 'production', false)
+    ).not.toThrow()
   })
 })

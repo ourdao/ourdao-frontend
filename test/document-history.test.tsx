@@ -52,7 +52,7 @@ describe('DocumentHistory (#564)', () => {
 
     const openLink = screen.getByRole('link', { name: /open/i })
     expect(openLink.getAttribute('href')).toBe(
-      `https://ipfs.example.org/ipfs/${mockHistory[0].cid}`,
+      `https://ipfs.example.org/ipfs/${mockHistory[0].cid}`
     )
   })
 })

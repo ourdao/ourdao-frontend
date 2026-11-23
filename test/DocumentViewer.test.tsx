@@ -1,6 +1,7 @@
 // @vitest-environment jsdom
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { cleanup, render, screen } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
 import DocumentViewer from '@/components/DocumentViewer'
 import type { DocumentMetadata } from '@/lib/ipfs'
 import { useDocumentContent } from '@/hooks/useDocument'
@@ -56,7 +57,9 @@ describe('DocumentViewer', () => {
   })
 
   it('renders an error state', () => {
-    mockUseDocumentContent.mockReturnValue(hookResult({ error: 'Failed to download document from IPFS' }))
+    mockUseDocumentContent.mockReturnValue(
+      hookResult({ error: 'Failed to download document from IPFS' })
+    )
     render(<DocumentViewer doc={doc()} userAddress="GALICE" />)
 
     expect(screen.getByText('Failed to download document from IPFS')).toBeInTheDocument()
@@ -83,5 +86,18 @@ describe('DocumentViewer', () => {
 
     expect(container.querySelector('.dark')).not.toBeNull()
     expect(screen.getByText('Loading document...')).toBeInTheDocument()
+  })
+
+  it('types a password, presses Enter, and decrypts via form submit (#587)', async () => {
+    const user = userEvent.setup()
+    const mockDecrypt = vi.fn()
+    mockUseDocumentContent.mockReturnValue(hookResult({ decrypt: mockDecrypt }))
+    render(<DocumentViewer doc={doc({ encrypted: true })} userAddress="GALICE" />)
+
+    const input = screen.getByPlaceholderText('Enter decryption password')
+    await user.type(input, 'my-password{Enter}')
+
+    expect(mockDecrypt).toHaveBeenCalledTimes(1)
+    expect(mockDecrypt).toHaveBeenCalledWith('my-password')
   })
 })

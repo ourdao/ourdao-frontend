@@ -1,15 +1,7 @@
 'use client'
 
 import { logger } from '@/lib/logger'
-import {
-  createContext,
-  useCallback,
-  useContext,
-  useEffect,
-  useMemo,
-  useRef,
-  useState,
-} from 'react'
+import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react'
 import {
   isAllowed,
   requestAccess,
@@ -103,7 +95,11 @@ const WalletContext = createContext<WalletContextValue | undefined>(undefined)
 
 // Freighter's API has shifted return shapes across versions (bare string vs.
 // `{ address }` vs. `{ address, error }`). These normalize both worlds.
-export function readAddress(res: unknown): { address: string; error?: string; branch: 'string' | 'object_address' | 'object_error' | 'unknown' } {
+export function readAddress(res: unknown): {
+  address: string
+  error?: string
+  branch: 'string' | 'object_address' | 'object_error' | 'unknown'
+} {
   if (typeof res === 'string') {
     logger.info('[Wallet] readAddress branch: string')
     return { address: res, branch: 'string' }
@@ -121,7 +117,11 @@ export function readAddress(res: unknown): { address: string; error?: string; br
   return { address: '', branch: 'unknown' }
 }
 
-export function readSigned(res: unknown): { signedTxXdr: string; error?: string; branch: 'string' | 'object_signed' | 'object_error' | 'unknown' } {
+export function readSigned(res: unknown): {
+  signedTxXdr: string
+  error?: string
+  branch: 'string' | 'object_signed' | 'object_error' | 'unknown'
+} {
   if (typeof res === 'string') {
     logger.info('[Wallet] readSigned branch: string')
     return { signedTxXdr: res, branch: 'string' }
@@ -184,10 +184,7 @@ export function WalletProvider({
   /** Overrides the Stellar Wallets Kit adapter (tests). */
   kitAdapter?: WalletAdapter
 }) {
-  const kit = useMemo(
-    () => kitAdapter ?? getDefaultWalletAdapter(NETWORK_PASSPHRASE),
-    [kitAdapter]
-  )
+  const kit = useMemo(() => kitAdapter ?? getDefaultWalletAdapter(NETWORK_PASSPHRASE), [kitAdapter])
   // True while the connected wallet is a Kit wallet. Freighter-specific polling
   // and version checks only apply when it is false.
   const [usingKit, setUsingKit] = useState(false)
@@ -227,7 +224,8 @@ export function WalletProvider({
     try {
       if (
         typeof window !== 'undefined' &&
-        (window as unknown as { freighter?: { getFreighterVersion?: () => Promise<string> } }).freighter?.getFreighterVersion
+        (window as unknown as { freighter?: { getFreighterVersion?: () => Promise<string> } })
+          .freighter?.getFreighterVersion
       ) {
         const ver = await (
           window as unknown as { freighter: { getFreighterVersion: () => Promise<string> } }
@@ -238,7 +236,10 @@ export function WalletProvider({
           const supported = isVersionAtLeast(ver, MIN_FREIGHTER_VERSION)
           setIsVersionSupported(supported)
           if (!supported) {
-            logger.warn('[Wallet] Freighter version below minimum', { version: ver, minimum: MIN_FREIGHTER_VERSION })
+            logger.warn('[Wallet] Freighter version below minimum', {
+              version: ver,
+              minimum: MIN_FREIGHTER_VERSION,
+            })
           }
           return ver
         }
@@ -254,7 +255,10 @@ export function WalletProvider({
         const supported = isVersionAtLeast(ver, MIN_FREIGHTER_VERSION)
         setIsVersionSupported(supported)
         if (!supported) {
-          logger.warn('[Wallet] Freighter version below minimum', { version: ver, minimum: MIN_FREIGHTER_VERSION })
+          logger.warn('[Wallet] Freighter version below minimum', {
+            version: ver,
+            minimum: MIN_FREIGHTER_VERSION,
+          })
         }
         return ver
       }
@@ -625,7 +629,13 @@ export function WalletProvider({
     async (xdr: string, options?: { timeoutMs?: number; signal?: AbortSignal }) => {
       // Network guard: reject before touching Freighter when the wallet is
       // on a different network than the app built the transaction for.
-      if (isNetworkMismatch(addressRef.current, walletNetworkPassphraseRef.current, NETWORK_PASSPHRASE)) {
+      if (
+        isNetworkMismatch(
+          addressRef.current,
+          walletNetworkPassphraseRef.current,
+          NETWORK_PASSPHRASE
+        )
+      ) {
         const walletLabel = walletNetworkRef.current
           ? passphraseLabel(walletNetworkPassphraseRef.current || '')
           : 'unknown'
@@ -665,21 +675,30 @@ export function WalletProvider({
     [kit]
   )
 
-  const signMessage = useCallback(async (message: string) => {
-    if (isNetworkMismatch(addressRef.current, walletNetworkPassphraseRef.current, NETWORK_PASSPHRASE)) {
-      throw new Error(
-        `Wallet network mismatch: switch your wallet to ${passphraseLabel(NETWORK_PASSPHRASE)} to continue.`
-      )
-    }
-    if (usingKitRef.current) {
-      return kit.signMessage(message, addressRef.current || '')
-    }
-    const result = await freighterSignMessage(message)
-    if (typeof result === 'string') return result
-    const r = result as { signedMessage?: string; error?: unknown }
-    if (r.error) throw new Error(String(r.error))
-    return r.signedMessage || ''
-  }, [kit])
+  const signMessage = useCallback(
+    async (message: string) => {
+      if (
+        isNetworkMismatch(
+          addressRef.current,
+          walletNetworkPassphraseRef.current,
+          NETWORK_PASSPHRASE
+        )
+      ) {
+        throw new Error(
+          `Wallet network mismatch: switch your wallet to ${passphraseLabel(NETWORK_PASSPHRASE)} to continue.`
+        )
+      }
+      if (usingKitRef.current) {
+        return kit.signMessage(message, addressRef.current || '')
+      }
+      const result = await freighterSignMessage(message)
+      if (typeof result === 'string') return result
+      const r = result as { signedMessage?: string; error?: unknown }
+      if (r.error) throw new Error(String(r.error))
+      return r.signedMessage || ''
+    },
+    [kit]
+  )
 
   const value: WalletContextValue = {
     address,
@@ -705,12 +724,13 @@ export function WalletProvider({
         <div
           data-testid="network-mismatch-banner"
           role="alert"
-          className="flex items-center gap-2 border-b border-red-200 bg-red-50 px-4 py-2.5 text-sm text-red-800 dark:border-red-900 dark:bg-red-950/30 dark:text-red-300 sm:px-6"
+          className="flex items-center gap-2 border-b border-red-200 bg-red-50 px-4 py-2.5 text-sm text-red-800 sm:px-6 dark:border-red-900 dark:bg-red-950/30 dark:text-red-300"
         >
           <span>
             Wallet network mismatch: your wallet is set to{' '}
-            <strong>{walletNetwork || passphraseLabel(walletNetworkPassphrase || '')}</strong>, this app expects{' '}
-            <strong>{passphraseLabel(NETWORK_PASSPHRASE)}</strong>. Switch your wallet&apos;s network — transactions are blocked until it matches.
+            <strong>{walletNetwork || passphraseLabel(walletNetworkPassphrase || '')}</strong>, this
+            app expects <strong>{passphraseLabel(NETWORK_PASSPHRASE)}</strong>. Switch your
+            wallet&apos;s network — transactions are blocked until it matches.
           </span>
         </div>
       )}
@@ -730,4 +750,3 @@ export function useWallet(): WalletContextValue {
 export function useOptionalWallet(): Partial<WalletContextValue> {
   return useContext(WalletContext) ?? {}
 }
-

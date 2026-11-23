@@ -3,13 +3,7 @@
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { PageHeader } from '@/components/PageHeader'
-import {
-  Card,
-  CardContent,
-  CardHeader,
-  CardTitle,
-  CardDescription,
-} from '@/components/ui/card'
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import Link from 'next/link'
 import {
@@ -20,7 +14,13 @@ import {
 } from '@/lib/icons'
 import { useUserData, useProposeTreasury, useDAOStats } from '@/hooks/useDAO'
 import { parseToken } from '@/lib/utils'
-import { compactErrors, positiveTokenAmount, required, stellarAddress, type FieldError } from '@/lib/form-validation'
+import {
+  compactErrors,
+  positiveTokenAmount,
+  required,
+  stellarAddress,
+  type FieldError,
+} from '@/lib/form-validation'
 import { FormErrorSummary } from '@/components/FormErrorSummary'
 import toast from 'react-hot-toast'
 
@@ -47,9 +47,7 @@ export default function CreateProposalPage() {
         <Card className="w-full max-w-md">
           <CardContent className="p-6 text-center">
             <ExclamationTriangleIcon className="mx-auto mb-4 h-12 w-12 text-amber-500 dark:text-amber-400" />
-            <h3 className="mb-2 text-lg font-medium text-foreground">
-              Member Only
-            </h3>
+            <h3 className="text-foreground mb-2 text-lg font-medium">Member Only</h3>
             <p className="text-muted-foreground">
               Only DAO members can create governance proposals.
             </p>
@@ -66,7 +64,9 @@ export default function CreateProposalPage() {
     // proposal is currently unvotable by anyone (see /privacy). Guard even if
     // the checkbox is bypassed via devtools.
     if (form.isPrivate) {
-      toast.error('Private voting is disabled until commit/reveal voting is implemented. See /privacy.')
+      toast.error(
+        'Private voting is disabled until commit/reveal voting is implemented. See /privacy.'
+      )
       return
     }
 
@@ -100,19 +100,22 @@ export default function CreateProposalPage() {
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
-              <DocumentPlusIcon className="h-5 w-5 text-primary-600" />
+              <DocumentPlusIcon className="text-primary-600 h-5 w-5" />
               Treasury Withdrawal
             </CardTitle>
             <CardDescription>
-              If approved by member consensus, the requested amount is sent from
-              the treasury to the destination address.
+              If approved by member consensus, the requested amount is sent from the treasury to the
+              destination address.
             </CardDescription>
           </CardHeader>
           <CardContent>
             <form onSubmit={handleSubmit} className="space-y-6">
               <FormErrorSummary errors={errors} />
               <div>
-                <label htmlFor="proposal-amount" className="mb-1 block text-sm font-medium text-foreground">
+                <label
+                  htmlFor="proposal-amount"
+                  className="text-foreground mb-1 block text-sm font-medium"
+                >
                   Amount
                 </label>
                 <input
@@ -124,12 +127,15 @@ export default function CreateProposalPage() {
                   value={form.amount}
                   onChange={(e) => set('amount', e.target.value)}
                   placeholder="0.00"
-                  className="w-full rounded-lg border border-input px-3 py-2.5 text-sm transition-colors focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-500/20"
+                  className="border-input focus:border-primary-500 focus:ring-primary-500/20 w-full rounded-lg border px-3 py-2.5 text-sm transition-colors focus:ring-2 focus:outline-none"
                 />
               </div>
 
               <div>
-                <label htmlFor="proposal-destination" className="mb-1 block text-sm font-medium text-foreground">
+                <label
+                  htmlFor="proposal-destination"
+                  className="text-foreground mb-1 block text-sm font-medium"
+                >
                   Destination address
                 </label>
                 <input
@@ -139,12 +145,15 @@ export default function CreateProposalPage() {
                   onChange={(e) => set('destination', e.target.value)}
                   placeholder="G… or C…"
                   spellCheck={false}
-                  className="w-full rounded-lg border border-input px-3 py-2.5 font-mono text-sm transition-colors focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-500/20"
+                  className="border-input focus:border-primary-500 focus:ring-primary-500/20 w-full rounded-lg border px-3 py-2.5 font-mono text-sm transition-colors focus:ring-2 focus:outline-none"
                 />
               </div>
 
               <div>
-                <label htmlFor="proposal-reason" className="mb-1 block text-sm font-medium text-foreground">
+                <label
+                  htmlFor="proposal-reason"
+                  className="text-foreground mb-1 block text-sm font-medium"
+                >
                   Reason
                 </label>
                 <textarea
@@ -153,11 +162,11 @@ export default function CreateProposalPage() {
                   value={form.reason}
                   onChange={(e) => set('reason', e.target.value)}
                   placeholder="Explain what this withdrawal is for…"
-                  className="w-full rounded-lg border border-input px-3 py-2.5 text-sm transition-colors focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-500/20"
+                  className="border-input focus:border-primary-500 focus:ring-primary-500/20 w-full rounded-lg border px-3 py-2.5 text-sm transition-colors focus:ring-2 focus:outline-none"
                 />
               </div>
 
-              <div className="flex items-start gap-3 rounded-lg border border-amber-200 dark:border-amber-800 bg-amber-50 dark:bg-amber-900/20 p-4 opacity-75">
+              <div className="flex items-start gap-3 rounded-lg border border-amber-200 bg-amber-50 p-4 opacity-75 dark:border-amber-800 dark:bg-amber-900/20">
                 <input
                   id="proposal-private"
                   type="checkbox"
@@ -165,10 +174,10 @@ export default function CreateProposalPage() {
                   disabled
                   aria-disabled="true"
                   onChange={() => {}}
-                  className="mt-0.5 h-4 w-4 rounded border-input text-primary-600 focus:ring-primary-500 disabled:cursor-not-allowed disabled:opacity-50"
+                  className="border-input text-primary-600 focus:ring-primary-500 mt-0.5 h-4 w-4 rounded disabled:cursor-not-allowed disabled:opacity-50"
                 />
                 <label htmlFor="proposal-private" className="flex flex-col gap-0.5 text-sm">
-                  <span className="flex items-center gap-1.5 font-medium text-foreground">
+                  <span className="text-foreground flex items-center gap-1.5 font-medium">
                     <EyeSlashIcon className="h-4 w-4" />
                     Private voting (commit-reveal) — disabled
                   </span>
@@ -176,7 +185,10 @@ export default function CreateProposalPage() {
                     Commit/reveal voting is designed but not yet usable: the contract does not
                     enforce a commit window and this app has no commit/reveal UI, so a private
                     proposal is currently unvotable by anyone. Disabled until those land — see{' '}
-                    <Link href="/privacy" className="text-blue-600 dark:text-blue-400 hover:underline">
+                    <Link
+                      href="/privacy"
+                      className="text-blue-600 hover:underline dark:text-blue-400"
+                    >
                       /privacy
                     </Link>{' '}
                     for details and tracking links.
@@ -184,20 +196,15 @@ export default function CreateProposalPage() {
                 </label>
               </div>
 
-              <div className="flex items-start gap-2 rounded-lg bg-primary-50 p-3 text-sm text-primary-800">
+              <div className="bg-primary-50 text-primary-800 flex items-start gap-2 rounded-lg p-3 text-sm">
                 <InformationCircleIcon className="mt-0.5 h-5 w-5 shrink-0" />
                 <span>
-                  Treasury withdrawals require a higher consensus (60%) than loan
-                  proposals.
+                  Treasury withdrawals require a higher consensus (60%) than loan proposals.
                 </span>
               </div>
 
               <div className="flex justify-end gap-2">
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={() => router.push('/governance')}
-                >
+                <Button type="button" variant="outline" onClick={() => router.push('/governance')}>
                   Cancel
                 </Button>
                 <Button type="submit" disabled={isPending || isPaused}>

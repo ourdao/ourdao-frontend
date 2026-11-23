@@ -121,7 +121,9 @@ describe('DashboardPage', () => {
     mockGetPendingYield.mockResolvedValue(BigInt(10_0000000))
     renderWithProviders(<DashboardPage />)
 
-    await waitFor(() => expect(screen.getByText('Claimable Yield', { selector: 'p' })).toBeInTheDocument())
+    await waitFor(() =>
+      expect(screen.getByText('Claimable Yield', { selector: 'p' })).toBeInTheDocument()
+    )
     expect(screen.queryByText('Pending Rewards')).not.toBeInTheDocument()
     expect(screen.queryByText('Governance Rewards')).not.toBeInTheDocument()
     expect(screen.queryByText('Restaking Yield')).not.toBeInTheDocument()

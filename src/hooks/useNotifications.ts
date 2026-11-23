@@ -17,7 +17,13 @@ import { logger } from '@/lib/logger'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { useWallet } from '@/lib/wallet'
-import { backend, type BackendEvent, type BackendNotification, type MutationFailure, type MutationResult } from '@/lib/backend'
+import {
+  backend,
+  type BackendEvent,
+  type BackendNotification,
+  type MutationFailure,
+  type MutationResult,
+} from '@/lib/backend'
 import { isBackendConfigured } from '@/lib/backend-config'
 import { serializePerAddress } from '@/lib/backend-auth'
 import { formatStellarAddress, isStellarAddress } from '@/lib/stellar'
@@ -187,16 +193,22 @@ export function useAutoNotifications() {
     )
   }, [data, signMessage, updateLocal, runSignedMutation])
 
-  const removeNotification = useCallback((id: string) => {
-    const owner = addressRef.current
-    if (!owner) return
-    updateLocal(owner, (prev) => ({ ...prev, removed: new Set(prev.removed).add(id) }))
-  }, [updateLocal])
+  const removeNotification = useCallback(
+    (id: string) => {
+      const owner = addressRef.current
+      if (!owner) return
+      updateLocal(owner, (prev) => ({ ...prev, removed: new Set(prev.removed).add(id) }))
+    },
+    [updateLocal]
+  )
 
   const clearAllNotifications = useCallback(() => {
     const owner = addressRef.current
     if (!owner) return
-    updateLocal(owner, (prev) => ({ ...prev, removed: new Set((data ?? []).map((n) => String(n.id))) }))
+    updateLocal(owner, (prev) => ({
+      ...prev,
+      removed: new Set((data ?? []).map((n) => String(n.id))),
+    }))
   }, [data, updateLocal])
 
   const requestPermission = useCallback(async () => {

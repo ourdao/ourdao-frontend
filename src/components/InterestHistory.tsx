@@ -69,45 +69,60 @@ export function InterestHistory({ pageSize = 10 }: InterestHistoryProps) {
           </div>
         ) : isError ? (
           <div className="p-6 text-center">
-            <p className="text-sm text-destructive mb-3">Failed to load interest distribution history.</p>
+            <p className="text-destructive mb-3 text-sm">
+              Failed to load interest distribution history.
+            </p>
             <Button variant="outline" size="sm" onClick={() => refetch()}>
               Try again
             </Button>
           </div>
         ) : distributions.length === 0 ? (
-          <div className="py-8 text-center text-muted-foreground">
-            <TrendingUp className="mx-auto mb-2 h-8 w-8 text-muted-foreground/60" />
+          <div className="text-muted-foreground py-8 text-center">
+            <TrendingUp className="text-muted-foreground/60 mx-auto mb-2 h-8 w-8" />
             <p className="text-sm">No interest distributions recorded yet.</p>
           </div>
         ) : (
           <div className="space-y-4">
             <div className="overflow-x-auto">
-              <table className="w-full text-left text-sm" data-testid="interest-distributions-table">
-                <thead className="border-b text-xs uppercase text-muted-foreground">
+              <table
+                className="w-full text-left text-sm"
+                data-testid="interest-distributions-table"
+              >
+                <thead className="text-muted-foreground border-b text-xs uppercase">
                   <tr>
-                    <th scope="col" className="pb-3 pr-4 font-medium">Ledger</th>
-                    <th scope="col" className="pb-3 px-4 font-medium">Amount Distributed</th>
-                    <th scope="col" className="pb-3 px-4 font-medium">Active Members</th>
-                    <th scope="col" className="pb-3 px-4 font-medium">Transaction</th>
-                    <th scope="col" className="pb-3 pl-4 font-medium text-right">Date</th>
+                    <th scope="col" className="pr-4 pb-3 font-medium">
+                      Ledger
+                    </th>
+                    <th scope="col" className="px-4 pb-3 font-medium">
+                      Amount Distributed
+                    </th>
+                    <th scope="col" className="px-4 pb-3 font-medium">
+                      Active Members
+                    </th>
+                    <th scope="col" className="px-4 pb-3 font-medium">
+                      Transaction
+                    </th>
+                    <th scope="col" className="pb-3 pl-4 text-right font-medium">
+                      Date
+                    </th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-border">
+                <tbody className="divide-border divide-y">
                   {distributions.map((item) => (
                     <tr key={item.id} className="hover:bg-muted/50 transition-colors">
-                      <td className="py-3 pr-4 font-mono text-xs text-foreground">
+                      <td className="text-foreground py-3 pr-4 font-mono text-xs">
                         #{item.ledger}
                       </td>
-                      <td className="py-3 px-4 font-medium text-emerald-600 dark:text-emerald-400">
+                      <td className="px-4 py-3 font-medium text-emerald-600 dark:text-emerald-400">
                         +{formatToken(item.amount)}
                       </td>
-                      <td className="py-3 px-4 text-muted-foreground">
+                      <td className="text-muted-foreground px-4 py-3">
                         <span className="flex items-center gap-1">
                           <Users className="h-3.5 w-3.5" />
                           {item.active_members}
                         </span>
                       </td>
-                      <td className="py-3 px-4 font-mono text-xs text-muted-foreground">
+                      <td className="text-muted-foreground px-4 py-3 font-mono text-xs">
                         {item.tx_hash ? (
                           <span title={item.tx_hash}>
                             {item.tx_hash.slice(0, 6)}…{item.tx_hash.slice(-4)}
@@ -116,7 +131,7 @@ export function InterestHistory({ pageSize = 10 }: InterestHistoryProps) {
                           '—'
                         )}
                       </td>
-                      <td className="py-3 pl-4 text-right text-xs text-muted-foreground">
+                      <td className="text-muted-foreground py-3 pl-4 text-right text-xs">
                         {formatDate(item.created_at)}
                       </td>
                     </tr>
@@ -126,10 +141,8 @@ export function InterestHistory({ pageSize = 10 }: InterestHistoryProps) {
             </div>
 
             {/* Pagination Controls */}
-            <div className="flex items-center justify-between pt-2 border-t text-sm">
-              <div className="text-xs text-muted-foreground">
-                Page {cursorStack.length}
-              </div>
+            <div className="flex items-center justify-between border-t pt-2 text-sm">
+              <div className="text-muted-foreground text-xs">Page {cursorStack.length}</div>
               <div className="flex gap-2">
                 <Button
                   variant="outline"

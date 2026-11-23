@@ -61,10 +61,22 @@ function VoteButtons({
 }) {
   return (
     <div className="flex gap-1" role="group" aria-label="Vote">
-      <Button size="sm" variant="outline" disabled={disabled} onClick={() => onVote(true)} aria-label="Vote for">
+      <Button
+        size="sm"
+        variant="outline"
+        disabled={disabled}
+        onClick={() => onVote(true)}
+        aria-label="Vote for"
+      >
         <CheckIcon className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
       </Button>
-      <Button size="sm" variant="outline" disabled={disabled} onClick={() => onVote(false)} aria-label="Vote against">
+      <Button
+        size="sm"
+        variant="outline"
+        disabled={disabled}
+        onClick={() => onVote(false)}
+        aria-label="Vote against"
+      >
         <XMarkIcon className="h-4 w-4 text-red-600 dark:text-red-400" />
       </Button>
     </div>
@@ -74,7 +86,7 @@ function VoteButtons({
 function EmptyState({ label }: { label: string }) {
   return (
     <div className="py-12 text-center">
-      <DocumentTextIcon className="mx-auto mb-3 h-10 w-10 text-muted-foreground" />
+      <DocumentTextIcon className="text-muted-foreground mx-auto mb-3 h-10 w-10" />
       <p className="text-muted-foreground">{label}</p>
     </div>
   )
@@ -82,7 +94,7 @@ function EmptyState({ label }: { label: string }) {
 
 function AlreadyVotedLabel() {
   return (
-    <div className="flex items-center gap-1 text-sm text-muted-foreground">
+    <div className="text-muted-foreground flex items-center gap-1 text-sm">
       <CheckIcon className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
       You&apos;ve voted
     </div>
@@ -107,15 +119,15 @@ function LoanProposalRow({
       <div className="min-w-0">
         <Link
           href={`/loans/${p.id}`}
-          className="font-medium text-foreground hover:text-primary-700 dark:hover:text-primary-400"
+          className="text-foreground hover:text-primary-700 dark:hover:text-primary-400 font-medium"
         >
           Loan Proposal #{p.id}
         </Link>
-        <p className="mt-0.5 text-sm text-muted-foreground">
+        <p className="text-muted-foreground mt-0.5 text-sm">
           {formatToken(p.amount)} · {(p.interestRate / 100).toFixed(1)}% ·{' '}
           <AddressLink address={p.borrower} />
         </p>
-        <p className="mt-1 text-xs text-muted-foreground">
+        <p className="text-muted-foreground mt-1 text-xs">
           For {p.votesFor} · Against {p.votesAgainst}
         </p>
       </div>
@@ -153,17 +165,17 @@ function TreasuryProposalRow({
     <li className="flex flex-wrap items-start justify-between gap-3 py-4">
       <div className="min-w-0">
         <div className="flex items-center gap-2">
-          <p className="font-medium text-foreground">{p.title}</p>
+          <p className="text-foreground font-medium">{p.title}</p>
           {p.isPrivate && (
             <Badge variant="secondary" className="text-xs">
               Private · voting unavailable until commit-reveal
             </Badge>
           )}
         </div>
-        <p className="mt-0.5 text-sm text-muted-foreground">
+        <p className="text-muted-foreground mt-0.5 text-sm">
           {formatToken(p.amount)} → <AddressLink address={p.recipient} />
         </p>
-        <p className="mt-1 text-xs text-muted-foreground">
+        <p className="text-muted-foreground mt-1 text-xs">
           For {p.votesFor} · Against {p.votesAgainst}
         </p>
       </div>
@@ -193,7 +205,6 @@ function LoadingRows() {
     </div>
   )
 }
-
 
 export default function GovernancePage() {
   const userData = useUserData()
@@ -231,10 +242,8 @@ export default function GovernancePage() {
       <div className="flex min-h-[60vh] items-center justify-center">
         <Card className="w-full max-w-md">
           <CardContent className="p-6 text-center">
-            <ScaleIcon className="mx-auto mb-4 h-12 w-12 text-muted-foreground" />
-            <h3 className="mb-2 text-lg font-medium text-foreground">
-              Connect Your Wallet
-            </h3>
+            <ScaleIcon className="text-muted-foreground mx-auto mb-4 h-12 w-12" />
+            <h3 className="text-foreground mb-2 text-lg font-medium">Connect Your Wallet</h3>
             <p className="text-muted-foreground">
               Please connect your wallet to access governance.
             </p>
@@ -304,14 +313,15 @@ export default function GovernancePage() {
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
-                <BanknotesIcon className="h-5 w-5 text-primary-600 dark:text-primary-400" />
+                <BanknotesIcon className="text-primary-600 dark:text-primary-400 h-5 w-5" />
                 Loan Proposals
               </CardTitle>
             </CardHeader>
             <CardContent>
               {loanErrors && (
                 <div className="mb-4 rounded-lg border border-yellow-200 bg-yellow-50 p-4 text-sm text-yellow-800 dark:border-yellow-900 dark:bg-yellow-950/30 dark:text-yellow-300">
-                  Some loan proposals couldn&apos;t be loaded and are missing from this list. Try again shortly.
+                  Some loan proposals couldn&apos;t be loaded and are missing from this list. Try
+                  again shortly.
                 </div>
               )}
               {loadingLoans ? (
@@ -325,7 +335,7 @@ export default function GovernancePage() {
                   items={loanFilters.filteredItems}
                   threshold={50}
                   itemHeight={120}
-                  className="divide-y divide-border"
+                  className="divide-border divide-y"
                   listAriaLabel="Loan proposals"
                   keyExtractor={(p) => p.id}
                   renderItem={(p) => (
@@ -340,7 +350,11 @@ export default function GovernancePage() {
               )}
               {!loadingLoans && hasMoreLoans && (
                 <div className="mt-4 flex justify-center">
-                  <Button variant="outline" onClick={() => loadMoreLoans()} disabled={loadingMoreLoans}>
+                  <Button
+                    variant="outline"
+                    onClick={() => loadMoreLoans()}
+                    disabled={loadingMoreLoans}
+                  >
                     {loadingMoreLoans ? 'Loading…' : 'Load more'}
                   </Button>
                 </div>
@@ -354,14 +368,15 @@ export default function GovernancePage() {
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
-                <BanknotesIcon className="h-5 w-5 text-primary-600 dark:text-primary-400" />
+                <BanknotesIcon className="text-primary-600 dark:text-primary-400 h-5 w-5" />
                 Treasury Withdrawals
               </CardTitle>
             </CardHeader>
             <CardContent>
               {treasuryErrors && (
                 <div className="mb-4 rounded-lg border border-yellow-200 bg-yellow-50 p-4 text-sm text-yellow-800 dark:border-yellow-900 dark:bg-yellow-950/30 dark:text-yellow-300">
-                  Some treasury proposals couldn&apos;t be loaded and are missing from this list. Try again shortly.
+                  Some treasury proposals couldn&apos;t be loaded and are missing from this list.
+                  Try again shortly.
                 </div>
               )}
               {loadingTreasury ? (
@@ -375,7 +390,7 @@ export default function GovernancePage() {
                   items={treasuryFilters.filteredItems}
                   threshold={50}
                   itemHeight={120}
-                  className="divide-y divide-border"
+                  className="divide-border divide-y"
                   listAriaLabel="Treasury proposals"
                   keyExtractor={(p) => p.id}
                   renderItem={(p) => (
@@ -390,7 +405,11 @@ export default function GovernancePage() {
               )}
               {!loadingTreasury && hasMoreTreasury && (
                 <div className="mt-4 flex justify-center">
-                  <Button variant="outline" onClick={() => loadMoreTreasury()} disabled={loadingMoreTreasury}>
+                  <Button
+                    variant="outline"
+                    onClick={() => loadMoreTreasury()}
+                    disabled={loadingMoreTreasury}
+                  >
                     {loadingMoreTreasury ? 'Loading…' : 'Load more'}
                   </Button>
                 </div>

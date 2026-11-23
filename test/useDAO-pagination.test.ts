@@ -1,9 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import {
-  fetchProposalPage,
-  FETCH_CONCURRENCY,
-  PROPOSAL_PAGE_SIZE,
-} from '@/hooks/useDAO'
+import { fetchProposalPage, FETCH_CONCURRENCY, PROPOSAL_PAGE_SIZE } from '@/hooks/useDAO'
 
 const id = (n: number) => ({ id: n })
 const mapId = (raw: Record<string, unknown>) => raw.id as number

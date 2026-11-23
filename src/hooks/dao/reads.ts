@@ -10,7 +10,13 @@ import { backend } from '@/lib/backend'
 // through `@/lib/backend` made every test that mocks only `backend` fail (#517).
 import { isBackendConfigured } from '@/lib/backend-config'
 import type { UserData, DAOStats } from '@/types/dao'
-import { asBigInt, mapLoanTerms, resolveLoanPolicy, toLoan, toMemberStatus } from '@/lib/dao-mappers'
+import {
+  asBigInt,
+  mapLoanTerms,
+  resolveLoanPolicy,
+  toLoan,
+  toMemberStatus,
+} from '@/lib/dao-mappers'
 import type { UILoanPolicy, UILoanTerms } from '@/lib/dao-mappers'
 import { queryKeys } from '@/lib/query-keys'
 import { QUERY_REFRESH_INTERVAL_MS } from '@/constants'
@@ -21,7 +27,7 @@ import { QUERY_REFRESH_INTERVAL_MS } from '@/constants'
  * capped at a maximum of 6 votes (1 base + 5 bonus).
  */
 export function calculateVotingWeight(stakeStroops: bigint, decimals: number = 7): number {
-  const STROOPS_PER_BONUS = BigInt(100) * (BigInt(10) ** BigInt(decimals))
+  const STROOPS_PER_BONUS = BigInt(100) * BigInt(10) ** BigInt(decimals)
   if (stakeStroops <= BigInt(0)) return 1
   const bonus = Number(stakeStroops / STROOPS_PER_BONUS)
   return 1 + Math.min(5, Math.max(0, bonus))
@@ -35,7 +41,12 @@ export function useDAOContract() {
 export function useUserData(): UserData {
   const { address, isConnected, isRestoring } = useWallet()
 
-  const { data, isLoading, isError, refetch: refetchUser } = useQuery({
+  const {
+    data,
+    isLoading,
+    isError,
+    refetch: refetchUser,
+  } = useQuery({
     queryKey: address ? queryKeys.userData(address) : queryKeys.userDataDisabled(),
     enabled: !!address && isContractConfigured(),
     queryFn: async () => {
@@ -44,7 +55,9 @@ export function useUserData(): UserData {
         daoRead.isAdmin(address!),
         daoRead.getMember(address!),
         daoRead.getPendingYield(address!),
-        daoRead.calculateExitShare ? daoRead.calculateExitShare(address!).catch(() => null) : Promise.resolve(null),
+        daoRead.calculateExitShare
+          ? daoRead.calculateExitShare(address!).catch(() => null)
+          : Promise.resolve(null),
         // A failed stake read stays `null` (unknown), never 0: a zero would
         // show the member the base voting weight as if it were their real one (#486).
         daoRead.getStake ? daoRead.getStake(address!).catch(() => null) : Promise.resolve(null),
@@ -61,7 +74,11 @@ export function useUserData(): UserData {
   // Issue #242: Gated on backend configuration and membership:
   // - If backend is unconfigured, do not poll.
   // - A connected non-member does not poll for loan history (when contract is configured).
-  const { data: loans, isError: loansError, refetch: refetchLoans } = useQuery({
+  const {
+    data: loans,
+    isError: loansError,
+    refetch: refetchLoans,
+  } = useQuery({
     queryKey: address ? queryKeys.userLoans(address) : queryKeys.userLoansDisabled(),
     enabled: !!address && backendConfigured && (!isContractConfigured() || isMember),
     queryFn: ({ signal }) => backend.getLoans(address!, { signal }),
@@ -307,7 +324,12 @@ export function useLoanEligibility(): {
 }
 
 export function useDAOStats(): ExtendedStats & { isLoading: boolean } {
-  const { data, isLoading: contractLoading, isError: contractError, refetch: refetchContract } = useQuery({
+  const {
+    data,
+    isLoading: contractLoading,
+    isError: contractError,
+    refetch: refetchContract,
+  } = useQuery({
     queryKey: queryKeys.daoStats(),
     enabled: isContractConfigured(),
     queryFn: async () => {
@@ -327,7 +349,11 @@ export function useDAOStats(): ExtendedStats & { isLoading: boolean } {
   // Loan counts and total stake are aggregated by the off-chain indexer, which
   // sees the full event history the contract doesn't keep queryable.
   const backendConfigured = isBackendConfigured()
-  const { data: agg, isError: indexerError, refetch: refetchIndexer } = useQuery({
+  const {
+    data: agg,
+    isError: indexerError,
+    refetch: refetchIndexer,
+  } = useQuery({
     queryKey: queryKeys.daoStatsBackend(),
     enabled: backendConfigured,
     queryFn: ({ signal }) => backend.getStats({ signal }),

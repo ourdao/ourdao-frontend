@@ -5,12 +5,12 @@ harness for the OurDAO frontend test suite.
 
 ## Test layers
 
-| Layer | What it tests | Where | When to use |
-|---|---|---|---|
-| **Unit (pure functions)** | ScVal builders, formatting helpers, mapping functions, pure validators | `test/*.test.ts` (node environment) | Any pure logic with no DOM or React dependency |
-| **Hook tests** | React hooks with TanStack Query context | `test/*.test.tsx` (jsdom) + `QueryClientProvider` | Custom hooks that read/write query cache |
-| **Page render tests** | Full page rendering with mocked data boundaries | `test/*.test.tsx` (jsdom) + `renderWithProviders` | Verifying a page renders correctly given mocked contract/backend state |
-| **Behaviour tests** | User interactions (clicks, form submissions, drawer open/close) | `test/*.test.tsx` (jsdom) + `renderWithProviders` | Interactive flows that span multiple components |
+| Layer                     | What it tests                                                          | Where                                             | When to use                                                            |
+| ------------------------- | ---------------------------------------------------------------------- | ------------------------------------------------- | ---------------------------------------------------------------------- |
+| **Unit (pure functions)** | ScVal builders, formatting helpers, mapping functions, pure validators | `test/*.test.ts` (node environment)               | Any pure logic with no DOM or React dependency                         |
+| **Hook tests**            | React hooks with TanStack Query context                                | `test/*.test.tsx` (jsdom) + `QueryClientProvider` | Custom hooks that read/write query cache                               |
+| **Page render tests**     | Full page rendering with mocked data boundaries                        | `test/*.test.tsx` (jsdom) + `renderWithProviders` | Verifying a page renders correctly given mocked contract/backend state |
+| **Behaviour tests**       | User interactions (clicks, form submissions, drawer open/close)        | `test/*.test.tsx` (jsdom) + `renderWithProviders` | Interactive flows that span multiple components                        |
 
 ## Mocking boundary
 

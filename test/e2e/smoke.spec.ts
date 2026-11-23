@@ -1,8 +1,5 @@
 import { test, expect } from '@playwright/test'
-import {
-  setupE2ETest,
-  MOCK_WALLET_ADDRESS,
-} from './helpers'
+import { setupE2ETest, MOCK_WALLET_ADDRESS } from './helpers'
 
 /**
  * End-to-end smoke test suite (#374).
@@ -38,7 +35,9 @@ test.describe('E2E Smoke Tests', () => {
 
     // Upon connection, the button reflects the truncated address or connected state
     const truncated = `${MOCK_WALLET_ADDRESS.slice(0, 4)}...${MOCK_WALLET_ADDRESS.slice(-4)}`
-    await expect(page.getByText(truncated).or(page.getByRole('button', { name: new RegExp(truncated, 'i') }))).toBeVisible()
+    await expect(
+      page.getByText(truncated).or(page.getByRole('button', { name: new RegExp(truncated, 'i') }))
+    ).toBeVisible()
   })
 
   test('flow 3: register new member flow', async ({ page }) => {
@@ -51,7 +50,9 @@ test.describe('E2E Smoke Tests', () => {
     await page.goto('/register')
 
     // Step 1: Membership fee & benefits
-    await expect(page.getByRole('heading', { name: /join the dao|welcome to ourdao/i })).toBeVisible()
+    await expect(
+      page.getByRole('heading', { name: /join the dao|welcome to ourdao/i })
+    ).toBeVisible()
     const nextBtn = page.getByRole('button', { name: /next/i })
     await expect(nextBtn).toBeVisible()
     await nextBtn.click()
@@ -67,9 +68,7 @@ test.describe('E2E Smoke Tests', () => {
     await registerBtn.click()
 
     // Verify successful registration banner or feedback
-    await expect(
-      page.getByText(/registration successful/i)
-    ).toBeVisible({ timeout: 15_000 })
+    await expect(page.getByText(/registration successful/i)).toBeVisible({ timeout: 15_000 })
   })
 
   test('flow 4: request loan flow', async ({ page }) => {
@@ -97,14 +96,16 @@ test.describe('E2E Smoke Tests', () => {
     }
 
     // Submit the loan request
-    const submitBtn = page.getByRole('button', { name: /submit loan request|request loan|submit/i }).last()
+    const submitBtn = page
+      .getByRole('button', { name: /submit loan request|request loan|submit/i })
+      .last()
     await expect(submitBtn).toBeVisible()
     await submitBtn.click()
 
     // Check for success feedback
-    await expect(
-      page.getByText(/loan request submitted|submitted successfully/i)
-    ).toBeVisible({ timeout: 15_000 })
+    await expect(page.getByText(/loan request submitted|submitted successfully/i)).toBeVisible({
+      timeout: 15_000,
+    })
   })
 
   test('flow 5: vote on proposal flow', async ({ page }) => {

@@ -38,7 +38,8 @@ export const queryKeys = {
   notificationsDisabled: () => ['notifications', null] as const,
   activity: (limit: number) => ['activity', limit] as const,
   failedEvents: () => ['failedEvents'] as const,
-  documentHistory: (kind: string, proposalId: number) => ['documentHistory', kind, proposalId] as const,
+  documentHistory: (kind: string, proposalId: number) =>
+    ['documentHistory', kind, proposalId] as const,
   loanTimeline: (id: number) => ['loanTimeline', id] as const,
   treasuryTimeline: (id: number) => ['treasuryTimeline', id] as const,
   memberSummary: (address: Address) => ['memberSummary', address] as const,

@@ -76,7 +76,7 @@ describe('useLoanTerms', () => {
     expect(last).toEqual({ terms: null, isLoading: false, isError: false })
   })
 
-  it('never reports the previous amount\'s terms against a new amount', async () => {
+  it("never reports the previous amount's terms against a new amount", async () => {
     mockCalculateLoanTerms.mockImplementation(async (amount: bigint) => ({
       interest_rate: 500,
       total_repayment: amount + amount / BigInt(20),

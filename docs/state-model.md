@@ -6,13 +6,13 @@ component should follow these rules.
 
 ## Where state lives
 
-| Mechanism | What belongs here | Examples |
-|---|---|---|
-| **TanStack Query cache** | All server-derived data: contract reads, backend API responses, IPFS content | Loan lists, proposal lists, member stats, wallet-scoped loan/vote data, document content |
-| **React context** | Wallet connection state and signing | `WalletContext` in `src/lib/wallet.tsx` |
-| **Component-local `useState`** | UI-only ephemeral state: form inputs, open/closed, animation state | Modal open, form field values, draft proposal text |
-| **URL / search params** | Persistent filter/sort/pagination state that should survive refresh | Page number, sort order, active tab |
-| **`next-themes`** | Theme preference | Light/dark mode, persisted in `localStorage` |
+| Mechanism                      | What belongs here                                                            | Examples                                                                                 |
+| ------------------------------ | ---------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------- |
+| **TanStack Query cache**       | All server-derived data: contract reads, backend API responses, IPFS content | Loan lists, proposal lists, member stats, wallet-scoped loan/vote data, document content |
+| **React context**              | Wallet connection state and signing                                          | `WalletContext` in `src/lib/wallet.tsx`                                                  |
+| **Component-local `useState`** | UI-only ephemeral state: form inputs, open/closed, animation state           | Modal open, form field values, draft proposal text                                       |
+| **URL / search params**        | Persistent filter/sort/pagination state that should survive refresh          | Page number, sort order, active tab                                                      |
+| **`next-themes`**              | Theme preference                                                             | Light/dark mode, persisted in `localStorage`                                             |
 
 ### Rules
 
@@ -21,7 +21,7 @@ component should follow these rules.
 - **Don't store server-derived data in `useState`.** If it comes from the
   contract or backend, it belongs in the query cache.
 - **Don't store wallet state in the query cache.** Wallet connection is
-  context — the cache holds wallet-*scoped* data (data that varies by address),
+  context — the cache holds wallet-_scoped_ data (data that varies by address),
   not the address itself.
 
 ## Query-key convention
@@ -30,8 +30,8 @@ Query keys are centralised in `src/lib/query-keys.ts`. Every key follows a
 prefix-first pattern for hierarchical invalidation:
 
 ```ts
-queryKeys.userData(address)    // ['userData', address]
-queryKeys.userLoans(address)   // ['userLoans', address]
+queryKeys.userData(address) // ['userData', address]
+queryKeys.userLoans(address) // ['userLoans', address]
 queryKeys.hasVoted(kind, id, address) // ['hasVoted', kind, id, address]
 ```
 
@@ -45,10 +45,10 @@ stale data from the previous account will linger.
 
 ```ts
 // ✅ Correct — carries address
-queryKeys.userLoans(address)
-
-// ❌ Wrong — no address, stale after account switch
-['userLoans']
+queryKeys.userLoans(address)[
+  // ❌ Wrong — no address, stale after account switch
+  'userLoans'
+]
 ```
 
 ### Disabled-state keys
@@ -57,7 +57,7 @@ When a query should not run (e.g. no wallet connected), use a `*Disabled`
 variant with `null` as the address:
 
 ```ts
-queryKeys.userLoansDisabled()  // ['userLoans', null]
+queryKeys.userLoansDisabled() // ['userLoans', null]
 ```
 
 Query keys with `null` as the address are never refetched and never

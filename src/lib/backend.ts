@@ -20,7 +20,14 @@
  * optimistic state back rather than leaving the UI claiming a change the backend
  * never made (#306).
  */
-import { AuthError, buildAuthHeader, requestSignedAuth, type AuthFailureReason, type AuthSigner, type SignedAuth } from './backend-auth'
+import {
+  AuthError,
+  buildAuthHeader,
+  requestSignedAuth,
+  type AuthFailureReason,
+  type AuthSigner,
+  type SignedAuth,
+} from './backend-auth'
 import { BACKEND_URL, isBackendConfigured } from './backend-config'
 import type { paths } from './generated/backend-api'
 
@@ -38,7 +45,6 @@ export class BackendError extends Error {
 
 // --- Response shapes (mirror ourdao-backend/src/types.ts as of commit 7620d26; amounts are strings) ---
 
-
 export interface BackendReady {
   ready: boolean
   indexerStale?: boolean
@@ -47,7 +53,8 @@ export interface BackendReady {
 }
 
 type StatsBody = paths['/api/stats']['get']['responses']['200']['content']['application/json']
-type LoanItem = paths['/api/loans']['get']['responses']['200']['content']['application/json'][number]
+type LoanItem =
+  paths['/api/loans']['get']['responses']['200']['content']['application/json'][number]
 
 /**
  * Stats fields the app reads that ourdao-backend's DAOStats type returns but the
@@ -106,7 +113,6 @@ export interface BackendInterestDistribution {
   tx_hash: string | null
   created_at: string
 }
-
 
 export interface BackendFailedEvent {
   id: number | string
@@ -555,7 +561,12 @@ async function patch(
   } catch (err) {
     cleanup()
     if (err instanceof AuthError) {
-      return { ok: false, status: err.status, reason: reasonFromAuth(err.reason), message: err.message }
+      return {
+        ok: false,
+        status: err.status,
+        reason: reasonFromAuth(err.reason),
+        message: err.message,
+      }
     }
     return {
       ok: false,
@@ -622,8 +633,7 @@ export const backend = {
     get<BackendStats | null>(
       '/api/stats',
       null,
-      (value): value is BackendStats | null =>
-        value === null || isBackendStats(value),
+      (value): value is BackendStats | null => value === null || isBackendStats(value),
       options
     ),
 
@@ -639,8 +649,7 @@ export const backend = {
     get<BackendLoan | null>(
       `/api/loans/${id}`,
       null,
-      (value): value is BackendLoan | null =>
-        value === null || isBackendLoan(value),
+      (value): value is BackendLoan | null => value === null || isBackendLoan(value),
       options
     ),
 
@@ -695,11 +704,15 @@ export const backend = {
     address: string,
     signer: AuthSigner,
     options?: BackendRequestOptions | AbortSignal
-  ) =>
-    patch(`/api/notifications/read-all?address=${encodeURIComponent(address)}`, signer, options),
+  ) => patch(`/api/notifications/read-all?address=${encodeURIComponent(address)}`, signer, options),
 
   getFailedEvents: (options?: BackendRequestOptions | AbortSignal) =>
-    get<BackendFailedEvent[]>('/api/admin/failed-events', [], arrayOf(isBackendFailedEvent), options),
+    get<BackendFailedEvent[]>(
+      '/api/admin/failed-events',
+      [],
+      arrayOf(isBackendFailedEvent),
+      options
+    ),
 
   getDocumentHistory: (
     kind: string,
@@ -716,7 +729,12 @@ export const backend = {
   },
 
   getLoanTimeline: (id: number, options?: BackendRequestOptions | AbortSignal) =>
-    get<BackendTimelineEvent[]>(`/api/loans/${id}/timeline`, [], arrayOf(isBackendTimelineEvent), options),
+    get<BackendTimelineEvent[]>(
+      `/api/loans/${id}/timeline`,
+      [],
+      arrayOf(isBackendTimelineEvent),
+      options
+    ),
 
   getTreasuryTimeline: (id: number, options?: BackendRequestOptions | AbortSignal) =>
     get<BackendTimelineEvent[]>(
@@ -729,18 +747,14 @@ export const backend = {
   // The active member directory. The contract keeps no queryable member list,
   // so this is the only way to show who is in the DAO.
   getMembers: (limit = 50, options?: BackendRequestOptions | AbortSignal) =>
-    get<BackendMember[]>(
-      `/api/members?limit=${limit}`,
-      [],
-      arrayOf(isBackendMember),
-      options
-    ),
+    get<BackendMember[]>(`/api/members?limit=${limit}`, [], arrayOf(isBackendMember), options),
 
   getMemberSummary: (address: string, options?: BackendRequestOptions | AbortSignal) =>
     get<BackendMemberSummary | null>(
       `/api/members/${encodeURIComponent(address)}/summary`,
       null,
-      (value): value is BackendMemberSummary | null => value === null || isBackendMemberSummary(value),
+      (value): value is BackendMemberSummary | null =>
+        value === null || isBackendMemberSummary(value),
       options
     ),
 

@@ -14,7 +14,9 @@ describe('IPFS content integrity', () => {
     const content = new TextEncoder().encode('original document')
     const cid = (await computeIPFSCIDs(content)).cidV0
 
-    await expect(verifyDownloadedContent(cid, new TextEncoder().encode('tampered document'))).resolves.toBe(false)
+    await expect(
+      verifyDownloadedContent(cid, new TextEncoder().encode('tampered document'))
+    ).resolves.toBe(false)
   })
 
   it('rejects a malformed content identifier', async () => {

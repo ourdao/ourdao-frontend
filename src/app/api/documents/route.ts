@@ -81,10 +81,7 @@ export async function POST(req: NextRequest) {
 
   const origin = req.headers.get('origin')
   if (origin && origin !== ALLOWED_ORIGIN) {
-    return NextResponse.json(
-      { error: 'Invalid origin' },
-      { status: 403 }
-    )
+    return NextResponse.json({ error: 'Invalid origin' }, { status: 403 })
   }
 
   const contentType = req.headers.get('content-type')
@@ -102,19 +99,13 @@ export async function POST(req: NextRequest) {
 
   const authHeader = req.headers.get('authorization')
   if (!authHeader?.startsWith('Bearer ')) {
-    return NextResponse.json(
-      { error: 'Authentication required' },
-      { status: 401 }
-    )
+    return NextResponse.json({ error: 'Authentication required' }, { status: 401 })
   }
 
   const signature = authHeader.slice(7)
   const address = req.headers.get('x-stellar-address')
   if (!address) {
-    return NextResponse.json(
-      { error: 'Authentication required' },
-      { status: 401 }
-    )
+    return NextResponse.json({ error: 'Authentication required' }, { status: 401 })
   }
 
   // Verify signature with backend (uses same challenge-response scheme)
@@ -129,18 +120,12 @@ export async function POST(req: NextRequest) {
   })
 
   if (!verifyRes.ok) {
-    return NextResponse.json(
-      { error: 'Authentication required' },
-      { status: 401 }
-    )
+    return NextResponse.json({ error: 'Authentication required' }, { status: 401 })
   }
 
   const verified = (await verifyRes.json()) as { valid: boolean; isMember: boolean }
   if (!verified.valid || !verified.isMember) {
-    return NextResponse.json(
-      { error: 'Authentication required' },
-      { status: 401 }
-    )
+    return NextResponse.json({ error: 'Authentication required' }, { status: 401 })
   }
 
   const rateLimit = checkRateLimit(req)
@@ -194,7 +179,10 @@ export async function POST(req: NextRequest) {
   if (!res.ok) {
     const requestId = randomUUID()
     const detail = await res.text().catch(() => '')
-    console.error(`[documents] pinning provider rejected upload (${res.status}) requestId=${requestId}`, detail)
+    console.error(
+      `[documents] pinning provider rejected upload (${res.status}) requestId=${requestId}`,
+      detail
+    )
     return NextResponse.json(
       { error: `Pinning provider rejected the upload (request ${requestId})` },
       { status: 502 }
@@ -210,12 +198,18 @@ export async function POST(req: NextRequest) {
   }
 
   if (!rawData || typeof rawData !== 'object') {
-    return NextResponse.json({ error: 'Pinning provider response missing IpfsHash' }, { status: 502 })
+    return NextResponse.json(
+      { error: 'Pinning provider response missing IpfsHash' },
+      { status: 502 }
+    )
   }
 
   const { IpfsHash } = rawData as { IpfsHash?: unknown }
   if (typeof IpfsHash !== 'string' || !IpfsHash.trim()) {
-    return NextResponse.json({ error: 'Pinning provider response missing IpfsHash' }, { status: 502 })
+    return NextResponse.json(
+      { error: 'Pinning provider response missing IpfsHash' },
+      { status: 502 }
+    )
   }
 
   // 8. Verify returned CID format & content match against uploaded bytes

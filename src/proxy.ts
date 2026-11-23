@@ -13,26 +13,26 @@ function generateNonce(): string {
 
 /**
  * Build CSP with a per-request nonce for script-src.
- * 
+ *
  * The proxy generates a unique nonce for each request and injects it
  * into the CSP header. Next.js will automatically pick up the nonce and apply
  * it to inline scripts during hydration when using the App Router.
- * 
+ *
  * The nonce approach with 'strict-dynamic' provides strong XSS protection:
  * - Only scripts with the correct nonce can execute
  * - 'strict-dynamic' allows those scripts to load additional scripts
  * - 'unsafe-inline' is removed, blocking injected inline scripts
- * 
+ *
  * style-src keeps 'unsafe-inline' because Next.js still requires it for
  * inline styles in the App Router. This is documented separately from the
  * script-src policy.
- * 
+ *
  * img-src is restricted to specific origins:
  * - 'self' for static assets served from this domain
  * - data: for inline data URIs (e.g., base64-encoded images)
  * - blob: for dynamically-generated previews (DocumentViewer uses URL.createObjectURL)
  * - IPFS gateway origins for user-uploaded document images
- * 
+ *
  * This prevents arbitrary HTTPS origins from being used as image sources,
  * which would leak the viewer's IP and referer to external hosts.
  */

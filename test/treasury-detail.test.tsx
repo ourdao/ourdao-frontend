@@ -1,6 +1,7 @@
 // @vitest-environment jsdom
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { screen, waitFor, fireEvent } from '@testing-library/react'
+import toast from 'react-hot-toast'
 import { renderWithProviders } from './test-utils'
 import TreasuryProposalDetailPage from '@/app/(app)/treasury/[id]/page'
 
@@ -9,11 +10,25 @@ const mockHasVoted = vi.fn()
 const mockIsMember = vi.fn()
 const mockExecuteTreasury = vi.fn()
 const mockAnnounce = vi.fn()
+const mockGetDocument = vi.fn().mockResolvedValue(null)
+
+vi.mock('@/constants', async () => {
+  const actual = await vi.importActual<typeof import('@/constants')>('@/constants')
+  const multiGateway = 'https://a.example/ipfs/,https://b.example/ipfs/'
+  const gateways = actual.parseGatewayList(multiGateway)
+  return {
+    ...actual,
+    IPFS_GATEWAYS: gateways,
+    IPFS_GATEWAY: gateways[0],
+  }
+})
 
 vi.mock('@/lib/announce', () => ({
   announce: (...a: unknown[]) => mockAnnounce(...a),
 }))
-const mockVoteOnTreasury = vi.fn().mockResolvedValue({ hash: 'tx-vote-treasury', returnValue: null })
+const mockVoteOnTreasury = vi
+  .fn()
+  .mockResolvedValue({ hash: 'tx-vote-treasury', returnValue: null })
 
 vi.mock('next/navigation', () => ({
   useParams: () => ({ id: '42' }),
@@ -45,7 +60,7 @@ vi.mock('@/lib/dao-client', () => ({
     calculateExitShare: vi.fn().mockResolvedValue(null),
     getTreasuryProposal: (...a: unknown[]) => mockGetTreasuryProposal(...a),
     hasVoted: (...a: unknown[]) => mockHasVoted(...a),
-    getDocument: vi.fn().mockResolvedValue(null),
+    getDocument: (...a: unknown[]) => mockGetDocument(...a),
     getTotalMembers: vi.fn().mockResolvedValue(10),
     getActiveMembers: vi.fn().mockResolvedValue(8),
     getConsensusThreshold: vi.fn().mockResolvedValue(5100),
@@ -73,6 +88,7 @@ describe('TreasuryProposalDetailPage (/treasury/[id])', () => {
     vi.clearAllMocks()
     mockIsMember.mockResolvedValue(true)
     mockHasVoted.mockResolvedValue(false)
+    mockGetDocument.mockResolvedValue(null)
   })
 
   it('renders treasury proposal details when loaded', async () => {
@@ -93,8 +109,10 @@ describe('TreasuryProposalDetailPage (/treasury/[id])', () => {
       expect(screen.getAllByText(/Treasury Proposal #42/)[0]).toBeInTheDocument()
     })
 
-    expect(screen.getByText('5')).toBeInTheDocument() // 50000000 stroops = 5 tokens
-    expect(screen.getByText(/GBBD47IF6LWK7P7MDEVSCWR7DPUWV3NY3DTQEVFL4NAT4AQH3ZLLFLA5/)).toBeInTheDocument()
+    expect(screen.getByText(/5 TOKEN/)).toBeInTheDocument() // 50000000 stroops = 5 tokens
+    expect(
+      screen.getByText(/GBBD47IF6LWK7P7MDEVSCWR7DPUWV3NY3DTQEVFL4NAT4AQH3ZLLFLA5/)
+    ).toBeInTheDocument()
     expect(screen.getByText('In Voting')).toBeInTheDocument()
     expect(screen.getByRole('button', { name: /Vote For/i })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: /Vote Against/i })).toBeInTheDocument()
@@ -165,15 +183,15 @@ describe('TreasuryProposalDetailPage (/treasury/[id])', () => {
 
       fireEvent.click(screen.getByRole('button', { name: /^Execute$/ }))
 
-      await waitFor(() =>
-        expect(mockGetTreasuryProposal.mock.calls.length).toBeGreaterThan(before),
-      )
+      await waitFor(() => expect(mockGetTreasuryProposal.mock.calls.length).toBeGreaterThan(before))
     })
 
     it('surfaces the contract error in plain language when execution fails', async () => {
       mockGetTreasuryProposal.mockResolvedValue(awaiting)
       mockExecuteTreasury.mockRejectedValue(
-        new Error('The treasury balance is too low to cover this payout. Top up the treasury, then try again.'),
+        new Error(
+          'The treasury balance is too low to cover this payout. Top up the treasury, then try again.'
+        )
       )
       renderWithProviders(<TreasuryProposalDetailPage />)
       fireEvent.click(await screen.findByRole('button', { name: /^Execute$/ }))
@@ -181,8 +199,8 @@ describe('TreasuryProposalDetailPage (/treasury/[id])', () => {
       await waitFor(() =>
         expect(mockAnnounce).toHaveBeenCalledWith(
           expect.stringContaining('treasury balance is too low'),
-          'assertive',
-        ),
+          'assertive'
+        )
       )
       // The action stays available so the member can retry after a top-up.
       expect(screen.getByRole('button', { name: /^Execute$/ })).toBeEnabled()
@@ -246,7 +264,9 @@ describe('TreasuryProposalDetailPage (/treasury/[id])', () => {
 
       fireEvent.click(screen.getByRole('button', { name: /Step 1: Download salt backup/i }))
 
-      await waitFor(() => expect(screen.getByRole('button', { name: /Step 2: Commit Vote/i })).toBeEnabled())
+      await waitFor(() =>
+        expect(screen.getByRole('button', { name: /Step 2: Commit Vote/i })).toBeEnabled()
+      )
       expect(URL.createObjectURL).toHaveBeenCalledTimes(1)
     })
 
@@ -268,6 +288,53 @@ describe('TreasuryProposalDetailPage (/treasury/[id])', () => {
       fireEvent.change(input, { target: { files: [file] } })
 
       expect(await screen.findByRole('button', { name: /Reveal FOR/i })).toBeInTheDocument()
+    })
+
+    // #572: a backup whose salt is not 64 hex characters must be rejected with an error toast
+    it('rejects an imported salt backup whose salt is not 64 hex characters (#572)', async () => {
+      const toastErrorSpy = vi.spyOn(toast, 'error')
+      mockGetTreasuryProposal.mockResolvedValue(privateProposal)
+      mockHasVoted.mockResolvedValue(true)
+
+      renderWithProviders(<TreasuryProposalDetailPage />)
+
+      await screen.findByText(/salt not found/i)
+      const input = document.querySelector('input[type="file"]') as HTMLInputElement
+      expect(input).not.toBeNull()
+
+      const badBackup = JSON.stringify({ proposalId: 42, address: 'GALICE', salt: 'zz' })
+      const file = new File([badBackup], 'salt.json', { type: 'application/json' })
+      fireEvent.change(input, { target: { files: [file] } })
+
+      await waitFor(() => {
+        expect(toastErrorSpy).toHaveBeenCalledWith('Invalid salt file format')
+      })
+      expect(screen.queryByRole('button', { name: /Reveal FOR/i })).not.toBeInTheDocument()
+    })
+  })
+
+  describe('attached document gateway link (#563)', () => {
+    it('links attached documents using the first parsed gateway when multi-gateway is configured', async () => {
+      mockGetTreasuryProposal.mockResolvedValue({
+        id: 42,
+        destination: 'GBBD47IF6LWK7P7MDEVSCWR7DPUWV3NY3DTQEVFL4NAT4AQH3ZLLFLA5',
+        reason: 'Treasury Proposal #42',
+        amount: '50000000',
+        status: 'Pending',
+        votesFor: '10',
+        votesAgainst: '2',
+        isPrivate: false,
+      })
+      const testCid = 'bafybeigdyrzt5sfp7udm7hu76uh7y26nf3efuylqabf3oclgtqy55fbzdi'
+      mockGetDocument.mockResolvedValue(new TextEncoder().encode(testCid))
+
+      renderWithProviders(<TreasuryProposalDetailPage />)
+
+      const viewButton = await screen.findByRole('button', { name: /^View$/i })
+      const viewLink = viewButton.closest('a')
+      expect(viewLink).not.toBeNull()
+      expect(viewLink).toHaveAttribute('href', `https://a.example/ipfs/${testCid}`)
+      expect(viewLink?.getAttribute('href')).toMatch(/^https:\/\/a\.example\/ipfs\//)
     })
   })
 })

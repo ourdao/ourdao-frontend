@@ -69,10 +69,18 @@ beforeEach(() => {
   window.localStorage.clear()
   vi.mocked(freighter.isAllowed).mockResolvedValue({ isAllowed: false } as never)
   vi.mocked(freighter.getAddress).mockResolvedValue({ address: FREIGHTER_ADDRESS } as never)
-  vi.mocked(freighter.getNetwork).mockResolvedValue({ network: 'TESTNET', networkPassphrase: PASSPHRASE } as never)
-  vi.mocked(freighter.isConnected).mockResolvedValue({ isConnected: true, version: '2.5.0' } as never)
+  vi.mocked(freighter.getNetwork).mockResolvedValue({
+    network: 'TESTNET',
+    networkPassphrase: PASSPHRASE,
+  } as never)
+  vi.mocked(freighter.isConnected).mockResolvedValue({
+    isConnected: true,
+    version: '2.5.0',
+  } as never)
   vi.mocked(freighter.requestAccess).mockResolvedValue({ address: FREIGHTER_ADDRESS } as never)
-  vi.mocked(freighter.signTransaction).mockResolvedValue({ signedTxXdr: 'FREIGHTER_SIGNED' } as never)
+  vi.mocked(freighter.signTransaction).mockResolvedValue({
+    signedTxXdr: 'FREIGHTER_SIGNED',
+  } as never)
 })
 
 afterEach(() => vi.clearAllMocks())
@@ -92,7 +100,7 @@ describe('connectWithKit', () => {
     expect(freighter.signTransaction).not.toHaveBeenCalled()
   })
 
-  it('does not start Freighter\'s change watcher for a kit wallet', async () => {
+  it("does not start Freighter's change watcher for a kit wallet", async () => {
     const ref = mount(fakeKit())
     await waitFor(() => expect(w(ref).isRestoring).toBe(false))
     await act(() => w(ref).connectWithKit())
@@ -110,7 +118,9 @@ describe('connectWithKit', () => {
   })
 
   it('rejects signMessage for a wallet without message signing so backend auth can degrade', async () => {
-    const kit = fakeKit({ signMessage: vi.fn().mockRejectedValue(new MessageSigningUnsupportedError()) })
+    const kit = fakeKit({
+      signMessage: vi.fn().mockRejectedValue(new MessageSigningUnsupportedError()),
+    })
     const ref = mount(kit)
     await waitFor(() => expect(w(ref).isRestoring).toBe(false))
     await act(() => w(ref).connectWithKit())
@@ -119,7 +129,10 @@ describe('connectWithKit', () => {
 
   it('blocks signing and flags a mismatch when the kit wallet is on another network', async () => {
     const kit = fakeKit({
-      getNetwork: vi.fn().mockResolvedValue({ network: 'PUBLIC', networkPassphrase: 'Public Global Stellar Network ; September 2015' }),
+      getNetwork: vi.fn().mockResolvedValue({
+        network: 'PUBLIC',
+        networkPassphrase: 'Public Global Stellar Network ; September 2015',
+      }),
     })
     const ref = mount(kit)
     await waitFor(() => expect(w(ref).isRestoring).toBe(false))
@@ -183,14 +196,19 @@ describe('session restore', () => {
   it('does not expose a signed-out state during stale kit fallback (#487)', async () => {
     window.localStorage.setItem('ourdao:wallet-session', 'kit')
     let finishFreighter!: (value: { isAllowed: boolean }) => void
-    vi.mocked(freighter.isAllowed).mockImplementation(() => new Promise((resolve) => {
-      finishFreighter = resolve as typeof finishFreighter
-    }) as never)
+    vi.mocked(freighter.isAllowed).mockImplementation(
+      () =>
+        new Promise((resolve) => {
+          finishFreighter = resolve as typeof finishFreighter
+        }) as never
+    )
     const ref = mount(fakeKit({ getAddress: vi.fn().mockResolvedValue(null) }))
     await waitFor(() => expect(freighter.isAllowed).toHaveBeenCalled())
     expect(w(ref).address).toBeNull()
     expect(w(ref).isRestoring).toBe(true)
-    await act(async () => { finishFreighter({ isAllowed: true }) })
+    await act(async () => {
+      finishFreighter({ isAllowed: true })
+    })
     await waitFor(() => expect(w(ref).address).toBe(FREIGHTER_ADDRESS))
     expect(w(ref).isRestoring).toBe(false)
   })

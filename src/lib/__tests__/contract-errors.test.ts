@@ -12,7 +12,7 @@ describe('CONTRACT_ERROR_MESSAGES', () => {
 
   it('maps InvalidMetadataCid (#78) to a specific message', () => {
     expect(formatContractError('HostError: Error(Contract, [#78])')).toBe(
-      CONTRACT_ERROR_MESSAGES[78],
+      CONTRACT_ERROR_MESSAGES[78]
     )
   })
 })

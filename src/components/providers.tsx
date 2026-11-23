@@ -36,10 +36,16 @@ export function Providers({ children }: { children: React.ReactNode }) {
                 borderRadius: '8px',
               },
               success: {
-                iconTheme: { primary: 'var(--color-success)', secondary: 'var(--color-success-foreground)' },
+                iconTheme: {
+                  primary: 'var(--color-success)',
+                  secondary: 'var(--color-success-foreground)',
+                },
               },
               error: {
-                iconTheme: { primary: 'var(--color-destructive)', secondary: 'var(--color-destructive-foreground)' },
+                iconTheme: {
+                  primary: 'var(--color-destructive)',
+                  secondary: 'var(--color-destructive-foreground)',
+                },
               },
             }}
           />

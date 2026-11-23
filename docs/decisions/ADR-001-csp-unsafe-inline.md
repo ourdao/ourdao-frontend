@@ -16,7 +16,7 @@ applies static headers to all responses — it cannot generate per-request
 nonces. Achieving a nonce-based policy would require:
 
 1. A custom Next.js middleware that generates a random nonce per request.
-2. Injecting that nonce into the CSP header *and* into every inline `<script>`.
+2. Injecting that nonce into the CSP header _and_ into every inline `<script>`.
 3. Ensuring all third-party inline scripts (analytics, etc.) are also covered.
 
 This is not achievable with the current `headers()` API alone.

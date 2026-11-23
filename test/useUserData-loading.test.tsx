@@ -119,7 +119,11 @@ describe('useUserData isLoading', () => {
       const client = new QueryClient({ defaultOptions: { queries: { retry: false } } })
       const { rerender } = render(
         <QueryClientProvider client={client}>
-          <Harness onRender={(d) => { latest = d }} />
+          <Harness
+            onRender={(d) => {
+              latest = d
+            }}
+          />
         </QueryClientProvider>
       )
       await waitFor(() => expect(latest?.isLoading).toBe(true))
@@ -128,7 +132,11 @@ describe('useUserData isLoading', () => {
       mockWallet = { address: 'GALICE', isConnected: true, isRestoring: false }
       rerender(
         <QueryClientProvider client={client}>
-          <Harness onRender={(d) => { latest = d }} />
+          <Harness
+            onRender={(d) => {
+              latest = d
+            }}
+          />
         </QueryClientProvider>
       )
 
@@ -146,7 +154,11 @@ describe('useUserData isLoading', () => {
       const client = new QueryClient({ defaultOptions: { queries: { retry: false } } })
       const { rerender } = render(
         <QueryClientProvider client={client}>
-          <Harness onRender={(d) => { latest = d }} />
+          <Harness
+            onRender={(d) => {
+              latest = d
+            }}
+          />
         </QueryClientProvider>
       )
       await waitFor(() => expect(latest?.isLoading).toBe(true))
@@ -154,7 +166,11 @@ describe('useUserData isLoading', () => {
       mockWallet = { address: 'GALICE', isConnected: true, isRestoring: false }
       rerender(
         <QueryClientProvider client={client}>
-          <Harness onRender={(d) => { latest = d }} />
+          <Harness
+            onRender={(d) => {
+              latest = d
+            }}
+          />
         </QueryClientProvider>
       )
       resolveIsMember(false)

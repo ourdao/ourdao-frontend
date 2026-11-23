@@ -78,7 +78,11 @@ function assertPassword(password: string | undefined): asserts password is strin
   }
 }
 
-async function deriveKey(password: string, salt: Uint8Array, iterations: number): Promise<CryptoKey> {
+async function deriveKey(
+  password: string,
+  salt: Uint8Array,
+  iterations: number
+): Promise<CryptoKey> {
   const keyMaterial = await crypto.subtle.importKey(
     'raw',
     new TextEncoder().encode(password),
@@ -92,7 +96,7 @@ async function deriveKey(password: string, salt: Uint8Array, iterations: number)
       name: 'PBKDF2',
       salt: toBufferSource(salt),
       iterations,
-      hash: 'SHA-256'
+      hash: 'SHA-256',
     },
     keyMaterial,
     { name: 'AES-GCM', length: 256 },
@@ -264,10 +268,13 @@ export async function uploadToIPFS(
   if (wallet?.address && wallet?.signMessage) {
     // Get challenge from backend
     const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:4000'
-    const challengeRes = await fetch(`${backendUrl}/api/auth/challenge?address=${encodeURIComponent(wallet.address)}`, {
-      headers: { accept: 'application/json' },
-      cache: 'no-store',
-    })
+    const challengeRes = await fetch(
+      `${backendUrl}/api/auth/challenge?address=${encodeURIComponent(wallet.address)}`,
+      {
+        headers: { accept: 'application/json' },
+        cache: 'no-store',
+      }
+    )
 
     if (!challengeRes.ok) {
       throw new Error('Could not get authentication challenge')
@@ -396,7 +403,7 @@ export function createDocumentMetadata(
     hash,
     // Closed unless the caller says otherwise: encryption and public access are
     // separate decisions, so not encrypting must never imply "anyone may read".
-    permissions: permissions || { public: false }
+    permissions: permissions || { public: false },
   }
 }
 
@@ -418,11 +425,11 @@ export function canAccessDocument(
   if (metadata.permissions?.allowedUsers?.includes(userAddress)) {
     return true
   }
-  
-  if (metadata.permissions?.allowedRoles?.some(role => userRoles.includes(role))) {
+
+  if (metadata.permissions?.allowedRoles?.some((role) => userRoles.includes(role))) {
     return true
   }
-  
+
   return false
 }
 
@@ -443,7 +450,10 @@ export async function uploadMultipleDocuments(
     typeof (walletOrPermissions as { address: unknown }).address === 'string'
 
   const wallet = isWallet
-    ? (walletOrPermissions as { address: string; signMessage: (message: string) => Promise<string> })
+    ? (walletOrPermissions as {
+        address: string
+        signMessage: (message: string) => Promise<string>
+      })
     : undefined
 
   const actualPermissions = isWallet
@@ -481,10 +491,10 @@ export function filterDocuments(
   documents: DocumentMetadata[],
   filter: DocumentFilter
 ): DocumentMetadata[] {
-  return documents.filter(doc => {
+  return documents.filter((doc) => {
     if (filter.type && doc.type !== filter.type) return false
     if (filter.encrypted !== undefined && doc.encrypted !== filter.encrypted) return false
-    if (filter.tags && !filter.tags.some(tag => doc.tags?.includes(tag))) return false
+    if (filter.tags && !filter.tags.some((tag) => doc.tags?.includes(tag))) return false
     if (filter.dateFrom && doc.uploadedAt < filter.dateFrom) return false
     if (filter.dateTo && doc.uploadedAt > filter.dateTo) return false
     if (filter.sizeMin !== undefined && doc.size < filter.sizeMin) return false

@@ -53,14 +53,14 @@ function Harness({ onRender }: { onRender: (w: ReturnType<typeof useWallet>) => 
 
 function renderProvider(
   queryClient: QueryClient,
-  onRender: (w: ReturnType<typeof useWallet>) => void,
+  onRender: (w: ReturnType<typeof useWallet>) => void
 ) {
   return render(
     <QueryClientProvider client={queryClient}>
       <WalletProvider>
         <Harness onRender={onRender} />
       </WalletProvider>
-    </QueryClientProvider>,
+    </QueryClientProvider>
   )
 }
 
@@ -135,7 +135,7 @@ describe('WalletProvider — Freighter account switch (issue #59)', () => {
 
     // userData, userLoans, and stake caches must all be invalidated.
     const invalidatedKeys = invalidate.mock.calls.map(
-      (c) => (c[0] as { queryKey: unknown[] }).queryKey[0],
+      (c) => (c[0] as { queryKey: unknown[] }).queryKey[0]
     )
     expect(invalidatedKeys).toContain('userData')
     expect(invalidatedKeys).toContain('userLoans')

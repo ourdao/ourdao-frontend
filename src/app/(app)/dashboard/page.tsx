@@ -73,9 +73,7 @@ export default function DashboardPage() {
         <Card className="w-full max-w-md">
           <CardHeader className="text-center">
             <CardTitle>Access Dashboard</CardTitle>
-            <CardDescription>
-              Connect your wallet to access the member dashboard
-            </CardDescription>
+            <CardDescription>Connect your wallet to access the member dashboard</CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
             <ConnectButton.Custom>
@@ -86,7 +84,7 @@ export default function DashboardPage() {
               )}
             </ConnectButton.Custom>
             <div className="text-center">
-              <Link href="/" className="text-sm text-muted-foreground hover:text-foreground">
+              <Link href="/" className="text-muted-foreground hover:text-foreground text-sm">
                 ← Back to Home
               </Link>
             </div>
@@ -99,10 +97,7 @@ export default function DashboardPage() {
   if (userData.isError) {
     return (
       <div className="mx-auto mt-8 max-w-md">
-        <LoadError
-          what="your membership data"
-          onRetry={userData.refetch}
-        />
+        <LoadError what="your membership data" onRetry={userData.refetch} />
       </div>
     )
   }
@@ -113,18 +108,14 @@ export default function DashboardPage() {
         <Card className="w-full max-w-md">
           <CardHeader className="text-center">
             <CardTitle>Not a Member</CardTitle>
-            <CardDescription>
-              You need to be a DAO member to access the dashboard
-            </CardDescription>
+            <CardDescription>You need to be a DAO member to access the dashboard</CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
             <Button asChild className="w-full" size="lg">
-              <Link href="/register">
-                Join the DAO
-              </Link>
+              <Link href="/register">Join the DAO</Link>
             </Button>
             <div className="text-center">
-              <Link href="/" className="text-sm text-muted-foreground hover:text-foreground">
+              <Link href="/" className="text-muted-foreground hover:text-foreground text-sm">
                 ← Back to Home
               </Link>
             </div>
@@ -170,16 +161,21 @@ export default function DashboardPage() {
       href: '/privacy',
       color: 'text-yellow-600 dark:text-yellow-400',
     },
-    ...(userData.isAdmin ? [{
-      title: 'Admin Panel',
-      description: 'Manage DAO operations and configuration',
-      icon: ShieldCheckIcon,
-      href: '/admin',
-      color: 'text-red-600 dark:text-red-400',
-    }] : [])
+    ...(userData.isAdmin
+      ? [
+          {
+            title: 'Admin Panel',
+            description: 'Manage DAO operations and configuration',
+            icon: ShieldCheckIcon,
+            href: '/admin',
+            color: 'text-red-600 dark:text-red-400',
+          },
+        ]
+      : []),
   ]
 
-  const memberStatusColor = userData.member?.status === 1 ? 'text-green-600' : 'text-muted-foreground'
+  const memberStatusColor =
+    userData.member?.status === 1 ? 'text-green-600' : 'text-muted-foreground'
   const memberStatusBg = userData.member?.status === 1 ? 'bg-green-50' : 'bg-muted'
 
   return (
@@ -188,238 +184,253 @@ export default function DashboardPage() {
         title="Member Dashboard"
         subtitle="Your membership, rewards, and activity at a glance"
       />
-        {/* Member Status */}
-        <div className="mb-8">
-          <Card>
-            <CardContent className="p-6">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center space-x-4">
-                  <div className={`p-3 rounded-full ${memberStatusBg}`}>
-                    <CheckCircleIcon className={`h-8 w-8 ${memberStatusColor}`} />
+      {/* Member Status */}
+      <div className="mb-8">
+        <Card>
+          <CardContent className="p-6">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center space-x-4">
+                <div className={`rounded-full p-3 ${memberStatusBg}`}>
+                  <CheckCircleIcon className={`h-8 w-8 ${memberStatusColor}`} />
+                </div>
+                <div>
+                  <h3 className="text-foreground text-lg font-semibold">
+                    <AddressLink address={userData.address || ''} />
+                  </h3>
+                  <p className="text-muted-foreground text-sm">
+                    Status:{' '}
+                    {userData.member
+                      ? MEMBER_STATUS_LABELS[userData.member.status]
+                      : NON_MEMBER_LABEL}
+                  </p>
+                  <p className="text-muted-foreground text-sm">
+                    Member since: {formatDate(userData.member?.joinDate || 0)}
+                  </p>
+                </div>
+              </div>
+
+              <div className="text-right">
+                <div className="text-muted-foreground text-sm">Voting Weight</div>
+                <div className="text-foreground text-2xl font-bold">
+                  {userData.votingWeight ?? '—'}
+                </div>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+
+      <div className={`grid grid-cols-1 ${isMobile ? 'gap-4' : 'gap-8 lg:grid-cols-3'}`}>
+        {/* Main Content */}
+        <div className={`${isMobile ? 'space-y-4' : 'space-y-8 lg:col-span-2'}`}>
+          {/* Stats Cards */}
+          <div className={`grid ${getCardGridClass(3)} gap-3 sm:gap-6`}>
+            <Card>
+              <CardContent className="p-6">
+                <div className="flex items-center">
+                  <div className="mr-4 rounded-full bg-blue-50 p-3 dark:bg-blue-950/50">
+                    <CurrencyDollarIcon className="h-8 w-8 text-blue-600 dark:text-blue-400" />
                   </div>
                   <div>
-                    <h3 className="text-lg font-semibold text-foreground">
-                      <AddressLink address={userData.address || ''} />
-                    </h3>
-                    <p className="text-sm text-muted-foreground">
-                      Status: {userData.member ? MEMBER_STATUS_LABELS[userData.member.status] : NON_MEMBER_LABEL}
-                    </p>
-                    <p className="text-sm text-muted-foreground">
-                      Member since: {formatDate(userData.member?.joinDate || 0)}
+                    <p className="text-muted-foreground text-sm font-medium">Share Balance</p>
+                    <p className="text-foreground text-2xl font-bold">
+                      {formatToken(userData.member?.shareBalance || BigInt(0))}
                     </p>
                   </div>
                 </div>
-                
-                <div className="text-right">
-                  <div className="text-sm text-muted-foreground">Voting Weight</div>
-                  <div className="text-2xl font-bold text-foreground">{userData.votingWeight ?? '—'}</div>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardContent className="p-6">
+                <div className="flex items-center">
+                  <div className="mr-4 rounded-full bg-purple-50 p-3 dark:bg-purple-950/50">
+                    <ChartBarIcon className="h-8 w-8 text-purple-600 dark:text-purple-400" />
+                  </div>
+                  <div>
+                    <p className="text-muted-foreground text-sm font-medium">Claimable Yield</p>
+                    <p className="text-foreground text-2xl font-bold">
+                      {formatToken(userData.pendingYield)}
+                    </p>
+                  </div>
                 </div>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardContent className="p-6">
+                <div className="flex items-center">
+                  <div className="mr-4 rounded-full bg-yellow-50 p-3 dark:bg-yellow-950/50">
+                    <BanknotesIcon
+                      className={`h-8 w-8 ${userData.hasActiveLoan ? 'text-red-600 dark:text-red-400' : 'text-green-600 dark:text-green-400'}`}
+                    />
+                  </div>
+                  <div>
+                    <p className="text-muted-foreground text-sm font-medium">Active Loan</p>
+                    <p className="text-foreground text-2xl font-bold">
+                      {userData.hasActiveLoan ? 'Yes' : 'No'}
+                    </p>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+
+          {/* Rewards Section */}
+          {userData.pendingYield > BigInt(0) && (
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center">
+                  <TrophyIcon className="mr-2 h-5 w-5 text-yellow-600 dark:text-yellow-400" />
+                  Claimable Yield
+                </CardTitle>
+                <CardDescription>You have yield available to claim</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="flex items-center justify-between rounded-lg bg-purple-50 p-4 dark:bg-purple-950/30">
+                  <div>
+                    <p className="font-medium text-purple-900 dark:text-purple-300">Yield</p>
+                    <p className="text-sm text-purple-700 dark:text-purple-400">
+                      {formatToken(userData.pendingYield)}
+                    </p>
+                  </div>
+                  <Button
+                    onClick={handleClaimYield}
+                    disabled={isPending || stats.isPaused}
+                    size="sm"
+                  >
+                    {isPending ? 'Claiming...' : 'Claim'}
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
+          {/* Quick Actions */}
+          <Card>
+            <CardHeader>
+              <CardTitle>Quick Actions</CardTitle>
+              <CardDescription>Common tasks and features you can access</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                {quickActions.map((action) => {
+                  const Icon = action.icon
+                  return (
+                    <Link key={action.title} href={action.href}>
+                      <div className="border-border hover:border-input cursor-pointer rounded-lg border p-4 transition-all hover:shadow-sm">
+                        <div className="flex items-start space-x-3">
+                          <Icon className={`h-6 w-6 ${action.color} mt-1`} />
+                          <div>
+                            <h3 className="text-foreground font-medium">{action.title}</h3>
+                            <p className="text-muted-foreground text-sm">{action.description}</p>
+                          </div>
+                          <ArrowUpRightIcon className="text-muted-foreground ml-auto h-4 w-4" />
+                        </div>
+                      </div>
+                    </Link>
+                  )
+                })}
               </div>
             </CardContent>
           </Card>
         </div>
 
-        <div className={`grid grid-cols-1 ${isMobile ? 'gap-4' : 'lg:grid-cols-3 gap-8'}`}>
-          {/* Main Content */}
-          <div className={`${isMobile ? 'space-y-4' : 'lg:col-span-2 space-y-8'}`}>
-            {/* Stats Cards */}
-            <div className={`grid ${getCardGridClass(3)} gap-3 sm:gap-6`}>
-              <Card>
-                <CardContent className="p-6">
-                  <div className="flex items-center">
-                    <div className="p-3 rounded-full bg-blue-50 dark:bg-blue-950/50 mr-4">
-                      <CurrencyDollarIcon className="h-8 w-8 text-blue-600 dark:text-blue-400" />
-                    </div>
-                    <div>
-                      <p className="text-sm font-medium text-muted-foreground">Share Balance</p>
-                      <p className="text-2xl font-bold text-foreground">
-                        {formatToken(userData.member?.shareBalance || BigInt(0))}
-                      </p>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-
-              <Card>
-                <CardContent className="p-6">
-                  <div className="flex items-center">
-                    <div className="p-3 rounded-full bg-purple-50 dark:bg-purple-950/50 mr-4">
-                      <ChartBarIcon className="h-8 w-8 text-purple-600 dark:text-purple-400" />
-                    </div>
-                    <div>
-                      <p className="text-sm font-medium text-muted-foreground">Claimable Yield</p>
-                      <p className="text-2xl font-bold text-foreground">
-                        {formatToken(userData.pendingYield)}
-                      </p>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-
-              <Card>
-                <CardContent className="p-6">
-                  <div className="flex items-center">
-                    <div className="p-3 rounded-full bg-yellow-50 dark:bg-yellow-950/50 mr-4">
-                      <BanknotesIcon className={`h-8 w-8 ${userData.hasActiveLoan ? 'text-red-600 dark:text-red-400' : 'text-green-600 dark:text-green-400'}`} />
-                    </div>
-                    <div>
-                      <p className="text-sm font-medium text-muted-foreground">Active Loan</p>
-                      <p className="text-2xl font-bold text-foreground">
-                        {userData.hasActiveLoan ? 'Yes' : 'No'}
-                      </p>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-            </div>
-
-            {/* Rewards Section */}
-            {userData.pendingYield > BigInt(0) && (
-              <Card>
-                <CardHeader>
-                  <CardTitle className="flex items-center">
-                    <TrophyIcon className="h-5 w-5 text-yellow-600 dark:text-yellow-400 mr-2" />
-                    Claimable Yield
-                  </CardTitle>
-                  <CardDescription>
-                    You have yield available to claim
-                  </CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <div className="flex items-center justify-between p-4 bg-purple-50 dark:bg-purple-950/30 rounded-lg">
-                    <div>
-                      <p className="font-medium text-purple-900 dark:text-purple-300">Yield</p>
-                      <p className="text-sm text-purple-700 dark:text-purple-400">{formatToken(userData.pendingYield)}</p>
-                    </div>
-                    <Button
-                      onClick={handleClaimYield}
-                      disabled={isPending || stats.isPaused}
-                      size="sm"
-                    >
-                      {isPending ? 'Claiming...' : 'Claim'}
-                    </Button>
-                  </div>
-                </CardContent>
-              </Card>
-            )}
-
-            {/* Quick Actions */}
-            <Card>
-              <CardHeader>
-                <CardTitle>Quick Actions</CardTitle>
-                <CardDescription>
-                  Common tasks and features you can access
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  {quickActions.map((action) => {
-                    const Icon = action.icon
-                    return (
-                      <Link key={action.title} href={action.href}>
-                        <div className="p-4 border border-border rounded-lg hover:border-input hover:shadow-sm transition-all cursor-pointer">
-                          <div className="flex items-start space-x-3">
-                            <Icon className={`h-6 w-6 ${action.color} mt-1`} />
-                            <div>
-                              <h3 className="font-medium text-foreground">{action.title}</h3>
-                              <p className="text-sm text-muted-foreground">{action.description}</p>
-                            </div>
-                            <ArrowUpRightIcon className="h-4 w-4 text-muted-foreground ml-auto" />
-                          </div>
-                        </div>
-                      </Link>
-                    )
-                  })}
-                </div>
-              </CardContent>
-            </Card>
-          </div>
-
-          {/* Sidebar */}
-          <div className={`${isMobile ? 'space-y-4' : 'space-y-8'}`}>
-            {/* DAO Overview */}
-            <Card>
-              <CardHeader>
-                <CardTitle>DAO Overview</CardTitle>
-                <CardDescription>Current DAO statistics</CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-4">
+        {/* Sidebar */}
+        <div className={`${isMobile ? 'space-y-4' : 'space-y-8'}`}>
+          {/* DAO Overview */}
+          <Card>
+            <CardHeader>
+              <CardTitle>DAO Overview</CardTitle>
+              <CardDescription>Current DAO statistics</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="flex justify-between">
+                <span className="text-muted-foreground text-sm">Total Members</span>
+                <span className="font-medium">{stats.totalMembers}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-muted-foreground text-sm">Active Members</span>
+                <span className="font-medium">{stats.activeMembers}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-muted-foreground text-sm">Treasury Balance</span>
+                <span className="font-medium">{formatToken(stats.treasuryBalance)}</span>
+              </div>
+              {stats.totalYieldGenerated > BigInt(0) && (
                 <div className="flex justify-between">
-                  <span className="text-sm text-muted-foreground">Total Members</span>
-                  <span className="font-medium">{stats.totalMembers}</span>
+                  <span className="text-muted-foreground text-sm">Total Yield</span>
+                  <span className="font-medium">{formatToken(stats.totalYieldGenerated)}</span>
                 </div>
-                <div className="flex justify-between">
-                  <span className="text-sm text-muted-foreground">Active Members</span>
-                  <span className="font-medium">{stats.activeMembers}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-sm text-muted-foreground">Treasury Balance</span>
-                  <span className="font-medium">{formatToken(stats.treasuryBalance)}</span>
-                </div>
-                {stats.totalYieldGenerated > BigInt(0) && (
-                  <div className="flex justify-between">
-                    <span className="text-sm text-muted-foreground">Total Yield</span>
-                    <span className="font-medium">{formatToken(stats.totalYieldGenerated)}</span>
-                  </div>
-                )}
-              </CardContent>
-            </Card>
+              )}
+            </CardContent>
+          </Card>
 
-            {/* Feature Status */}
-            <Card>
-              <CardHeader>
-                <CardTitle>Feature Status</CardTitle>
-                <CardDescription>Available DAO features</CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-3">
-                <div className="flex items-center justify-between">
-                  <span className="text-sm text-muted-foreground">ENS Voting</span>
-                  <div className={`w-2 h-2 rounded-full ${stats.features.ensVoting ? 'bg-green-500' : 'bg-muted-foreground'}`} />
-                </div>
-                <div className="flex items-center justify-between">
-                  <span className="text-sm text-muted-foreground">Document Storage</span>
-                  <div className={`w-2 h-2 rounded-full ${stats.features.documentStorage ? 'bg-green-500' : 'bg-muted-foreground'}`} />
-                </div>
-                <div className="flex items-center justify-between">
-                  <span className="text-sm text-muted-foreground">Private Voting</span>
-                  <div className={`w-2 h-2 rounded-full ${stats.features.privateVoting ? 'bg-green-500' : 'bg-muted-foreground'}`} />
-                </div>
-                <div className="flex items-center justify-between">
-                  <span className="text-sm text-muted-foreground">Confidential Loans</span>
-                  <div className={`w-2 h-2 rounded-full ${stats.features.confidentialLoans ? 'bg-green-500' : 'bg-muted-foreground'}`} />
-                </div>
-                <div className="flex items-center justify-between">
-                  <span className="text-sm text-muted-foreground">Restaking</span>
-                  <div className={`w-2 h-2 rounded-full ${stats.features.restaking ? 'bg-green-500' : 'bg-muted-foreground'}`} />
-                </div>
-              </CardContent>
-            </Card>
+          {/* Feature Status */}
+          <Card>
+            <CardHeader>
+              <CardTitle>Feature Status</CardTitle>
+              <CardDescription>Available DAO features</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              <div className="flex items-center justify-between">
+                <span className="text-muted-foreground text-sm">ENS Voting</span>
+                <div
+                  className={`h-2 w-2 rounded-full ${stats.features.ensVoting ? 'bg-green-500' : 'bg-muted-foreground'}`}
+                />
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="text-muted-foreground text-sm">Document Storage</span>
+                <div
+                  className={`h-2 w-2 rounded-full ${stats.features.documentStorage ? 'bg-green-500' : 'bg-muted-foreground'}`}
+                />
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="text-muted-foreground text-sm">Private Voting</span>
+                <div
+                  className={`h-2 w-2 rounded-full ${stats.features.privateVoting ? 'bg-green-500' : 'bg-muted-foreground'}`}
+                />
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="text-muted-foreground text-sm">Confidential Loans</span>
+                <div
+                  className={`h-2 w-2 rounded-full ${stats.features.confidentialLoans ? 'bg-green-500' : 'bg-muted-foreground'}`}
+                />
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="text-muted-foreground text-sm">Restaking</span>
+                <div
+                  className={`h-2 w-2 rounded-full ${stats.features.restaking ? 'bg-green-500' : 'bg-muted-foreground'}`}
+                />
+              </div>
+            </CardContent>
+          </Card>
 
-            {/* Recent Activity */}
-            <Card>
-              <CardHeader>
-                <CardTitle>Recent Activity</CardTitle>
-                <CardDescription>Latest DAO events</CardDescription>
-              </CardHeader>
-              <CardContent>
-                {eventsError ? (
-                  <LoadError what="recent activity" onRetry={() => void refetchEvents()} />
-                ) : events.length > 0 ? (
-                  <div className="space-y-3">
-                    {events.slice(0, 5).map((event, index) => (
-                      <div key={index} className="flex items-center space-x-3 text-sm">
-                        <div className="w-2 h-2 bg-blue-500 rounded-full" />
-                        <span className="text-muted-foreground">{eventLabel(event?.symbol)}</span>
-                      </div>
-                    ))}
-                  </div>
-                ) : (
-                  <p className="text-sm text-muted-foreground">No recent activity</p>
-                )}
-              </CardContent>
-            </Card>
-          </div>
+          {/* Recent Activity */}
+          <Card>
+            <CardHeader>
+              <CardTitle>Recent Activity</CardTitle>
+              <CardDescription>Latest DAO events</CardDescription>
+            </CardHeader>
+            <CardContent>
+              {eventsError ? (
+                <LoadError what="recent activity" onRetry={() => void refetchEvents()} />
+              ) : events.length > 0 ? (
+                <div className="space-y-3">
+                  {events.slice(0, 5).map((event, index) => (
+                    <div key={index} className="flex items-center space-x-3 text-sm">
+                      <div className="h-2 w-2 rounded-full bg-blue-500" />
+                      <span className="text-muted-foreground">{eventLabel(event?.symbol)}</span>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <p className="text-muted-foreground text-sm">No recent activity</p>
+              )}
+            </CardContent>
+          </Card>
         </div>
+      </div>
     </>
   )
 }

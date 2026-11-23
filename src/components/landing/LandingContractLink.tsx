@@ -6,7 +6,12 @@ import { getContractUrl } from '@/lib/stellar'
    so the server-rendered landing page can't call it directly. */
 export function LandingContractLink() {
   return (
-    <a href={getContractUrl() ?? undefined} target="_blank" rel="noopener noreferrer" className="text-gray-400 hover:text-white text-sm transition-colors">
+    <a
+      href={getContractUrl() ?? undefined}
+      target="_blank"
+      rel="noopener noreferrer"
+      className="text-sm text-gray-400 transition-colors hover:text-white"
+    >
       View Contract
     </a>
   )

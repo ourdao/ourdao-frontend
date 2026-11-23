@@ -10,7 +10,7 @@ import {
   ArrowDownTrayIcon,
   ShareIcon,
   XMarkIcon,
-  ExclamationTriangleIcon
+  ExclamationTriangleIcon,
 } from '@/lib/icons'
 import { DocumentMetadata, getIPFSUrl, canAccessDocument } from '@/lib/ipfs'
 import { useDocumentContent } from '@/hooks/useDocument'
@@ -31,7 +31,7 @@ export default function DocumentViewer({
   userRoles = [],
   onClose,
   onError,
-  className = ''
+  className = '',
 }: DocumentViewerProps) {
   const [password, setPassword] = useState('')
   const [showPassword, setShowPassword] = useState(false)
@@ -40,8 +40,14 @@ export default function DocumentViewer({
   // Check if user has access
   const hasAccess = canAccessDocument(doc, userAddress, userRoles)
 
-  const { content, loading, error: loadError, decrypted, previewUrl, decrypt } =
-    useDocumentContent(doc, userAddress, userRoles)
+  const {
+    content,
+    loading,
+    error: loadError,
+    decrypted,
+    previewUrl,
+    decrypt,
+  } = useDocumentContent(doc, userAddress, userRoles)
   const error = passwordError || loadError
 
   useEffect(() => {
@@ -75,7 +81,7 @@ export default function DocumentViewer({
         await navigator.share({
           title: doc.name,
           text: `Document: ${doc.name}`,
-          url: previewUrl
+          url: previewUrl,
         })
       } catch {
         // Fallback to clipboard
@@ -112,11 +118,13 @@ export default function DocumentViewer({
   }
 
   const canPreview = (type: string) => {
-    return type.startsWith('image/') || 
-           type.startsWith('text/') || 
-           type.includes('pdf') ||
-           type.startsWith('video/') ||
-           type.startsWith('audio/')
+    return (
+      type.startsWith('image/') ||
+      type.startsWith('text/') ||
+      type.includes('pdf') ||
+      type.startsWith('video/') ||
+      type.startsWith('audio/')
+    )
   }
 
   const renderPreview = () => {
@@ -141,9 +149,10 @@ export default function DocumentViewer({
     if (doc.type.startsWith('text/')) {
       const text = new TextDecoder().decode(content)
       return (
-        <div className="bg-muted rounded-lg p-4 max-h-96 overflow-auto">
-          <pre className="whitespace-pre-wrap text-sm text-foreground">
-            {text.slice(0, 5000)}{text.length > 5000 && '...'}
+        <div className="bg-muted max-h-96 overflow-auto rounded-lg p-4">
+          <pre className="text-foreground text-sm whitespace-pre-wrap">
+            {text.slice(0, 5000)}
+            {text.length > 5000 && '...'}
           </pre>
         </div>
       )
@@ -153,7 +162,7 @@ export default function DocumentViewer({
       return (
         <iframe
           src={previewUrl}
-          className="w-full h-96 rounded-lg border border-input"
+          className="border-input h-96 w-full rounded-lg border"
           title={doc.name}
         />
       )
@@ -164,7 +173,7 @@ export default function DocumentViewer({
         <video
           src={previewUrl}
           controls
-          className="max-w-full max-h-96 mx-auto rounded-lg shadow-lg"
+          className="mx-auto max-h-96 max-w-full rounded-lg shadow-lg"
           aria-label={doc.name}
         >
           <track kind="captions" />
@@ -175,12 +184,7 @@ export default function DocumentViewer({
 
     if (doc.type.startsWith('audio/')) {
       return (
-        <audio
-          src={previewUrl}
-          controls
-          className="w-full"
-          aria-label={doc.name}
-        >
+        <audio src={previewUrl} controls className="w-full" aria-label={doc.name}>
           <track kind="captions" />
           Your browser does not support the audio tag.
         </audio>
@@ -192,10 +196,10 @@ export default function DocumentViewer({
 
   if (!hasAccess) {
     return (
-      <div className={`bg-card rounded-lg shadow-lg p-6 ${className}`}>
-        <div className="flex items-center justify-between mb-4">
-          <h3 className="text-lg font-semibold text-foreground flex items-center">
-            <ExclamationTriangleIcon className="h-5 w-5 text-red-500 mr-2" />
+      <div className={`bg-card rounded-lg p-6 shadow-lg ${className}`}>
+        <div className="mb-4 flex items-center justify-between">
+          <h3 className="text-foreground flex items-center text-lg font-semibold">
+            <ExclamationTriangleIcon className="mr-2 h-5 w-5 text-red-500" />
             Access Denied
           </h3>
           {onClose && (
@@ -210,7 +214,8 @@ export default function DocumentViewer({
           )}
         </div>
         <p className="text-muted-foreground">
-          You don&apos;t have permission to view this document. Contact the document owner for access.
+          You don&apos;t have permission to view this document. Contact the document owner for
+          access.
         </p>
       </div>
     )
@@ -219,14 +224,12 @@ export default function DocumentViewer({
   return (
     <div className={`bg-card rounded-lg shadow-lg ${className}`}>
       {/* Header */}
-      <div className="flex items-center justify-between p-6 border-b border-border">
+      <div className="border-border flex items-center justify-between border-b p-6">
         <div className="flex items-center space-x-3">
           <span className="text-2xl">{getFileIcon(doc.type)}</span>
           <div>
-            <h3 className="text-lg font-semibold text-foreground">
-              {doc.name}
-            </h3>
-            <div className="flex items-center space-x-4 text-sm text-muted-foreground">
+            <h3 className="text-foreground text-lg font-semibold">{doc.name}</h3>
+            <div className="text-muted-foreground flex items-center space-x-4 text-sm">
               <span>{formatFileSize(doc.size)}</span>
               <span>{doc.uploadedAt.toLocaleDateString()}</span>
               {doc.encrypted && (
@@ -243,7 +246,7 @@ export default function DocumentViewer({
             <>
               <button
                 onClick={downloadDocument}
-                className="p-2 text-muted-foreground hover:text-foreground"
+                className="text-muted-foreground hover:text-foreground p-2"
                 title="Download"
               >
                 <ArrowDownTrayIcon className="h-5 w-5" />
@@ -251,7 +254,7 @@ export default function DocumentViewer({
               <button
                 onClick={shareDocument}
                 data-share-button
-                className="p-2 text-muted-foreground hover:text-foreground"
+                className="text-muted-foreground hover:text-foreground p-2"
                 title="Share"
               >
                 <ShareIcon className="h-5 w-5" />
@@ -263,7 +266,7 @@ export default function DocumentViewer({
               type="button"
               onClick={onClose}
               aria-label="Close"
-              className="p-2 text-muted-foreground hover:text-foreground"
+              className="text-muted-foreground hover:text-foreground p-2"
             >
               <XMarkIcon className="h-5 w-5" aria-hidden="true" />
             </button>
@@ -274,59 +277,64 @@ export default function DocumentViewer({
       <div className="p-6">
         {/* Encryption/Decryption Interface */}
         {doc.encrypted && !decrypted && (
-          <div className="mb-6 p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
-            <div className="flex items-center space-x-2 mb-3">
+          <div className="mb-6 rounded-lg bg-blue-50 p-4 dark:bg-blue-900/20">
+            <div className="mb-3 flex items-center space-x-2">
               <LockClosedIcon className="h-5 w-5 text-blue-600 dark:text-blue-400" />
               <span className="font-medium text-blue-900 dark:text-blue-100">
                 This doc is encrypted
               </span>
             </div>
-            <p className="text-sm text-blue-700 dark:text-blue-300 mb-4">
+            <p className="mb-4 text-sm text-blue-700 dark:text-blue-300">
               Enter the password to decrypt and view the doc content.
             </p>
-            <div className="flex space-x-2">
+            <form
+              onSubmit={(e) => {
+                e.preventDefault()
+                handleDecrypt()
+              }}
+              className="flex space-x-2"
+            >
               <div className="relative flex-1">
                 <input
                   type={showPassword ? 'text' : 'password'}
                   placeholder="Enter decryption password"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  onKeyPress={(e) => e.key === 'Enter' && handleDecrypt()}
-                  className="w-full px-3 py-2 border border-input rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-muted dark:text-foreground pr-10"
+                  className="border-input dark:bg-muted dark:text-foreground w-full rounded-md border px-3 py-2 pr-10 focus:ring-2 focus:ring-blue-500 focus:outline-none"
                 />
                 <button
                   type="button"
                   onClick={() => setShowPassword(!showPassword)}
-                  className="absolute inset-y-0 right-0 pr-3 flex items-center"
+                  className="absolute inset-y-0 right-0 flex items-center pr-3"
                   aria-label={showPassword ? 'Hide password' : 'Show password'}
                   aria-pressed={showPassword}
                 >
                   {showPassword ? (
-                    <EyeSlashIcon className="h-4 w-4 text-muted-foreground" />
+                    <EyeSlashIcon className="text-muted-foreground h-4 w-4" />
                   ) : (
-                    <EyeIcon className="h-4 w-4 text-muted-foreground" />
+                    <EyeIcon className="text-muted-foreground h-4 w-4" />
                   )}
                 </button>
               </div>
               <button
-                onClick={handleDecrypt}
+                type="submit"
                 disabled={!password.trim() || loading}
-                className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center space-x-2"
+                className="flex items-center space-x-2 rounded-md bg-blue-600 px-4 py-2 text-white hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-50"
               >
                 {loading ? (
-                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white" />
+                  <div className="h-4 w-4 animate-spin rounded-full border-b-2 border-white" />
                 ) : (
                   <LockOpenIcon className="h-4 w-4" />
                 )}
                 <span>Decrypt</span>
               </button>
-            </div>
+            </form>
           </div>
         )}
 
         {/* Success message for decrypted content */}
         {decrypted && (
-          <div className="mb-4 p-3 bg-green-50 dark:bg-green-900/20 rounded-lg">
+          <div className="mb-4 rounded-lg bg-green-50 p-3 dark:bg-green-900/20">
             <div className="flex items-center space-x-2">
               <LockOpenIcon className="h-4 w-4 text-green-600 dark:text-green-400" />
               <span className="text-sm font-medium text-green-800 dark:text-green-200">
@@ -338,7 +346,7 @@ export default function DocumentViewer({
 
         {/* Error display */}
         {error && (
-          <div className="mb-4 p-3 bg-red-50 dark:bg-red-900/20 rounded-lg">
+          <div className="mb-4 rounded-lg bg-red-50 p-3 dark:bg-red-900/20">
             <div className="flex items-center space-x-2">
               <ExclamationTriangleIcon className="h-4 w-4 text-red-600 dark:text-red-400" />
               <span className="text-sm text-red-800 dark:text-red-200">{error}</span>
@@ -349,8 +357,8 @@ export default function DocumentViewer({
         {/* Loading state */}
         {loading && (
           <div className="flex items-center justify-center py-12">
-            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
-            <span className="ml-3 text-muted-foreground">Loading document...</span>
+            <div className="h-8 w-8 animate-spin rounded-full border-b-2 border-blue-600"></div>
+            <span className="text-muted-foreground ml-3">Loading document...</span>
           </div>
         )}
 
@@ -359,18 +367,18 @@ export default function DocumentViewer({
           <div className="space-y-4">
             {canPreview(doc.type) ? (
               <div className="space-y-4">
-                <h4 className="font-medium text-foreground">Preview</h4>
+                <h4 className="text-foreground font-medium">Preview</h4>
                 {renderPreview()}
               </div>
             ) : (
-              <div className="text-center py-12 bg-muted rounded-lg">
-                <DocumentIcon className="mx-auto h-12 w-12 text-muted-foreground" />
-                <p className="mt-4 text-sm text-muted-foreground">
+              <div className="bg-muted rounded-lg py-12 text-center">
+                <DocumentIcon className="text-muted-foreground mx-auto h-12 w-12" />
+                <p className="text-muted-foreground mt-4 text-sm">
                   Preview not available for this file type
                 </p>
                 <button
                   onClick={downloadDocument}
-                  className="mt-4 px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
+                  className="mt-4 rounded-md bg-blue-600 px-4 py-2 text-white hover:bg-blue-700"
                 >
                   Download to View
                 </button>
@@ -381,38 +389,34 @@ export default function DocumentViewer({
 
         {/* Document metadata */}
         {!loading && (
-          <div className="mt-6 pt-4 border-t border-border">
-            <h4 className="font-medium text-foreground mb-3">Document Information</h4>
+          <div className="border-border mt-6 border-t pt-4">
+            <h4 className="text-foreground mb-3 font-medium">Document Information</h4>
             <dl className="grid grid-cols-2 gap-4 text-sm">
               <div>
-                <dt className="font-medium text-foreground">Type</dt>
+                <dt className="text-foreground font-medium">Type</dt>
                 <dd className="text-muted-foreground">{doc.type || 'Unknown'}</dd>
               </div>
               <div>
-                <dt className="font-medium text-foreground">Size</dt>
+                <dt className="text-foreground font-medium">Size</dt>
                 <dd className="text-muted-foreground">{formatFileSize(doc.size)}</dd>
               </div>
               <div>
-                <dt className="font-medium text-foreground">Uploaded</dt>
-                <dd className="text-muted-foreground">
-                  {doc.uploadedAt.toLocaleString()}
-                </dd>
+                <dt className="text-foreground font-medium">Uploaded</dt>
+                <dd className="text-muted-foreground">{doc.uploadedAt.toLocaleString()}</dd>
               </div>
               <div>
-                <dt className="font-medium text-foreground">IPFS Hash</dt>
-                <dd className="text-muted-foreground font-mono text-xs break-all">
-                  {doc.hash}
-                </dd>
+                <dt className="text-foreground font-medium">IPFS Hash</dt>
+                <dd className="text-muted-foreground font-mono text-xs break-all">{doc.hash}</dd>
               </div>
               {doc.tags && doc.tags.length > 0 && (
                 <div className="col-span-2">
-                  <dt className="font-medium text-foreground">Tags</dt>
+                  <dt className="text-foreground font-medium">Tags</dt>
                   <dd className="text-muted-foreground">
-                    <div className="flex flex-wrap gap-2 mt-1">
+                    <div className="mt-1 flex flex-wrap gap-2">
                       {doc.tags.map((tag, index) => (
                         <span
                           key={index}
-                          className="px-2 py-1 text-xs bg-muted text-foreground rounded"
+                          className="bg-muted text-foreground rounded px-2 py-1 text-xs"
                         >
                           {tag}
                         </span>

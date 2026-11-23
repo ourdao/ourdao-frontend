@@ -10,7 +10,7 @@ name: CI status comment
 # against the allowed set: success, failure, cancelled, skipped.
 on:
   workflow_run:
-    workflows: ["CI"]
+    workflows: ['CI']
     types: [completed]
 
 permissions:

@@ -5,12 +5,7 @@ import { useRouter } from 'next/navigation'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import Link from 'next/link'
-import {
-  BanknotesIcon,
-  CheckCircleIcon,
-  ExclamationTriangleIcon,
-  DocumentIcon
-} from '@/lib/icons'
+import { BanknotesIcon, CheckCircleIcon, ExclamationTriangleIcon, DocumentIcon } from '@/lib/icons'
 import {
   useDAOStats,
   useUserData,
@@ -20,7 +15,14 @@ import {
   useLoanEligibility,
   describeLoanIneligibility,
 } from '@/hooks/useDAO'
-import { parseToken, formatToken, computeMaxLoan, formatThreshold, formatDuration, formatDate } from '@/lib/utils'
+import {
+  parseToken,
+  formatToken,
+  computeMaxLoan,
+  formatThreshold,
+  formatDuration,
+  formatDate,
+} from '@/lib/utils'
 import dynamic from 'next/dynamic'
 
 // Dynamic import to avoid SSR issues with IPFS
@@ -86,13 +88,15 @@ export default function RequestLoanPage() {
   // the contract would reject the request anyway.
   const parsedAmount = formData.amount ? parseToken(formData.amount) : BigInt(0)
   const exceedsMax = maxLoan !== null && parsedAmount > maxLoan
-  const { terms, isLoading: termsLoading, isError: termsError } = useLoanTerms(
-    parsedAmount > BigInt(0) && !exceedsMax ? parsedAmount : null
-  )
+  const {
+    terms,
+    isLoading: termsLoading,
+    isError: termsError,
+  } = useLoanTerms(parsedAmount > BigInt(0) && !exceedsMax ? parsedAmount : null)
   const rateDisplay = terms ? formatThreshold(terms.interestRate) : null
 
   const handleInputChange = (field: 'amount' | 'documentHash', value: string) => {
-    setFormData(prev => ({ ...prev, [field]: value }))
+    setFormData((prev) => ({ ...prev, [field]: value }))
   }
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -149,16 +153,14 @@ export default function RequestLoanPage() {
         return (
           <div className="space-y-6">
             <div className="text-center">
-              <BanknotesIcon className="h-16 w-16 text-primary-600 mx-auto mb-4" />
-              <h2 className="text-2xl font-bold text-foreground mb-2">Loan Details</h2>
-              <p className="text-muted-foreground">
-                Specify the amount of your loan request.
-              </p>
+              <BanknotesIcon className="text-primary-600 mx-auto mb-4 h-16 w-16" />
+              <h2 className="text-foreground mb-2 text-2xl font-bold">Loan Details</h2>
+              <p className="text-muted-foreground">Specify the amount of your loan request.</p>
             </div>
 
             <div className="space-y-4">
               <div>
-                <label htmlFor="amount" className="block text-sm font-medium text-foreground mb-1">
+                <label htmlFor="amount" className="text-foreground mb-1 block text-sm font-medium">
                   Loan Amount *
                 </label>
                 <input
@@ -168,11 +170,11 @@ export default function RequestLoanPage() {
                   min="0.01"
                   max={maxLoanDisplay ?? undefined}
                   placeholder="0.00"
-                  className="w-full px-3 py-2 border border-input rounded-md focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+                  className="border-input focus:ring-primary-500 focus:border-primary-500 w-full rounded-md border px-3 py-2 focus:ring-2 focus:outline-none"
                   value={formData.amount}
                   onChange={(e) => handleInputChange('amount', e.target.value)}
                 />
-                <p className="text-xs text-muted-foreground mt-1">
+                <p className="text-muted-foreground mt-1 text-xs">
                   {maxLoanDisplay === null
                     ? 'Maximum loan amount: loading…'
                     : `Maximum loan amount: ${maxLoanDisplay} (set by the treasury balance and loan policy)`}
@@ -181,17 +183,20 @@ export default function RequestLoanPage() {
 
               {parsedAmount > BigInt(0) && (
                 <div
-                  className="bg-blue-50 border border-blue-200 dark:bg-blue-950/30 dark:border-blue-900 rounded-lg p-4"
+                  className="rounded-lg border border-blue-200 bg-blue-50 p-4 dark:border-blue-900 dark:bg-blue-950/30"
                   aria-live="polite"
                 >
-                  <h3 className="font-semibold text-blue-900 dark:text-blue-300 mb-2">Loan Terms</h3>
+                  <h3 className="mb-2 font-semibold text-blue-900 dark:text-blue-300">
+                    Loan Terms
+                  </h3>
                   {exceedsMax ? (
                     <p className="text-sm text-blue-800 dark:text-blue-400">
                       Enter an amount within the maximum to see the terms.
                     </p>
                   ) : termsError ? (
                     <p className="text-sm text-blue-800 dark:text-blue-400">
-                      Couldn&apos;t load the loan terms from the contract. They will be set when the loan is approved.
+                      Couldn&apos;t load the loan terms from the contract. They will be set when the
+                      loan is approved.
                     </p>
                   ) : !terms ? (
                     <p className="text-sm text-blue-800 dark:text-blue-400">
@@ -217,9 +222,10 @@ export default function RequestLoanPage() {
                           <span>{formatDuration(terms.duration)}</span>
                         </div>
                       </div>
-                      <p className="text-xs text-blue-700 dark:text-blue-500 mt-2">
-                        Priced by the contract from the current treasury balance and loan policy. Final terms are
-                        fixed when the loan is approved and may differ if either changes.
+                      <p className="mt-2 text-xs text-blue-700 dark:text-blue-500">
+                        Priced by the contract from the current treasury balance and loan policy.
+                        Final terms are fixed when the loan is approved and may differ if either
+                        changes.
                       </p>
                     </>
                   )}
@@ -233,15 +239,20 @@ export default function RequestLoanPage() {
         return (
           <div className="space-y-6">
             <div className="text-center">
-              <DocumentIcon className="h-16 w-16 text-primary-600 mx-auto mb-4" />
-              <h2 className="text-2xl font-bold text-foreground mb-2">Supporting Documents</h2>
+              <DocumentIcon className="text-primary-600 mx-auto mb-4 h-16 w-16" />
+              <h2 className="text-foreground mb-2 text-2xl font-bold">Supporting Documents</h2>
               <p className="text-muted-foreground">
                 Upload optional supporting documents to strengthen your loan proposal.
               </p>
             </div>
 
-            <p className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-800 dark:border-amber-800 dark:bg-amber-900/20 dark:text-amber-300" role="note">
-              Loan amounts and proposal details are public on the Stellar ledger. Supporting documents are stored on public IPFS and anyone with the content link can read them. Do not upload sensitive information.
+            <p
+              className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-800 dark:border-amber-800 dark:bg-amber-900/20 dark:text-amber-300"
+              role="note"
+            >
+              Loan amounts and proposal details are public on the Stellar ledger. Supporting
+              documents are stored on public IPFS and anyone with the content link can read them. Do
+              not upload sensitive information.
             </p>
 
             {stats.features.documentStorage ? (
@@ -251,11 +262,14 @@ export default function RequestLoanPage() {
                   <input
                     type="checkbox"
                     id="showDocumentUpload"
-                    className="h-4 w-4 text-primary-600 focus:ring-primary-500 border-input rounded"
+                    className="text-primary-600 focus:ring-primary-500 border-input h-4 w-4 rounded"
                     checked={showDocumentUpload}
                     onChange={(e) => setShowDocumentUpload(e.target.checked)}
                   />
-                  <label htmlFor="showDocumentUpload" className="text-sm font-medium text-foreground">
+                  <label
+                    htmlFor="showDocumentUpload"
+                    className="text-foreground text-sm font-medium"
+                  >
                     Add supporting documents
                   </label>
                 </div>
@@ -276,24 +290,27 @@ export default function RequestLoanPage() {
                       }
                     }}
                     onError={(error) => toast.error(error)}
-                    className="border border-border rounded-lg p-4"
+                    className="border-border rounded-lg border p-4"
                   />
                 )}
 
                 {/* Uploaded Documents List */}
                 {uploadedDocuments.length > 0 && (
-                  <div className="border border-border rounded-lg p-4">
-                    <h4 className="font-medium text-foreground mb-3">
+                  <div className="border-border rounded-lg border p-4">
+                    <h4 className="text-foreground mb-3 font-medium">
                       Uploaded Documents ({uploadedDocuments.length})
                     </h4>
                     <div className="space-y-2">
                       {uploadedDocuments.map((doc, index) => (
-                        <div key={index} className="flex items-center justify-between p-2 bg-muted rounded">
+                        <div
+                          key={index}
+                          className="bg-muted flex items-center justify-between rounded p-2"
+                        >
                           <div className="flex items-center space-x-2">
-                            <DocumentIcon className="h-4 w-4 text-muted-foreground" />
-                            <span className="text-sm text-foreground">{doc.name}</span>
+                            <DocumentIcon className="text-muted-foreground h-4 w-4" />
+                            <span className="text-foreground text-sm">{doc.name}</span>
                           </div>
-                          <span className="text-xs text-muted-foreground">
+                          <span className="text-muted-foreground text-xs">
                             {(doc.size / 1024).toFixed(1)} KB
                           </span>
                         </div>
@@ -304,28 +321,32 @@ export default function RequestLoanPage() {
 
                 {/* Manual IPFS Hash Input */}
                 <div>
-                  <label htmlFor="documentHash" className="block text-sm font-medium text-foreground mb-1">
+                  <label
+                    htmlFor="documentHash"
+                    className="text-foreground mb-1 block text-sm font-medium"
+                  >
                     Or enter IPFS hash manually
                   </label>
                   <input
                     type="text"
                     id="documentHash"
                     placeholder="QmXxXxXx... (IPFS hash of supporting documents)"
-                    className="w-full px-3 py-2 border border-input rounded-md focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+                    className="border-input focus:ring-primary-500 focus:border-primary-500 w-full rounded-md border px-3 py-2 focus:ring-2 focus:outline-none"
                     value={formData.documentHash}
                     onChange={(e) => handleInputChange('documentHash', e.target.value)}
                   />
-                  <p className="text-xs text-muted-foreground mt-1">
+                  <p className="text-muted-foreground mt-1 text-xs">
                     If you&apos;ve already uploaded documents to IPFS, enter the hash here
                   </p>
                 </div>
               </div>
             ) : (
-              <div className="text-center py-12 bg-muted rounded-lg">
-                <DocumentIcon className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+              <div className="bg-muted rounded-lg py-12 text-center">
+                <DocumentIcon className="text-muted-foreground mx-auto mb-4 h-12 w-12" />
                 <p className="text-muted-foreground mb-2">Document storage is currently disabled</p>
-                <p className="text-sm text-muted-foreground">
-                  DAO governance has disabled document storage features. You can proceed without documents.
+                <p className="text-muted-foreground text-sm">
+                  DAO governance has disabled document storage features. You can proceed without
+                  documents.
                 </p>
               </div>
             )}
@@ -336,64 +357,79 @@ export default function RequestLoanPage() {
         return (
           <div className="space-y-6">
             <div className="text-center">
-              <CheckCircleIcon className="h-16 w-16 text-primary-600 mx-auto mb-4" />
-              <h2 className="text-2xl font-bold text-foreground mb-2">Review & Submit</h2>
+              <CheckCircleIcon className="text-primary-600 mx-auto mb-4 h-16 w-16" />
+              <h2 className="text-foreground mb-2 text-2xl font-bold">Review & Submit</h2>
               <p className="text-muted-foreground">
                 Review your loan request details before submission.
               </p>
             </div>
 
-            <div className="border border-border rounded-lg p-6 space-y-4">
-              <h3 className="font-semibold text-foreground">Loan Request Summary</h3>
+            <div className="border-border space-y-4 rounded-lg border p-6">
+              <h3 className="text-foreground font-semibold">Loan Request Summary</h3>
 
               <div className="space-y-3 text-sm">
                 <div className="flex justify-between">
                   <span className="text-muted-foreground">Requested Amount:</span>
-                  <span className="font-medium">{formatToken(parseToken(formData.amount), { displayDecimals: 7 })}</span>
+                  <span className="font-medium">
+                    {formatToken(parseToken(formData.amount), { displayDecimals: 7 })}
+                  </span>
                 </div>
 
                 <div className="flex justify-between">
                   <span className="text-muted-foreground">Interest Rate:</span>
-                  <span className="font-medium">{rateDisplay ? `${rateDisplay} over the term` : 'Unavailable'}</span>
+                  <span className="font-medium">
+                    {rateDisplay ? `${rateDisplay} over the term` : 'Unavailable'}
+                  </span>
                 </div>
 
                 {terms && (
                   <div className="flex justify-between">
                     <span className="text-muted-foreground">Total Repayment:</span>
-                    <span className="font-medium">{formatToken(terms.totalRepayment, { displayDecimals: 7 })}</span>
+                    <span className="font-medium">
+                      {formatToken(terms.totalRepayment, { displayDecimals: 7 })}
+                    </span>
                   </div>
                 )}
 
                 <div className="flex justify-between">
                   <span className="text-muted-foreground">Supporting Docs:</span>
                   <span className="font-medium">
-                    {uploadedDocuments.length > 0 ? `${uploadedDocuments.length} files` :
-                     formData.documentHash ? 'IPFS hash provided' : 'None'}
+                    {uploadedDocuments.length > 0
+                      ? `${uploadedDocuments.length} files`
+                      : formData.documentHash
+                        ? 'IPFS hash provided'
+                        : 'None'}
                   </span>
                 </div>
               </div>
             </div>
 
-            <div className="bg-blue-50 border border-blue-200 dark:bg-blue-950/30 dark:border-blue-900 rounded-lg p-4">
-              <h4 className="font-semibold text-blue-900 dark:text-blue-300 mb-2">What happens next?</h4>
-              <ol className="text-sm text-blue-800 dark:text-blue-400 space-y-1 list-decimal list-inside">
+            <div className="rounded-lg border border-blue-200 bg-blue-50 p-4 dark:border-blue-900 dark:bg-blue-950/30">
+              <h4 className="mb-2 font-semibold text-blue-900 dark:text-blue-300">
+                What happens next?
+              </h4>
+              <ol className="list-inside list-decimal space-y-1 text-sm text-blue-800 dark:text-blue-400">
                 <li>Your loan proposal will be created and enter a 3-day editing phase</li>
                 <li>After editing, members will have 7 days to vote on your proposal</li>
                 <li>If approved by majority consensus, the loan will be automatically disbursed</li>
                 <li>
-                  You&apos;ll have {terms ? formatDuration(terms.duration) : 'the policy\'s loan term'} to repay the
+                  You&apos;ll have{' '}
+                  {terms ? formatDuration(terms.duration) : "the policy's loan term"} to repay the
                   loan with interest
                 </li>
               </ol>
             </div>
 
             {userData.hasActiveLoan && (
-              <div className="bg-red-50 border border-red-200 dark:bg-red-950/30 dark:border-red-900 rounded-lg p-4">
+              <div className="rounded-lg border border-red-200 bg-red-50 p-4 dark:border-red-900 dark:bg-red-950/30">
                 <div className="flex items-start">
-                  <ExclamationTriangleIcon className="h-5 w-5 text-red-600 dark:text-red-400 mt-0.5 mr-2" />
+                  <ExclamationTriangleIcon className="mt-0.5 mr-2 h-5 w-5 text-red-600 dark:text-red-400" />
                   <div className="text-sm text-red-800 dark:text-red-300">
                     <p className="font-medium">Active Loan Detected</p>
-                    <p>You already have an active loan. Please repay your current loan before requesting a new one.</p>
+                    <p>
+                      You already have an active loan. Please repay your current loan before
+                      requesting a new one.
+                    </p>
                   </div>
                 </div>
               </div>
@@ -408,7 +444,7 @@ export default function RequestLoanPage() {
 
   const renderStepIndicator = () => {
     return (
-      <div className="flex items-center justify-center space-x-4 mb-8">
+      <div className="mb-8 flex items-center justify-center space-x-4">
         {Array.from({ length: maxSteps }, (_, i) => {
           const stepNumber = i + 1
           const isCompleted = stepNumber < step
@@ -417,25 +453,18 @@ export default function RequestLoanPage() {
           return (
             <div key={stepNumber} className="flex items-center">
               <div
-                className={`
-                  w-10 h-10 rounded-full flex items-center justify-center text-sm font-medium
-                  ${
-                    isCompleted
-                      ? 'bg-green-500 text-white'
-                      : isCurrent
+                className={`flex h-10 w-10 items-center justify-center rounded-full text-sm font-medium ${
+                  isCompleted
+                    ? 'bg-green-500 text-white'
+                    : isCurrent
                       ? 'bg-primary-600 text-white'
                       : 'bg-muted text-muted-foreground'
-                  }
-                `}
+                } `}
               >
                 {isCompleted ? <CheckCircleIcon className="h-6 w-6" /> : stepNumber}
               </div>
               {stepNumber < maxSteps && (
-                <div
-                  className={`w-8 h-0.5 ${
-                    stepNumber < step ? 'bg-green-500' : 'bg-muted'
-                  }`}
-                />
+                <div className={`h-0.5 w-8 ${stepNumber < step ? 'bg-green-500' : 'bg-muted'}`} />
               )}
             </div>
           )
@@ -453,7 +482,7 @@ export default function RequestLoanPage() {
     return (
       <>
         <PageHeader title="Request a Loan" subtitle="Tell the DAO what you need" />
-        <div className="max-w-2xl mx-auto">
+        <div className="mx-auto max-w-2xl">
           <Card>
             <CardContent className="p-8">
               <FormSkeleton fields={2} showSubmit={false} />
@@ -470,14 +499,12 @@ export default function RequestLoanPage() {
         <Card className="w-full max-w-md">
           <CardHeader className="text-center">
             <CardTitle>Access Restricted</CardTitle>
-            <CardDescription>
-              You must be a DAO member to request loans
-            </CardDescription>
+            <CardDescription>You must be a DAO member to request loans</CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
             <Button asChild className="w-full" size="lg">
-              <Link href={userData.isConnected ? "/register" : "/"}>
-                {userData.isConnected ? "Become a Member" : "Go Home"}
+              <Link href={userData.isConnected ? '/register' : '/'}>
+                {userData.isConnected ? 'Become a Member' : 'Go Home'}
               </Link>
             </Button>
           </CardContent>
@@ -492,7 +519,7 @@ export default function RequestLoanPage() {
     return (
       <>
         <PageHeader title="Request a Loan" subtitle="Tell the DAO what you need" />
-        <div className="max-w-2xl mx-auto">
+        <div className="mx-auto max-w-2xl">
           <Card>
             <CardContent className="p-8">
               <FormSkeleton fields={2} showSubmit={false} />
@@ -511,7 +538,7 @@ export default function RequestLoanPage() {
     return (
       <>
         <PageHeader title="Request a Loan" subtitle="Tell the DAO what you need" />
-        <div className="max-w-2xl mx-auto">
+        <div className="mx-auto max-w-2xl">
           <Card className="border border-amber-200 bg-amber-50 dark:border-amber-900 dark:bg-amber-950/30">
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
@@ -536,8 +563,7 @@ export default function RequestLoanPage() {
   return (
     <>
       <PageHeader title="Request a Loan" subtitle="Tell the DAO what you need" />
-      <div className="max-w-2xl mx-auto">
-
+      <div className="mx-auto max-w-2xl">
         <Card>
           <CardContent className="p-8">
             {renderStepIndicator()}
@@ -545,7 +571,7 @@ export default function RequestLoanPage() {
             <form onSubmit={handleSubmit}>
               {renderStepContent()}
 
-              <div className="flex justify-between mt-8">
+              <div className="mt-8 flex justify-between">
                 <Button
                   type="button"
                   variant="outline"
@@ -582,8 +608,8 @@ export default function RequestLoanPage() {
           <Card className="mt-6 border-green-200 bg-green-50 dark:border-green-900 dark:bg-green-950/30">
             <CardContent className="p-4">
               <div className="flex items-center">
-                <CheckCircleIcon className="h-5 w-5 text-green-600 dark:text-green-400 mr-2" />
-                <span className="text-green-800 dark:text-green-300 font-medium">
+                <CheckCircleIcon className="mr-2 h-5 w-5 text-green-600 dark:text-green-400" />
+                <span className="font-medium text-green-800 dark:text-green-300">
                   Loan request submitted successfully! Redirecting to loans page...
                 </span>
               </div>

@@ -172,13 +172,13 @@ describe('MembersPage', () => {
 
   it('notes that membership is already public on-chain', async () => {
     renderWithProviders(<MembersPage />)
-    expect(
-      await screen.findByText(/already visible on-chain/i)
-    ).toBeInTheDocument()
+    expect(await screen.findByText(/already visible on-chain/i)).toBeInTheDocument()
   })
 
   it('offers to show more members when the page is full', async () => {
-    mockGetMembers.mockResolvedValue(Array.from({ length: 50 }, (_, i) => member({ address: `G${i}` })))
+    mockGetMembers.mockResolvedValue(
+      Array.from({ length: 50 }, (_, i) => member({ address: `G${i}` }))
+    )
 
     renderWithProviders(<MembersPage />)
 

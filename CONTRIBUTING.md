@@ -7,6 +7,7 @@ New to the project? Start with [What this is](#what-this-is) and [Your first cha
 ## Table of contents
 
 **Start here**
+
 - [What this is](#what-this-is)
 - [How it's put together](#how-its-put-together)
 - [Glossary](#glossary)
@@ -14,6 +15,7 @@ New to the project? Start with [What this is](#what-this-is) and [Your first cha
 - [Local setup](#local-setup)
 
 **Before you open a pull request**
+
 - [Before you open a pull request](#before-you-open-a-pull-request)
 - [Running the checks CI runs](#running-the-checks-ci-runs)
 - [Changelog](#changelog)
@@ -21,12 +23,14 @@ New to the project? Start with [What this is](#what-this-is) and [Your first cha
 - [What gets closed without review](#what-gets-closed-without-review)
 
 **Conventions**
+
 - [Frontend-specific rules](#frontend-specific-rules)
 - [State model and conventions](#state-model-and-conventions)
 - [Testing strategy](#testing-strategy)
 - [Architectural decisions](#architectural-decisions)
 
 **Reference**
+
 - [Shipping something risky](#shipping-something-risky)
 - [Deploying and rolling back](#deploying-and-rolling-back)
 - [Working with the contract](#working-with-the-contract)
@@ -39,11 +43,11 @@ New to the project? Start with [What this is](#what-this-is) and [Your first cha
 
 `ourdao-frontend` is one of three repositories that make up OurDAO:
 
-| Repo | Role |
-|---|---|
-| [`ourdao-contracts`](https://github.com/ourdao/ourdao-contracts) | The Soroban contract. The single source of truth for all DAO state — members, loans, proposals, treasury. |
-| [`ourdao-backend`](https://github.com/ourdao/ourdao-backend) | An off-chain indexer and read API. The contract stores no queryable lists, so this repo serves loan history, notifications, and activity feeds. |
-| **`ourdao-frontend`** (this repo) | The web app members actually use. Reads and writes the contract through a browser wallet extension (Freighter). |
+| Repo                                                             | Role                                                                                                                                            |
+| ---------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------- |
+| [`ourdao-contracts`](https://github.com/ourdao/ourdao-contracts) | The Soroban contract. The single source of truth for all DAO state — members, loans, proposals, treasury.                                       |
+| [`ourdao-backend`](https://github.com/ourdao/ourdao-backend)     | An off-chain indexer and read API. The contract stores no queryable lists, so this repo serves loan history, notifications, and activity feeds. |
+| **`ourdao-frontend`** (this repo)                                | The web app members actually use. Reads and writes the contract through a browser wallet extension (Freighter).                                 |
 
 The single most important thing to understand before changing anything: **the contract owns the data, and this app is a client of it.** There is no database behind this UI. A number you see on screen came from a contract read or an indexed event — never from a constant in this repo. That's why a redeploy of the contract can require changes here even when nothing about the UI moved (see [Working with the contract](#working-with-the-contract)).
 
@@ -85,16 +89,16 @@ that when you open a file, you can tell what kind of file it is.
 
 ## Glossary
 
-| Term | Meaning |
-|---|---|
-| **DAO** | The member-owned treasury this app manages. |
-| **Soroban** | Stellar's smart-contract platform. The OurDAO contract runs on it. |
-| **Freighter** | The browser wallet extension members use. The app never sees a private key. |
-| **Stroops** | Stellar's smallest token unit. 1 token = 10,000,000 stroops. Amounts are handled as `bigint` to avoid precision loss. |
-| **Entrypoint** | A public function on the contract (a "read" or a "write"). The frontend calls these by name. |
-| **Indexer / backend** | The off-chain service that watches the chain and serves queryable history the contract doesn't store. |
-| **Degraded mode** | What the UI shows when something isn't configured or reachable — an explicit "not configured"/empty state, never a crash. |
-| **Feature flag** | An env-driven switch that lets a risky change ship switched off. See [Shipping something risky](#shipping-something-risky). |
+| Term                  | Meaning                                                                                                                     |
+| --------------------- | --------------------------------------------------------------------------------------------------------------------------- |
+| **DAO**               | The member-owned treasury this app manages.                                                                                 |
+| **Soroban**           | Stellar's smart-contract platform. The OurDAO contract runs on it.                                                          |
+| **Freighter**         | The browser wallet extension members use. The app never sees a private key.                                                 |
+| **Stroops**           | Stellar's smallest token unit. 1 token = 10,000,000 stroops. Amounts are handled as `bigint` to avoid precision loss.       |
+| **Entrypoint**        | A public function on the contract (a "read" or a "write"). The frontend calls these by name.                                |
+| **Indexer / backend** | The off-chain service that watches the chain and serves queryable history the contract doesn't store.                       |
+| **Degraded mode**     | What the UI shows when something isn't configured or reachable — an explicit "not configured"/empty state, never a crash.   |
+| **Feature flag**      | An env-driven switch that lets a risky change ship switched off. See [Shipping something risky](#shipping-something-risky). |
 
 ## Your first change
 
@@ -104,7 +108,7 @@ A complete, low-risk path from nothing to an open pull request:
    pick a small unassigned bug and comment to claim it first (see
    [Before you open a pull request](#before-you-open-a-pull-request)). A docs
    fix or a small component tweak is a perfectly good first contribution.
-2. **Get it running locally** — [Local setup](#local-setup) below. You do *not*
+2. **Get it running locally** — [Local setup](#local-setup) below. You do _not_
    need a deployed contract or a running backend: with no
    `NEXT_PUBLIC_CONTRACT_ID` the app still renders in an explicit
    "not configured" state, which is perfect for pure-UI work.
@@ -112,7 +116,7 @@ A complete, low-risk path from nothing to an open pull request:
    If it touches logic, add a test that fails without it.
 4. **Run the checks** — [Running the checks CI runs](#running-the-checks-ci-runs).
 5. **Open the pull request** using the template in
-   `.github/PULL_REQUEST_TEMPLATE.md`. Fill in *why*, not just *what*, and check
+   `.github/PULL_REQUEST_TEMPLATE.md`. Fill in _why_, not just _what_, and check
    the boxes.
 
 If you get stuck or find a second problem, that's normal — open a second issue
