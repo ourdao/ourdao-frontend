@@ -1,4 +1,5 @@
 import { type Page } from '@playwright/test'
+import { Keypair, nativeToScVal, SorobanDataBuilder, Transaction, TransactionBuilder, xdr } from '@stellar/stellar-sdk'
 
 export const MOCK_WALLET_ADDRESS = 'GBBD47IF6LWK7P7MDEVSCWR7DPUWV3NY3DTQEVFL4NAT4AQH3ZLLFLA5'
 
@@ -11,14 +12,12 @@ export interface MockFreighterOptions {
   address?: string
   network?: string
   networkPassphrase?: string
-  version?: string
   autoConnect?: boolean
 }
 
 /**
  * Injects a mock Freighter wallet extension into the page environment.
- * Stubs both `window.freighter` / `window.freighterApi` and the window
- * message protocol used by `@stellar/freighter-api`.
+ * Implements the window message protocol used by `@stellar/freighter-api`.
  */
 export async function injectFreighter(
   page: Page,
@@ -27,7 +26,6 @@ export async function injectFreighter(
   const address = options.address ?? MOCK_WALLET_ADDRESS
   const network = options.network ?? MOCK_NETWORK
   const networkPassphrase = options.networkPassphrase ?? MOCK_NETWORK_PASSPHRASE
-  const version = options.version ?? '5.1.0'
   const autoConnect = options.autoConnect ?? false
 
   await page.addInitScript(
@@ -53,6 +51,8 @@ export async function injectFreighter(
 
       ;(window as unknown as { freighter?: typeof freighterStub }).freighter = freighterStub
       ;(window as unknown as { freighterApi?: typeof freighterStub }).freighterApi = freighterStub
+    ({ address, network, networkPassphrase, autoConnect }) => {
+      let allowed = autoConnect
 
       // Message-based communication used by @stellar/freighter-api
       window.addEventListener('message', (event) => {
@@ -69,12 +69,16 @@ export async function injectFreighter(
             responsePayload = { isConnected: true }
             break
           case 'REQUEST_ALLOWED_STATUS':
-            responsePayload = { isAllowed: autoConnect }
+            responsePayload = { isAllowed: allowed }
             break
           case 'SET_ALLOWED_STATUS':
-            responsePayload = { isAllowed: true }
+            allowed = true
+            responsePayload = { isAllowed: allowed }
             break
           case 'REQUEST_ACCESS':
+            allowed = true
+            responsePayload = { publicKey: address }
+            break
           case 'REQUEST_PUBLIC_KEY':
             responsePayload = { publicKey: address }
             break
@@ -83,22 +87,23 @@ export async function injectFreighter(
             break
           case 'REQUEST_NETWORK_DETAILS':
             responsePayload = {
-              network,
-              networkPassphrase,
-              networkUrl: 'https://horizon-testnet.stellar.org',
-              sorobanRpcUrl: 'https://soroban-testnet.stellar.org',
+              networkDetails: {
+                network,
+                networkPassphrase,
+                networkUrl: 'https://horizon-testnet.stellar.org',
+                sorobanRpcUrl: 'https://soroban-testnet.stellar.org',
+              },
             }
             break
           case 'SUBMIT_TRANSACTION':
             responsePayload = {
-              signedTransaction: data.transactionXdr || 'AAAA...mockSignedTx...',
+              signedTransaction: data.transactionXdr,
               signerAddress: address,
             }
             break
           case 'SUBMIT_BLOB':
-          case 'SUBMIT_MESSAGE':
             responsePayload = {
-              signedMessage: 'bW9jay1zaWduYXR1cmU=',
+              signedBlob: 'bW9jay1zaWduYXR1cmU=',
               signerAddress: address,
             }
             break
@@ -117,7 +122,7 @@ export async function injectFreighter(
         )
       })
     },
-    { address, network, networkPassphrase, version, autoConnect }
+    { address, network, networkPassphrase, autoConnect }
   )
 }
 
@@ -134,112 +139,126 @@ export async function setupMockRpcAndBackend(
   page: Page,
   options: SetupMockOptions = {}
 ): Promise<void> {
-  const isMember = options.isMember ?? true
+  let isMember = options.isMember ?? true
+  let hasVoted = false
+  const walletAddress = options.freighter?.address ?? MOCK_WALLET_ADDRESS
+  const mockAccountId = Keypair.fromPublicKey(walletAddress).xdrPublicKey()
+  const mockAccount = new xdr.AccountEntry({
+    accountId: mockAccountId,
+    balance: xdr.Int64.fromString('1000000000'),
+    seqNum: xdr.Int64.fromString('1000'),
+    numSubEntries: 0,
+    inflationDest: null,
+    flags: 0,
+    homeDomain: '',
+    thresholds: Buffer.alloc(4),
+    signers: [],
+    ext: xdr.AccountEntryExt.v0(),
+  })
+  const accountKey = xdr.LedgerKey.account(new xdr.LedgerKeyAccount({ accountId: mockAccountId }))
+  const transactionData = new SorobanDataBuilder().build().toXdr('base64')
+  let submitted: { envelope: string; method: string } | undefined
+
+  function contractMethod(envelope: string) {
+    const tx = TransactionBuilder.fromXDR(envelope, MOCK_NETWORK_PASSPHRASE)
+    const op = tx instanceof Transaction ? tx.operations[0] : undefined
+    if (op?.type !== 'invokeHostFunction' || op.func.type !== 'hostFunctionTypeInvokeContract') {
+      throw new Error('Expected a Soroban contract call')
+    }
+    return op.func.invokeContract.functionName.toString()
+  }
+
+  function simulationResult(method: string) {
+    switch (method) {
+      case 'get_token':
+        return MOCK_CONTRACT_ID
+      case 'name':
+        return 'Testnet XLM'
+      case 'symbol':
+        return 'XLM'
+      case 'decimals':
+        return 7
+      case 'balance':
+      case 'get_treasury_balance':
+        return BigInt(10_000_000_000)
+      case 'get_total_members':
+        return 10
+      case 'get_active_members':
+        return 8
+      case 'get_consensus_threshold':
+        return 5_000
+      case 'get_loan_policy':
+        return { membership_contribution: BigInt(10_000_000), max_loan_to_treasury_ratio: 5_000 }
+      case 'get_member':
+        return isMember ? { status: 'ActiveMember', has_active_loan: options.hasActiveLoan ?? false } : null
+      case 'is_member':
+      case 'is_eligible_for_loan':
+        return isMember
+      case 'is_admin':
+      case 'is_paused':
+        return false
+      case 'has_voted':
+        return hasVoted
+      case 'get_pending_yield':
+      case 'calculate_exit_share':
+      case 'get_stake':
+        return BigInt(0)
+      case 'get_loan_proposal':
+        return {
+          id: 1,
+          borrower: walletAddress,
+          amount: BigInt(100_000_000),
+          interest_rate: 500,
+          status: 'Pending',
+          phase: 'Voting',
+          created_at: 1000,
+          editing_period_end: 2000,
+          voting_period: 604800,
+        }
+      case 'calculate_loan_terms':
+        return { duration: 604800, interest_rate: 500, total_repayment: BigInt(1_050_000_000) }
+      case 'register_member':
+      case 'request_loan':
+      case 'vote_on_loan_proposal':
+        return null
+      default:
+        throw new Error(`No mock Soroban result for ${method}`)
+    }
+  }
 
   // Intercept backend API requests
   await page.route('**/api/**', async (route) => {
     const url = route.request().url()
 
-    if (url.includes('/api/ready')) {
-      return route.fulfill({
-        status: 200,
-        contentType: 'application/json',
-        body: JSON.stringify({ ready: true, indexerStale: false }),
-      })
+    if (url.includes('/api/stream')) {
+      return route.fulfill({ status: 204 })
     }
 
     if (url.includes('/api/stats')) {
       return route.fulfill({
-        status: 200,
-        contentType: 'application/json',
-        body: JSON.stringify({
+        json: {
           totalMembers: 10,
           activeMembers: 8,
-          totalLoanProposals: 2,
-          totalLoans: 1,
-          activeLoans: 1,
+          totalLoanProposals: 1,
+          totalLoans: 0,
+          activeLoans: 0,
           defaultedLoans: 0,
-          totalTreasuryProposals: 1,
+          totalTreasuryProposals: 0,
           totalStaked: '5000000000',
           lastIndexedLedger: 12345,
           secondsSinceUpdate: 2,
           indexerStale: false,
           totalDefaultedValue: '0',
-          membershipFee: '10000000',
-        }),
+          interestCollected: '0',
+          principalLent: '0',
+          principalRepaid: '0',
+          valueDefaulted: '0',
+        },
       })
     }
 
-    if (url.includes('/api/notifications')) {
-      return route.fulfill({
-        status: 200,
-        contentType: 'application/json',
-        body: JSON.stringify([]),
-      })
-    }
-
-    if (url.includes('/api/events')) {
-      return route.fulfill({
-        status: 200,
-        contentType: 'application/json',
-        body: JSON.stringify([]),
-      })
-    }
-
-    if (url.includes('/api/auth/challenge')) {
-      return route.fulfill({
-        status: 200,
-        contentType: 'application/json',
-        body: JSON.stringify({
-          challenge: 'mock-challenge-token',
-          expiresAt: new Date(Date.now() + 300_000).toISOString(),
-        }),
-      })
-    }
-
-    if (url.includes('/api/auth/verify')) {
-      return route.fulfill({
-        status: 200,
-        contentType: 'application/json',
-        body: JSON.stringify({ ok: true, address: MOCK_WALLET_ADDRESS }),
-      })
-    }
-
-    if (url.includes('/api/loans')) {
-      return route.fulfill({
-        status: 200,
-        contentType: 'application/json',
-        body: JSON.stringify([
-          {
-            id: 1,
-            borrower: MOCK_WALLET_ADDRESS,
-            amount: '100000000',
-            interestRate: 500,
-            termMonths: 12,
-            status: 'Active',
-            createdAt: new Date().toISOString(),
-          },
-        ]),
-      })
-    }
-
-    if (url.includes('/api/proposals')) {
-      return route.fulfill({
-        status: 200,
-        contentType: 'application/json',
-        body: JSON.stringify([
-          {
-            id: 1,
-            kind: 'Loan',
-            proposer: MOCK_WALLET_ADDRESS,
-            amount: '100000000',
-            status: 'Voting',
-            votesFor: '500000000',
-            votesAgainst: '0',
-            createdAt: new Date().toISOString(),
-          },
-        ]),
-      })
+    if (url.includes('/api/loans') || url.includes('/api/notifications') || url.includes('/api/events')) {
+      return route.fulfill({ json: [] })
     }
 
     // Default API fallback
@@ -256,115 +275,67 @@ export async function setupMockRpcAndBackend(
       return route.continue()
     }
 
-    let body: { id?: string | number; method?: string; params?: unknown } = {}
-    try {
-      body = JSON.parse(route.request().postData() || '{}')
-    } catch {
-      /* ignore */
+    const { id, method, params } = route.request().postDataJSON() as {
+      id: string | number
+      method: string
+      params?: { transaction?: string }
     }
-
-    const id = body.id ?? 1
-    const method = body.method
+    const respond = (result: unknown) => route.fulfill({ json: { jsonrpc: '2.0', id, result } })
 
     switch (method) {
       case 'getHealth':
-        return route.fulfill({
-          status: 200,
-          contentType: 'application/json',
-          body: JSON.stringify({ jsonrpc: '2.0', id, result: { status: 'healthy' } }),
-        })
-
+        return respond({ status: 'healthy' })
       case 'getLatestLedger':
-        return route.fulfill({
-          status: 200,
-          contentType: 'application/json',
-          body: JSON.stringify({
-            jsonrpc: '2.0',
-            id,
-            result: { id: '1', sequence: 1000, protocolVersion: 20 },
-          }),
-        })
-
+        return respond({ id: '1', sequence: 1000, protocolVersion: 20 })
       case 'getLedgerEntries':
-        // Returns AccountEntry for getAccount call
-        return route.fulfill({
-          status: 200,
-          contentType: 'application/json',
-          body: JSON.stringify({
-            jsonrpc: '2.0',
-            id,
-            result: {
-              latestLedger: 1000,
-              entries: [
-                {
-                  key: 'AAAAAAAAAABCPn0F8uyvv+wZKyFaPxvpau242OcCVKvjQT4CB95Wsg==',
-                  xdr: 'AAAAAAAAAABCPn0F8uyvv+wZKyFaPxvpau242OcCVKvjQT4CB95WsgAAAAJUC+QAAAAAAAAAAGQAAAAAAAAAAAAAAAAAAAAAAQAAAAAAAAAAAAAA',
-                  lastModifiedLedgerSeq: 1000,
-                },
-              ],
-            },
-          }),
+        return respond({
+          latestLedger: 1000,
+          entries: [{
+            key: accountKey.toXdr('base64'),
+            xdr: xdr.LedgerEntryData.account(mockAccount).toXdr('base64'),
+            lastModifiedLedgerSeq: 1000,
+          }],
         })
-
       case 'simulateTransaction': {
-        // Return boolean true or appropriate ScVal depending on context
-        const xdrValue = isMember ? 'AAAAAAAAAAE=' : 'AAAAAAAAAAA='
-        return route.fulfill({
-          status: 200,
-          contentType: 'application/json',
-          body: JSON.stringify({
-            jsonrpc: '2.0',
-            id,
-            result: {
-              latestLedger: 1000,
-              minResourceFee: '100',
-              cost: { cpuInsns: '100', memBytes: '100' },
-              results: [{ auth: [], xdr: xdrValue }],
-              transactionData: 'AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=',
-            },
-          }),
+        const result = simulationResult(contractMethod(params!.transaction!))
+        return respond({
+          latestLedger: 1000,
+          minResourceFee: '100',
+          results: [{ auth: [], xdr: nativeToScVal(result).toXdr('base64') }],
+          transactionData,
         })
       }
-
-      case 'sendTransaction':
-        return route.fulfill({
-          status: 200,
-          contentType: 'application/json',
-          body: JSON.stringify({
-            jsonrpc: '2.0',
-            id,
-            result: {
-              status: 'PENDING',
-              hash: '1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef',
-              latestLedger: 1000,
-              latestLedgerCloseTime: '123456789',
-            },
-          }),
+      case 'sendTransaction': {
+        const envelope = params!.transaction!
+        submitted = { envelope, method: contractMethod(envelope) }
+        return respond({
+          status: 'PENDING',
+          hash: '1234567890abcdef'.repeat(4),
+          latestLedger: 1000,
+          latestLedgerCloseTime: 123456789,
         })
-
-      case 'getTransaction':
-        return route.fulfill({
-          status: 200,
-          contentType: 'application/json',
-          body: JSON.stringify({
-            jsonrpc: '2.0',
-            id,
-            result: {
-              status: 'SUCCESS',
-              latestLedger: 1001,
-              ledger: 1000,
-              createdAt: 1234567890,
-              returnValue: 'AAAAAAAAAAE=',
-            },
-          }),
+      }
+      case 'getTransaction': {
+        if (!submitted) throw new Error('Cannot confirm a transaction before submission')
+        if (submitted.method === 'vote_on_loan_proposal') hasVoted = true
+        if (submitted.method === 'register_member') isMember = true
+        const result = new xdr.TransactionResult({
+          feeCharged: xdr.Int64.fromString('100'),
+          result: xdr.TransactionResultResult.txSuccess([]),
+          ext: xdr.TransactionResultExt.v0(),
         })
-
+        return respond({
+          status: 'SUCCESS',
+          latestLedger: 1001,
+          ledger: 1000,
+          createdAt: 1234567890,
+          envelopeXdr: submitted.envelope,
+          resultXdr: result.toXdr('base64'),
+          resultMetaXdr: xdr.TransactionMeta.operations([]).toXdr('base64'),
+        })
+      }
       default:
-        return route.fulfill({
-          status: 200,
-          contentType: 'application/json',
-          body: JSON.stringify({ jsonrpc: '2.0', id, result: {} }),
-        })
+        throw new Error(`No mock RPC response for ${method}`)
     }
   })
 }

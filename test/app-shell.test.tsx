@@ -1,10 +1,14 @@
 // @vitest-environment jsdom
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { ThemeProvider } from 'next-themes'
 import { renderWithProviders } from './test-utils'
 import { AppShell } from '@/components/AppShell'
+import { LiveEventsProvider } from '@/hooks/useLiveEvents'
+import { openEventStream } from '@/lib/event-stream'
+
+vi.mock('@/lib/event-stream', () => ({ openEventStream: vi.fn(() => () => {}) }))
 
 const mockIsMember = vi.fn()
 const mockIsAdmin = vi.fn()
@@ -43,7 +47,11 @@ vi.mock('@/lib/wallet', () => ({
 
 vi.mock('@/lib/stellar', async () => {
   const actual = await vi.importActual<typeof import('@/lib/stellar')>('@/lib/stellar')
-  return { ...actual, isContractConfigured: () => mockContractConfigured }
+  return {
+    ...actual,
+    contractIdStatus: () => mockContractConfigured ? 'valid' : 'unconfigured',
+    isContractConfigured: () => mockContractConfigured,
+  }
 })
 
 vi.mock('@/lib/dao-client', () => ({
@@ -98,6 +106,20 @@ describe('AppShell navigation', () => {
     mockContractConfigured = true
   })
   afterEach(() => vi.clearAllMocks())
+
+  it('exposes all connection states through a single polite status region', async () => {
+    renderWithProviders(<LiveEventsProvider><AppShell>content</AppShell></LiveEventsProvider>)
+    const region = screen.getByText('Offline').closest('[role="status"]')
+    expect(region).toHaveAttribute('aria-live', 'polite')
+
+    const stream = vi.mocked(openEventStream).mock.calls[0][0]
+    await act(async () => { stream.onStatus('reconnecting') })
+    expect(region).toHaveTextContent('Reconnecting')
+    await act(async () => { stream.onStatus('connected') })
+    expect(region).toHaveTextContent('Live updates: Live')
+    await act(async () => { stream.onStatus('offline') })
+    expect(region).toHaveTextContent('Offline')
+  })
 
   it('renders the primary nav items and highlights the active route', async () => {
     renderWithProviders(<AppShell>content</AppShell>)

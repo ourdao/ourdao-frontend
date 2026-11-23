@@ -162,49 +162,30 @@ describe('formatStellarAddress — canonical output', () => {
 // formatDate — follows the browser locale instead of hardcoding en-US (#248)
 // ---------------------------------------------------------------------------
 describe('formatDate — locale handling', () => {
-  const originalLanguage = navigator.language
+  const date = new Date('2024-03-04T10:00:00Z')
+  const options: Intl.DateTimeFormatOptions = {
+    year: 'numeric',
+    month: 'short',
+    day: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+  }
 
-  afterEach(() => {
-    Object.defineProperty(navigator, 'language', {
-      value: originalLanguage,
-      configurable: true,
-    })
-  })
+  afterEach(() => vi.unstubAllGlobals())
 
   it('formats using the browser locale (de-DE), not a hardcoded en-US', () => {
-    Object.defineProperty(navigator, 'language', {
-      value: 'de-DE',
-      configurable: true,
-    })
+    vi.stubGlobal('navigator', { language: 'de-DE' })
 
-    // A fixed UTC timestamp so the assertion isn't timezone-flaky.
-    const result = formatDate(new Date('2024-03-04T10:00:00Z'))
-
-    // en-US would render this as "Mar 4, 2024, ..." — de-DE renders the day
-    // before the month ("4. März 2024" style) and never contains a comma
-    // after the day the way en-US does. This is the behavior that fails
-    // against the old hardcoded `toLocaleDateString('en-US', ...)` call,
-    // which ignores navigator.language entirely and always returns the
-    // en-US shape regardless of what we set navigator.language to.
-    const enUSShape = new Date('2024-03-04T10:00:00Z').toLocaleDateString('en-US', {
-      year: 'numeric',
-      month: 'short',
-      day: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit',
-    })
-
-    expect(result).not.toBe(enUSShape)
+    expect(formatDate(date)).toBe(date.toLocaleDateString('de-DE', options))
   })
 
-  it('falls back gracefully and still returns a formatted string when locale is unset', () => {
-    Object.defineProperty(navigator, 'language', {
-      value: undefined,
-      configurable: true,
-    })
-    const result = formatDate(new Date('2024-03-04T10:00:00Z'))
-    expect(typeof result).toBe('string')
-    expect(result).not.toBe('Invalid date')
+  it.each([
+    ['navigator is unavailable', undefined],
+    ['navigator.language is unset', { language: undefined }],
+  ])('uses the runtime locale when %s', (_description, navigator) => {
+    vi.stubGlobal('navigator', navigator)
+
+    expect(formatDate(date)).toBe(date.toLocaleDateString(undefined, options))
   })
 
   it('still returns "Invalid date" for unparseable input', () => {

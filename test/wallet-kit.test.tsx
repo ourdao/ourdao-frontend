@@ -160,6 +160,20 @@ describe('connectWithKit', () => {
     expect(w(ref).connecting).toBe(false)
   })
 
+  it('connects when a Kit wallet omits network information', async () => {
+    const kit = fakeKit({
+      getNetwork: vi.fn().mockResolvedValue({ network: '', networkPassphrase: '' }),
+    })
+    const ref = mount(kit)
+    await waitFor(() => expect(w(ref).isRestoring).toBe(false))
+
+    await act(() => w(ref).connectWithKit())
+
+    expect(w(ref).isConnected).toBe(true)
+    expect(w(ref).walletNetwork).toBeNull()
+    expect(w(ref).networkMismatch).toBe(false)
+  })
+
   it('disconnect clears the kit session and tells the kit', async () => {
     const kit = fakeKit()
     const ref = mount(kit)

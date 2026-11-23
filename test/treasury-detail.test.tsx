@@ -1,14 +1,16 @@
 // @vitest-environment jsdom
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { screen, waitFor, fireEvent } from '@testing-library/react'
 import toast from 'react-hot-toast'
 import { renderWithProviders } from './test-utils'
 import TreasuryProposalDetailPage from '@/app/(app)/treasury/[id]/page'
+import * as utils from '@/lib/utils'
 
 const mockGetTreasuryProposal = vi.fn()
 const mockHasVoted = vi.fn()
 const mockIsMember = vi.fn()
 const mockExecuteTreasury = vi.fn()
+const mockCommitTreasuryVote = vi.fn().mockResolvedValue({ hash: 'tx-commit', returnValue: null })
 const mockAnnounce = vi.fn()
 const mockGetDocument = vi.fn().mockResolvedValue(null)
 
@@ -60,16 +62,24 @@ vi.mock('@/lib/dao-client', () => ({
     calculateExitShare: vi.fn().mockResolvedValue(null),
     getTreasuryProposal: (...a: unknown[]) => mockGetTreasuryProposal(...a),
     hasVoted: (...a: unknown[]) => mockHasVoted(...a),
-    getDocument: (...a: unknown[]) => mockGetDocument(...a),
+    getDocument: vi.fn().mockResolvedValue(null),
+    getToken: vi.fn().mockResolvedValue('CTOKEN'),
     getTotalMembers: vi.fn().mockResolvedValue(10),
     getActiveMembers: vi.fn().mockResolvedValue(8),
     getConsensusThreshold: vi.fn().mockResolvedValue(5100),
     getTreasuryBalance: vi.fn().mockResolvedValue(BigInt(1000000000)),
     isPaused: vi.fn().mockResolvedValue(false),
   },
+  tokenRead: {
+    getSymbol: vi.fn().mockResolvedValue('OUSD'),
+    getDecimals: vi.fn().mockResolvedValue(7),
+    getName: vi.fn().mockResolvedValue('OurDAO USD'),
+    getBalance: vi.fn().mockResolvedValue(BigInt(0)),
+  },
   daoWrite: () => ({
     voteOnTreasuryProposal: (...a: unknown[]) => mockVoteOnTreasury(...a),
     executeTreasuryProposal: (...a: unknown[]) => mockExecuteTreasury(...a),
+    commitTreasuryVote: (...a: unknown[]) => mockCommitTreasuryVote(...a),
   }),
   InvokeError: class InvokeError extends Error {
     retryable = false
@@ -89,6 +99,10 @@ describe('TreasuryProposalDetailPage (/treasury/[id])', () => {
     mockIsMember.mockResolvedValue(true)
     mockHasVoted.mockResolvedValue(false)
     mockGetDocument.mockResolvedValue(null)
+  })
+
+  afterEach(() => {
+    vi.restoreAllMocks()
   })
 
   it('renders treasury proposal details when loaded', async () => {
@@ -226,7 +240,7 @@ describe('TreasuryProposalDetailPage (/treasury/[id])', () => {
     })
   })
 
-  describe('private (commit-reveal) voting', () => {
+  describe('private commit-reveal salt backup (#546)', () => {
     // Raw contract shape (see treasuryProposalSchema): the mapper reads
     // `private`, `for_votes`, `against_votes`, not the UI field names.
     const privateProposal = {
@@ -244,14 +258,14 @@ describe('TreasuryProposalDetailPage (/treasury/[id])', () => {
 
     beforeEach(() => {
       localStorage.clear()
-      // exportSalt() builds a Blob download link; jsdom does not implement these.
-      URL.createObjectURL = vi.fn(() => 'blob:salt-backup')
-      URL.revokeObjectURL = vi.fn()
     })
 
     // #519: the commit transaction must not be sendable until the salt backup
     // has been downloaded.
     it('keeps the commit button disabled until the salt backup is downloaded', async () => {
+      const createObjectURL = vi.spyOn(URL, 'createObjectURL').mockReturnValue('blob:salt-backup')
+      vi.spyOn(URL, 'revokeObjectURL').mockImplementation(() => {})
+      vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(() => {})
       mockGetTreasuryProposal.mockResolvedValue(privateProposal)
       mockHasVoted.mockResolvedValue(false)
 
@@ -335,6 +349,64 @@ describe('TreasuryProposalDetailPage (/treasury/[id])', () => {
       expect(viewLink).not.toBeNull()
       expect(viewLink).toHaveAttribute('href', `https://a.example/ipfs/${testCid}`)
       expect(viewLink?.getAttribute('href')).toMatch(/^https:\/\/a\.example\/ipfs\//)
+    it('backs up the exact salt used to compute the on-chain commitment and calls generateCommitment once', async () => {
+      mockGetTreasuryProposal.mockResolvedValue(privateProposal)
+
+      const generateCommitmentSpy = vi.spyOn(utils, 'generateCommitment')
+      vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(() => {})
+
+      let capturedBlob: Blob | null = null
+      const origCreateObjectURL = URL.createObjectURL
+      const origRevokeObjectURL = URL.revokeObjectURL
+      URL.createObjectURL = vi.fn((blob: Blob) => {
+        capturedBlob = blob
+        return 'blob:salt-backup'
+      })
+      URL.revokeObjectURL = vi.fn()
+
+      try {
+        renderWithProviders(<TreasuryProposalDetailPage />)
+
+        fireEvent.click(await screen.findByRole('button', { name: /Commit FOR/i }))
+        fireEvent.click(await screen.findByRole('button', { name: /Step 1: Download salt backup/i }))
+        fireEvent.click(await screen.findByRole('button', { name: /Step 2: Commit Vote/i }))
+
+        await waitFor(() => {
+          expect(mockCommitTreasuryVote).toHaveBeenCalledTimes(1)
+        })
+
+        expect(generateCommitmentSpy).toHaveBeenCalledTimes(1)
+        expect(capturedBlob).not.toBeNull()
+
+        const [calledProposalId, committedHash] = mockCommitTreasuryVote.mock.calls[0] as [
+          number,
+          Uint8Array,
+        ]
+        expect(calledProposalId).toBe(42)
+
+        const backupJson = JSON.parse(await capturedBlob!.text()) as {
+          proposalId: number
+          address: string
+          salt: string
+        }
+        expect(backupJson.proposalId).toBe(42)
+        expect(backupJson.address).toBe('GALICE')
+
+        const backedUpSalt = new Uint8Array(
+          (backupJson.salt.match(/.{1,2}/g) || []).map((byte) => parseInt(byte, 16)),
+        )
+        expect(backedUpSalt).toHaveLength(32)
+
+        const preimage = new Uint8Array(33)
+        preimage[0] = 1 // FOR
+        preimage.set(backedUpSalt, 1)
+        const expectedCommitment = new Uint8Array(await crypto.subtle.digest('SHA-256', preimage))
+
+        expect(Array.from(committedHash)).toEqual(Array.from(expectedCommitment))
+      } finally {
+        URL.createObjectURL = origCreateObjectURL
+        URL.revokeObjectURL = origRevokeObjectURL
+      }
     })
   })
 })

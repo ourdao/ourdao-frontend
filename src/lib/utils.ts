@@ -2,6 +2,7 @@ import { clsx, type ClassValue } from 'clsx'
 import { twMerge } from 'tailwind-merge'
 import { z } from 'zod'
 import { logger } from '@/lib/logger'
+import { z } from 'zod'
 
 // clsx alone only concatenates — it doesn't know that e.g. bg-white and
 // bg-primary conflict, so which one visually wins depends on Tailwind's
@@ -240,10 +241,24 @@ export function loadCommitSalt(proposalId: number): Uint8Array | null {
   return arr ? new Uint8Array(arr) : null
 }
 
-function loadSaltMap(): Record<number, number[]> {
+/** A commit salt is 32 bytes; anything else in storage is treated as corrupt. */
+const COMMIT_SALT_LENGTH = 32
+
+const SaltMapSchema = z.record(
+  z.string(),
+  z.array(z.number().int().min(0).max(255)).length(COMMIT_SALT_LENGTH)
+)
+
+/**
+ * Reads the stored salt map. A missing, non-JSON or malformed value yields an
+ * empty map, so a corrupted entry can never produce a wrong salt.
+ */
+function loadSaltMap(): Record<string, number[]> {
   try {
     const raw = localStorage.getItem(SALT_STORAGE_KEY)
-    return raw ? JSON.parse(raw) : {}
+    if (!raw) return {}
+    const parsed = SaltMapSchema.safeParse(JSON.parse(raw))
+    return parsed.success ? parsed.data : {}
   } catch {
     return {}
   }

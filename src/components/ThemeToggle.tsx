@@ -1,16 +1,20 @@
 'use client'
 
 import { useTheme } from 'next-themes'
+import { useSyncExternalStore } from 'react'
 import { Sun, Moon } from 'lucide-react'
+
+const subscribe = () => () => {}
 
 export function ThemeToggle() {
   const { resolvedTheme, setTheme } = useTheme()
+  const hydrated = useSyncExternalStore(subscribe, () => true, () => false)
 
   // next-themes only knows the resolved (system-aware) theme on the client,
   // after hydration — rendering a theme-dependent icon before that would
   // mismatch the server-rendered HTML. A same-size placeholder avoids
   // layout shift once the real icon appears.
-  if (resolvedTheme === undefined) {
+  if (!hydrated || resolvedTheme === undefined) {
     return <div className="h-9 w-9 rounded-lg p-2" aria-hidden />
   }
 

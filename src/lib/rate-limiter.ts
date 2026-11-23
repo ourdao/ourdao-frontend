@@ -35,9 +35,39 @@ export function getRateLimiterConfig(): RateLimiterConfig {
 const ipStore = new Map<string, number[]>()
 const memberStore = new Map<string, number[]>()
 
+/** How often keys whose timestamps have all expired are swept out of both stores (#576). */
+const SWEEP_INTERVAL_MS = 60_000
+let lastSweepAt = 0
+
 export function resetRateLimits(): void {
   ipStore.clear()
   memberStore.clear()
+  lastSweepAt = 0
+}
+
+/** Number of keys tracked across both stores. Used by tests and diagnostics. */
+export function getRateLimitStoreSize(): number {
+  return ipStore.size + memberStore.size
+}
+
+/** Keeps a key only while it still has live timestamps, so clients that went idle do not stay in memory. */
+function storeTimestamps(store: Map<string, number[]>, key: string, timestamps: number[]): void {
+  if (timestamps.length > 0) store.set(key, timestamps)
+  else store.delete(key)
+}
+
+function sweepStore(store: Map<string, number[]>, windowMs: number, now: number): void {
+  for (const [key, timestamps] of store) {
+    storeTimestamps(store, key, timestamps.filter((ts) => now - ts < windowMs))
+  }
+}
+
+/** Sweeps both stores at most once per SWEEP_INTERVAL_MS, so the cost is spread across requests. */
+function sweepIdleKeys(config: RateLimiterConfig, now: number): void {
+  if (now - lastSweepAt < SWEEP_INTERVAL_MS) return
+  lastSweepAt = now
+  sweepStore(ipStore, config.ipWindowMs, now)
+  sweepStore(memberStore, config.memberWindowMs, now)
 }
 
 export function getClientIp(req: NextRequest): string {
@@ -68,6 +98,7 @@ export interface RateLimitResult {
 export function checkRateLimit(req: NextRequest): RateLimitResult {
   const config = getRateLimiterConfig()
   const now = Date.now()
+  sweepIdleKeys(config, now)
 
   const memberAddress = getMemberAddress(req)
   const ip = getClientIp(req)
@@ -77,7 +108,7 @@ export function checkRateLimit(req: NextRequest): RateLimitResult {
     const memberTimestamps = (memberStore.get(memberAddress) || []).filter(
       (ts) => now - ts < config.memberWindowMs
     )
-    memberStore.set(memberAddress, memberTimestamps)
+    storeTimestamps(memberStore, memberAddress, memberTimestamps)
 
     if (memberTimestamps.length >= config.memberMaxRequests) {
       const oldest = memberTimestamps[0]
@@ -92,8 +123,10 @@ export function checkRateLimit(req: NextRequest): RateLimitResult {
   }
 
   // Check per-IP rate limit
-  const ipTimestamps = (ipStore.get(ip) || []).filter((ts) => now - ts < config.ipWindowMs)
-  ipStore.set(ip, ipTimestamps)
+  const ipTimestamps = (ipStore.get(ip) || []).filter(
+    (ts) => now - ts < config.ipWindowMs
+  )
+  storeTimestamps(ipStore, ip, ipTimestamps)
 
   if (ipTimestamps.length >= config.ipMaxRequests) {
     const oldest = ipTimestamps[0]

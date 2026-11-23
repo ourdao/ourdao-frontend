@@ -1,36 +1,20 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import nextConfig, { buildImageRemotePatterns } from '../next.config'
+import { buildImageRemotePatterns } from '../next.config'
 
 describe('next.config image remotePatterns for IPFS gateways (#245)', () => {
-  const originalEnv = process.env.NEXT_PUBLIC_IPFS_GATEWAY
+  afterEach(() => vi.unstubAllEnvs())
 
-  afterEach(() => {
-    if (originalEnv !== undefined) {
-      process.env.NEXT_PUBLIC_IPFS_GATEWAY = originalEnv
-    } else {
-      delete process.env.NEXT_PUBLIC_IPFS_GATEWAY
-    }
-    vi.unstubAllEnvs()
-  })
+  it('allows no remote image gateways when the env is unset', () => {
+    vi.stubEnv('NEXT_PUBLIC_IPFS_GATEWAY', undefined)
 
-  it('provides default remote pattern for pinata gateway when env is unset', () => {
-    delete process.env.NEXT_PUBLIC_IPFS_GATEWAY
-    const patterns = buildImageRemotePatterns()
-
-    expect(patterns).toEqual(
-      expect.arrayContaining([
-        expect.objectContaining({
-          protocol: 'https',
-          hostname: 'gateway.pinata.cloud',
-          pathname: '/ipfs/**',
-        }),
-      ])
-    )
+    expect(buildImageRemotePatterns()).toEqual([])
   })
 
   it('derives remote patterns from comma-separated NEXT_PUBLIC_IPFS_GATEWAY', () => {
-    process.env.NEXT_PUBLIC_IPFS_GATEWAY =
+    vi.stubEnv(
+      'NEXT_PUBLIC_IPFS_GATEWAY',
       'https://ipfs.io/ipfs/, http://localhost:8080/ipfs/, https://custom-gateway.xyz:9000/content'
+    )
     const patterns = buildImageRemotePatterns()
 
     expect(patterns).toHaveLength(3)
@@ -54,7 +38,7 @@ describe('next.config image remotePatterns for IPFS gateways (#245)', () => {
   })
 
   it('handles root path gateways by permitting /** wildcard', () => {
-    process.env.NEXT_PUBLIC_IPFS_GATEWAY = 'https://w3s.link'
+    vi.stubEnv('NEXT_PUBLIC_IPFS_GATEWAY', 'https://w3s.link')
     const patterns = buildImageRemotePatterns()
 
     expect(patterns).toEqual([
@@ -67,18 +51,24 @@ describe('next.config image remotePatterns for IPFS gateways (#245)', () => {
   })
 
   it('deduplicates identical gateway URLs in env', () => {
-    process.env.NEXT_PUBLIC_IPFS_GATEWAY =
+    vi.stubEnv(
+      'NEXT_PUBLIC_IPFS_GATEWAY',
       'https://gateway.pinata.cloud/ipfs/, https://gateway.pinata.cloud/ipfs/'
+    )
     const patterns = buildImageRemotePatterns()
 
     expect(patterns).toHaveLength(1)
     expect(patterns[0].hostname).toBe('gateway.pinata.cloud')
   })
 
-  it('configures nextConfig with modern image formats and remotePatterns', () => {
-    expect(nextConfig.images).toBeDefined()
-    expect(nextConfig.images?.formats).toEqual(['image/avif', 'image/webp'])
-    expect(Array.isArray(nextConfig.images?.remotePatterns)).toBe(true)
-    expect(nextConfig.images?.remotePatterns?.length).toBeGreaterThan(0)
+  it('passes configured gateway patterns and modern image formats to Next.js', async () => {
+    vi.stubEnv('NEXT_PUBLIC_IPFS_GATEWAY', 'https://gateway.pinata.cloud/ipfs/')
+    vi.resetModules()
+    const { default: nextConfig } = await import('../next.config')
+
+    expect(nextConfig.images).toEqual({
+      formats: ['image/avif', 'image/webp'],
+      remotePatterns: [{ protocol: 'https', hostname: 'gateway.pinata.cloud', pathname: '/ipfs/**' }],
+    })
   })
 })

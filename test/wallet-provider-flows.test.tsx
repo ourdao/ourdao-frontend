@@ -203,6 +203,36 @@ describe('connect()', () => {
     }
   })
 
+  it('falls back to Freighter connection info when the injected version is empty', async () => {
+    const win = window as unknown as { freighter?: { getFreighterVersion: () => Promise<string> } }
+    win.freighter = { getFreighterVersion: async () => '' }
+    vi.mocked(freighter.requestAccess).mockResolvedValue({ address: ADDRESS } as never)
+    try {
+      const { ref } = mount()
+      await waitFor(() => expect(wallet(ref).isRestoring).toBe(false))
+      await act(async () => wallet(ref).connect())
+      expect(wallet(ref).address).toBe(ADDRESS)
+      expect(wallet(ref).freighterVersion).toBe('2.5.0')
+    } finally {
+      delete win.freighter
+    }
+  })
+
+  it.each([
+    ['the read reports an error', { error: 'network unavailable' }],
+    ['the extension does not report its network', { network: '', networkPassphrase: '' }],
+  ])('connects without inventing a network when %s', async (_label, response) => {
+    vi.mocked(freighter.requestAccess).mockResolvedValue({ address: ADDRESS } as never)
+    vi.mocked(freighter.getNetwork).mockResolvedValue(response as never)
+    const { ref } = mount()
+    await waitFor(() => expect(wallet(ref).isRestoring).toBe(false))
+    await act(async () => wallet(ref).connect())
+
+    expect(wallet(ref).address).toBe(ADDRESS)
+    expect(wallet(ref).walletNetwork).toBeNull()
+    expect(wallet(ref).networkMismatch).toBe(false)
+  })
+
   it.each([
     ['an error field', { address: '', error: 'User declined' }],
     ['an empty address', { address: '' }],

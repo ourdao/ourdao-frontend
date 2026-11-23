@@ -23,7 +23,7 @@ let mockIsConnected = true
 
 vi.mock('next/navigation', () => ({
   usePathname: () => '/register',
-  useRouter: () => ({ push: vi.fn() }),
+  useRouter: () => ({ push: vi.fn(), replace: vi.fn() }),
 }))
 
 vi.mock('@/lib/wallet', () => ({
@@ -118,6 +118,6 @@ describe('RegisterPage', () => {
     renderWithProviders(<RegisterPage />)
 
     expect(screen.getAllByText('Membership Fee:').length).toBeGreaterThan(0)
-    await waitFor(() => expect(screen.getAllByText('100').length).toBeGreaterThan(0))
+    await waitFor(() => expect(screen.getAllByText('100 OUSD').length).toBeGreaterThan(0))
   })
 })

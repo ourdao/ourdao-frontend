@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 import { READ_TIMEOUT_MS, WRITE_TIMEOUT_MS, withTimeout } from '@/lib/dao-client'
 
 describe('dao-client timeout utilities', () => {
@@ -34,6 +34,29 @@ describe('dao-client timeout utilities', () => {
     expect(READ_TIMEOUT_MS).toBe(10_000)
     expect(WRITE_TIMEOUT_MS).toBe(60_000)
     expect(WRITE_TIMEOUT_MS).toBeGreaterThan(READ_TIMEOUT_MS)
+  })
+
+  it('clears the timer once a call resolves, so no timer stays pending (#575)', async () => {
+    vi.useFakeTimers()
+    try {
+      await expect(withTimeout(Promise.resolve('ok'), WRITE_TIMEOUT_MS, 'write')).resolves.toBe('ok')
+      expect(vi.getTimerCount()).toBe(0)
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
+  it('still rejects with the same message when a call exceeds its timeout, then leaves no timer (#575)', async () => {
+    vi.useFakeTimers()
+    try {
+      const pending = withTimeout(new Promise<string>(() => {}), 500, 'read')
+      const assertion = expect(pending).rejects.toThrow('read timed out after 500ms')
+      await vi.advanceTimersByTimeAsync(500)
+      await assertion
+      expect(vi.getTimerCount()).toBe(0)
+    } finally {
+      vi.useRealTimers()
+    }
   })
 
   it('timeout error is retryable', async () => {

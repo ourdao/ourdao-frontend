@@ -25,7 +25,8 @@ const mockProposeTreasuryWithdrawal = vi.fn()
 
 vi.mock('next/navigation', () => ({
   usePathname: () => '/governance',
-  useRouter: () => ({ push: vi.fn() }),
+  useRouter: () => ({ push: vi.fn(), replace: vi.fn() }),
+  useSearchParams: () => new URLSearchParams(),
 }))
 
 vi.mock('@/lib/wallet', () => ({

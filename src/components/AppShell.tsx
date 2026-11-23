@@ -30,6 +30,7 @@ import { OrbitMark } from '@/components/OrbitMark'
 import { ThemeToggle } from '@/components/ThemeToggle'
 import { Sheet, SheetContent, SheetTitle, SheetTrigger } from '@/components/ui/sheet'
 import { useUserData, useDAOStats } from '@/hooks/useDAO'
+import { useStreamStatus } from '@/hooks/useLiveEvents'
 import { buildLabel } from '@/lib/build-info'
 import { isBackendConfigured } from '@/lib/backend'
 import { contractIdStatus } from '@/lib/stellar'
@@ -110,6 +111,22 @@ function NavLinks({ onNavigate }: { onNavigate?: () => void }) {
 // Names the running build so a bug report can be matched to CHANGELOG.md (#250).
 function BuildLabel() {
   return <p className="text-muted-foreground px-6 pt-4 text-xs">{buildLabel()}</p>
+}
+
+const STREAM_STATUS_TEXT = {
+  connected: 'Live',
+  reconnecting: 'Reconnecting',
+  offline: 'Offline',
+}
+
+function LiveConnectionStatus() {
+  const status = useStreamStatus()
+  return (
+    <span role="status" aria-live="polite" className="text-xs text-muted-foreground">
+      <span className="sr-only">Live updates: </span>
+      {STREAM_STATUS_TEXT[status]}
+    </span>
+  )
 }
 
 interface AppShellProps {

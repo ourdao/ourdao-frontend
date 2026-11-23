@@ -1,19 +1,19 @@
 // @vitest-environment jsdom
 /**
- * Tests for disconnect cache clearing — verifies that disconnect() clears all
- * cached query data so no member-specific data lingers for the next connection.
+ * Tests for wallet-scoped cache invalidation on disconnect. Public queries
+ * remain available, and disconnected or new wallets never render previous data.
  *
  * Acceptance criteria:
  * - No member-specific data is served after disconnect
  * - Reconnecting as a different member shows no previous data
- * - Decrypted document content does not survive a disconnect
+ * - Document previews are hidden when disconnected
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { render, waitFor, act } from '@testing-library/react'
 import { QueryClient, QueryClientProvider, useQuery } from '@tanstack/react-query'
 import React from 'react'
 import { WalletProvider, useWallet } from '@/lib/wallet'
-import { queryKeys } from '@/lib/query-keys'
+import { allWalletScopedQueryKeys, queryKeys } from '@/lib/query-keys'
 import * as freighter from '@stellar/freighter-api'
 
 // ---------------------------------------------------------------------------
@@ -63,7 +63,7 @@ function TestHarness({ onRender }: { onRender: (w: ReturnType<typeof useWallet>)
   // Set up test queries for member-specific data
   const userDataQuery = useQuery({
     queryKey: queryKeys.userData(wallet.address || ''),
-    queryFn: () => Promise.resolve({ name: 'Member A', shares: 100 }),
+    queryFn: () => Promise.resolve({ name: wallet.address === 'ACCOUNT_A' ? 'Member A' : 'Member B' }),
     enabled: !!wallet.address,
   })
 
@@ -81,7 +81,7 @@ function TestHarness({ onRender }: { onRender: (w: ReturnType<typeof useWallet>)
 
   const documentQuery = useQuery({
     queryKey: queryKeys.document('QmTestHash', wallet.address || ''),
-    queryFn: () => Promise.resolve({ content: new Uint8Array([1, 2, 3]), decrypted: true }),
+    queryFn: () => Promise.resolve({ content: new Uint8Array([1, 2, 3]), decrypted: false }),
     enabled: !!wallet.address,
   })
 
@@ -147,7 +147,7 @@ function makeQueryClient() {
 // Tests
 // ---------------------------------------------------------------------------
 
-describe('disconnect() — cache clearing', () => {
+describe('disconnect() — wallet-scoped invalidation', () => {
   beforeEach(() => {
     watchCallback = null
     mockWatcherStop.mockClear()
@@ -158,13 +158,13 @@ describe('disconnect() — cache clearing', () => {
 
   afterEach(() => vi.clearAllMocks())
 
-  it('clears all member-specific query caches on disconnect', async () => {
+  it('invalidates wallet-scoped queries and preserves public data on disconnect', async () => {
     // Start with a connected wallet
     vi.mocked(freighter.isAllowed).mockResolvedValue({ isAllowed: true } as never)
     vi.mocked(freighter.getAddress).mockResolvedValue({ address: 'ACCOUNT_A' } as never)
 
     const qc = makeQueryClient()
-    const clearSpy = vi.spyOn(qc, 'clear')
+    const invalidateSpy = vi.spyOn(qc, 'invalidateQueries')
     let latest: ReturnType<typeof useWallet> | undefined
     const { getByTestId } = renderProvider(qc, (w) => {
       latest = w
@@ -202,8 +202,8 @@ describe('disconnect() — cache clearing', () => {
 
     await waitFor(() => expect(latest?.address).toBeNull())
 
-    // Verify queryClient.clear() was called
-    expect(clearSpy).toHaveBeenCalledTimes(1)
+    expect(invalidateSpy.mock.calls.map(([filters]) => filters?.queryKey)).toEqual(allWalletScopedQueryKeys())
+    expect(qc.getQueryData(queryKeys.daoStats())).toEqual({ totalMembers: 10, totalProposals: 5 })
 
     // Verify no member-specific data is displayed
     expect(getByTestId('userData').textContent).toBe('none')
@@ -219,7 +219,6 @@ describe('disconnect() — cache clearing', () => {
     vi.mocked(freighter.getAddress).mockResolvedValue({ address: 'ACCOUNT_A' } as never)
 
     const qc = makeQueryClient()
-    const clearSpy = vi.spyOn(qc, 'clear')
     let latest: ReturnType<typeof useWallet> | undefined
     const { getByTestId } = renderProvider(qc, (w) => {
       latest = w
@@ -244,21 +243,21 @@ describe('disconnect() — cache clearing', () => {
     await waitFor(() => expect(latest?.address).toBeNull())
     await waitFor(() => expect(getByTestId('userData').textContent).toBe('none'))
 
-    // Verify clear was called
-    expect(clearSpy).toHaveBeenCalled()
-
-    // The key point: all cached data should be gone, so reconnecting
-    // as a different user won't show stale data from the previous session
-    // We've verified clear() was called, which removes all cache entries
+    vi.mocked(freighter.requestAccess).mockResolvedValue({ address: 'ACCOUNT_B' } as never)
+    await act(async () => {
+      await latest!.connect()
+    })
+    await waitFor(() => expect(latest?.address).toBe('ACCOUNT_B'))
+    await waitFor(() => expect(getByTestId('userData').textContent).toContain('Member B'))
+    expect(getByTestId('userData').textContent).not.toContain('Member A')
   })
 
-  it('ensures decrypted document content does not survive disconnect', async () => {
-    // Connect and load encrypted document
+  it('hides the wallet’s cached document preview on disconnect', async () => {
     vi.mocked(freighter.isAllowed).mockResolvedValue({ isAllowed: true } as never)
     vi.mocked(freighter.getAddress).mockResolvedValue({ address: 'ACCOUNT_A' } as never)
 
     const qc = makeQueryClient()
-    const clearSpy = vi.spyOn(qc, 'clear')
+    const invalidateSpy = vi.spyOn(qc, 'invalidateQueries')
     let latest: ReturnType<typeof useWallet> | undefined
     const { getByTestId } = renderProvider(qc, (w) => {
       latest = w
@@ -281,19 +280,16 @@ describe('disconnect() — cache clearing', () => {
 
     await waitFor(() => expect(latest?.address).toBeNull())
 
-    // Verify clear was called
-    expect(clearSpy).toHaveBeenCalled()
-
+    expect(invalidateSpy).toHaveBeenCalledWith({ queryKey: ['document'] })
     // Verify no document content is displayed
     expect(getByTestId('document').textContent).toBe('none')
   })
 
-  it('clears userData, userLoans, stake, document, notifications, and hasVoted caches', async () => {
+  it('invalidates the proposal vote cache on disconnect', async () => {
     vi.mocked(freighter.isAllowed).mockResolvedValue({ isAllowed: true } as never)
     vi.mocked(freighter.getAddress).mockResolvedValue({ address: 'ACCOUNT_A' } as never)
 
     const qc = makeQueryClient()
-    const clearSpy = vi.spyOn(qc, 'clear')
     let latest: ReturnType<typeof useWallet> | undefined
     renderProvider(qc, (w) => {
       latest = w
@@ -301,8 +297,9 @@ describe('disconnect() — cache clearing', () => {
 
     await waitFor(() => expect(latest?.address).toBe('ACCOUNT_A'))
 
-    // Manually set a hasVoted query to verify it gets cleared
-    qc.setQueryData(queryKeys.hasVoted('Loan', 1, 'ACCOUNT_A'), true)
+    const voteKey = queryKeys.hasVoted('Loan', 1, 'ACCOUNT_A')
+    qc.setQueryData(voteKey, true)
+    expect(qc.getQueryState(voteKey)?.isInvalidated).toBe(false)
 
     // Wait for other queries to populate
     await waitFor(() => {
@@ -332,8 +329,7 @@ describe('disconnect() — cache clearing', () => {
 
     await waitFor(() => expect(latest?.address).toBeNull())
 
-    // Verify queryClient.clear() was called
-    expect(clearSpy).toHaveBeenCalledTimes(1)
+    expect(qc.getQueryState(voteKey)?.isInvalidated).toBe(true)
   })
 
   it('does not throw when disconnect is called while already disconnected', () => {

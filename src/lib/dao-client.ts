@@ -66,17 +66,17 @@ export const READ_TIMEOUT_MS = 10_000
 /** Timeout for write RPC calls (getAccount, prepareTransaction, sendTransaction, getTransaction). */
 export const WRITE_TIMEOUT_MS = 60_000
 
-/** Creates a promise that rejects after the given timeout. */
-export function timeout<T>(ms: number, label: string): Promise<T> {
-  return new Promise((_, reject) => {
-    setTimeout(() => reject(new Error(`${label} timed out after ${ms}ms`)), ms)
-  })
-}
-
-/** Wraps a promise with a timeout, preserving the original error type when possible. */
+/**
+ * Wraps a promise with a timeout, preserving the original error type when possible. The timer is cleared as soon as
+ * the race settles, so a call that finishes in time leaves no pending timer behind (#575).
+ */
 export async function withTimeout<T>(promise: Promise<T>, ms: number, label: string): Promise<T> {
+  let timer: ReturnType<typeof setTimeout> | undefined
+  const expired = new Promise<never>((_, reject) => {
+    timer = setTimeout(() => reject(new Error(`${label} timed out after ${ms}ms`)), ms)
+  })
   try {
-    return await Promise.race([promise, timeout<T>(ms, label)])
+    return await Promise.race([promise, expired])
   } catch (e) {
     if (e instanceof Error && e.message.includes('timed out')) {
       const timeoutError = new Error(e.message)
@@ -85,6 +85,8 @@ export async function withTimeout<T>(promise: Promise<T>, ms: number, label: str
       throw timeoutError
     }
     throw e
+  } finally {
+    clearTimeout(timer)
   }
 }
 

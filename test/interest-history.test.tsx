@@ -87,7 +87,7 @@ describe('InterestHistory component (Issue #398)', () => {
       expect(backend.getInterestDistributions).toHaveBeenCalledWith({
         before: 190,
         limit: 2,
-      })
+      }, { signal: expect.any(AbortSignal) })
     })
   })
 })

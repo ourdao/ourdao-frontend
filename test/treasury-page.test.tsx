@@ -23,7 +23,8 @@ const mockGetStats = vi.fn()
 
 vi.mock('next/navigation', () => ({
   usePathname: () => '/treasury',
-  useRouter: () => ({ push: vi.fn() }),
+  useRouter: () => ({ push: vi.fn(), replace: vi.fn() }),
+  useSearchParams: () => new URLSearchParams(),
 }))
 
 vi.mock('@/lib/wallet', () => ({
@@ -49,6 +50,7 @@ vi.mock('@/lib/dao-client', () => ({
     getMember: (...a: unknown[]) => mockGetMember(...a),
     getPendingYield: (...a: unknown[]) => mockGetPendingYield(...a),
     getStake: (...a: unknown[]) => mockGetStake(...a),
+    getToken: vi.fn().mockResolvedValue('CTOKEN'),
     getTreasuryProposal: (...a: unknown[]) => mockGetTreasuryProposal(...a),
     getTotalMembers: (...a: unknown[]) => mockGetTotalMembers(...a),
     getActiveMembers: (...a: unknown[]) => mockGetActiveMembers(...a),
@@ -56,6 +58,12 @@ vi.mock('@/lib/dao-client', () => ({
     getTreasuryBalance: (...a: unknown[]) => mockGetTreasuryBalance(...a),
     getLoanPolicy: (...a: unknown[]) => mockGetLoanPolicy(...a),
     isPaused: (...a: unknown[]) => mockIsPaused(...a),
+  },
+  tokenRead: {
+    getSymbol: vi.fn().mockResolvedValue('OUSD'),
+    getDecimals: vi.fn().mockResolvedValue(7),
+    getName: vi.fn().mockResolvedValue('OurDAO USD'),
+    getBalance: vi.fn().mockResolvedValue(BigInt(0)),
   },
   daoWrite: () => ({ stake: vi.fn(), unstake: vi.fn() }),
 }))
@@ -96,8 +104,8 @@ describe('TreasuryPage', () => {
   it("renders the real treasury balance and the connected member's own stake", async () => {
     renderWithProviders(<TreasuryPage />)
 
-    await waitFor(() => expect(screen.getByText('900')).toBeInTheDocument())
-    expect(screen.getByText('50')).toBeInTheDocument()
+    await waitFor(() => expect(screen.getByText('900 OUSD')).toBeInTheDocument())
+    expect(await screen.findByText('50 OUSD')).toBeInTheDocument()
   })
 
   it('displays voting weight preview based on stake', async () => {

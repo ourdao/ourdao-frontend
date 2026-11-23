@@ -80,12 +80,19 @@ export const viewport = {
   ],
 }
 
-export default function RootLayout({ children }: { children: React.ReactNode }) {
+export default async function RootLayout({
+  children,
+}: {
+  children: React.ReactNode
+}) {
+  const nonce = (await headers()).get("x-nonce") ?? undefined
   return (
     <html lang="en" data-scroll-behavior="smooth" suppressHydrationWarning>
       <body className={`${inter.variable} ${jetbrainsMono.variable} antialiased`}>
         <ServiceWorkerRegistration />
-        <Providers>{children}</Providers>
+        <Providers nonce={nonce}>
+          {children}
+        </Providers>
       </body>
     </html>
   )

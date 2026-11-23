@@ -30,7 +30,7 @@ let mockContractConfigured = true
 
 vi.mock('next/navigation', () => ({
   usePathname: () => '/dashboard',
-  useRouter: () => ({ push: vi.fn() }),
+  useRouter: () => ({ push: vi.fn(), replace: vi.fn() }),
 }))
 
 vi.mock('@/lib/wallet', () => ({
@@ -153,11 +153,12 @@ describe('degradation mode: backend unreachable', () => {
   beforeEach(resetDefaults)
   afterEach(() => vi.clearAllMocks())
 
-  it('/dashboard shows "No recent activity" rather than an error or fabricated events', async () => {
+  it('/dashboard shows a retry when recent activity cannot be loaded', async () => {
     mockGetEvents.mockRejectedValue(new Error('fetch failed'))
     renderWithProviders(<DashboardPage />)
 
-    await waitFor(() => expect(screen.getByText(/No recent activity/)).toBeInTheDocument())
+    expect(await screen.findByTestId('load-error')).toHaveTextContent("Couldn't load recent activity")
+    expect(screen.queryByText(/No recent activity/)).not.toBeInTheDocument()
     // Confirm no throw crashed the render — the member status card (which
     // only depends on direct contract reads, not the backend) is present.
     expect(screen.getByText(/Voting Weight/)).toBeInTheDocument()

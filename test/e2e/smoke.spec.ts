@@ -18,7 +18,7 @@ test.describe('E2E Smoke Tests', () => {
 
     // Verify main landing page elements are visible
     await expect(page.getByRole('heading', { level: 1 })).toBeVisible()
-    await expect(page.getByRole('button', { name: /connect wallet/i })).toBeVisible()
+    await expect(page.getByRole('banner').getByRole('button', { name: 'Connect Wallet', exact: true })).toBeVisible()
 
     // Verify navigation links
     const nav = page.getByRole('navigation')
@@ -29,7 +29,7 @@ test.describe('E2E Smoke Tests', () => {
     await setupE2ETest(page)
     await page.goto('/')
 
-    const connectBtn = page.getByRole('button', { name: /connect wallet/i }).first()
+    const connectBtn = page.getByRole('banner').getByRole('button', { name: 'Connect Wallet', exact: true })
     await expect(connectBtn).toBeVisible()
     await connectBtn.click()
 
@@ -50,10 +50,8 @@ test.describe('E2E Smoke Tests', () => {
     await page.goto('/register')
 
     // Step 1: Membership fee & benefits
-    await expect(
-      page.getByRole('heading', { name: /join the dao|welcome to ourdao/i })
-    ).toBeVisible()
-    const nextBtn = page.getByRole('button', { name: /next/i })
+    await expect(page.getByRole('heading', { name: 'Welcome to OurDAO', exact: true })).toBeVisible()
+    const nextBtn = page.getByRole('button', { name: 'Next', exact: true })
     await expect(nextBtn).toBeVisible()
     await nextBtn.click()
 
@@ -68,7 +66,9 @@ test.describe('E2E Smoke Tests', () => {
     await registerBtn.click()
 
     // Verify successful registration banner or feedback
-    await expect(page.getByText(/registration successful/i)).toBeVisible({ timeout: 15_000 })
+    await expect(page.getByText('Registration successful! Welcome to the DAO!')).toBeVisible({ timeout: 15_000 })
+    await expect(page).toHaveURL(/\/dashboard$/)
+    await expect(page.getByRole('heading', { name: 'Member Dashboard' })).toBeVisible()
   })
 
   test('flow 4: request loan flow', async ({ page }) => {
@@ -85,27 +85,25 @@ test.describe('E2E Smoke Tests', () => {
     await expect(page.getByRole('heading', { name: /request loan|request a loan/i })).toBeVisible()
 
     // Enter loan amount
-    const amountInput = page.locator('input[type="number"], input#amount').first()
+    const amountInput = page.getByRole('spinbutton', { name: /loan amount/i })
     await expect(amountInput).toBeVisible()
     await amountInput.fill('100')
 
     // Advance through the form steps
-    const nextBtn = page.getByRole('button', { name: /next/i })
-    if (await nextBtn.isVisible()) {
-      await nextBtn.click()
-    }
+    const nextBtn = page.getByRole('button', { name: 'Next', exact: true })
+    await nextBtn.click()
+    await expect(page.getByRole('heading', { name: 'Supporting Documents' })).toBeVisible()
+    await nextBtn.click()
+    await expect(page.getByRole('heading', { name: 'Review & Submit' })).toBeVisible()
 
     // Submit the loan request
-    const submitBtn = page
-      .getByRole('button', { name: /submit loan request|request loan|submit/i })
-      .last()
+    const submitBtn = page.getByRole('button', { name: 'Submit Request', exact: true })
     await expect(submitBtn).toBeVisible()
     await submitBtn.click()
 
     // Check for success feedback
-    await expect(page.getByText(/loan request submitted|submitted successfully/i)).toBeVisible({
-      timeout: 15_000,
-    })
+    await expect(page.getByText('Loan request submitted successfully!', { exact: true })).toBeVisible({ timeout: 15_000 })
+    await expect(page).toHaveURL(/\/loans$/)
   })
 
   test('flow 5: vote on proposal flow', async ({ page }) => {
@@ -121,13 +119,13 @@ test.describe('E2E Smoke Tests', () => {
     await expect(page.getByRole('heading', { name: /governance/i })).toBeVisible()
 
     // Locate the vote button on the active proposal
-    const voteBtn = page.getByRole('button', { name: /vote for/i }).first()
+    const voteBtn = page.getByRole('button', { name: 'Vote for', exact: true })
     await expect(voteBtn).toBeVisible()
     await voteBtn.click()
 
-    // Verify vote was recorded
-    await expect(
-      page.getByText(/you've voted|vote submitted|vote recorded/i).or(voteBtn)
-    ).toBeVisible({ timeout: 15_000 })
+    // Wait for confirmation, so the optimistic voted state alone cannot pass.
+    await expect(page.getByRole('link', { name: 'View transaction' })).toBeVisible({ timeout: 15_000 })
+    await expect(page.getByText("You've voted", { exact: true })).toBeVisible()
+    await expect(voteBtn).toHaveCount(0)
   })
 })

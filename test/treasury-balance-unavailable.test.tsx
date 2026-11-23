@@ -82,7 +82,7 @@ describe('TreasuryPage stake form balance state (#656)', () => {
     renderWithProviders(<TreasuryPage />)
 
     expect(screen.getByText('Balance unavailable.')).toBeInTheDocument()
-    expect(screen.getByText('Unavailable')).toBeInTheDocument()
+    expect(screen.getByText('Balance: Unavailable')).toBeInTheDocument()
     expect(screen.queryByText(/Insufficient OUSD balance/)).not.toBeInTheDocument()
   })
 

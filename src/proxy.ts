@@ -37,8 +37,11 @@ function generateNonce(): string {
  * which would leak the viewer's IP and referer to external hosts.
  */
 export function buildCspWithNonce(nonce: string): string {
+  // Localhost sources exist only for local development (HMR and a local backend). Production never allows them
+  // unless they are configured explicitly through the NEXT_PUBLIC_* variables (#577).
+  const isDevelopment = process.env.NODE_ENV !== 'production'
   const rpcUrl = process.env.NEXT_PUBLIC_SOROBAN_RPC_URL || 'https://soroban-testnet.stellar.org'
-  const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:4000'
+  const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || (isDevelopment ? 'http://localhost:4000' : '')
   const ipfsGateways = (process.env.NEXT_PUBLIC_IPFS_GATEWAY || '')
     .split(',')
     .map((g) => g.trim())
@@ -70,8 +73,8 @@ export function buildCspWithNonce(nonce: string): string {
     "'self'",
     ...Array.from(origins),
     ...Array.from(wsOrigins),
-    'ws://localhost:*',
-    'wss://localhost:*',
+    // Hot-module-reload sockets in development only (#577).
+    ...(isDevelopment ? ['ws://localhost:*', 'wss://localhost:*'] : []),
   ].join(' ')
 
   // img-src: restrict to known origins instead of allowing all https:
@@ -111,6 +114,7 @@ export function proxy(request: NextRequest) {
   // Clone the request headers
   const requestHeaders = new Headers(request.headers)
   requestHeaders.set('x-nonce', nonce)
+  requestHeaders.set('Content-Security-Policy', csp)
 
   const response = NextResponse.next({
     request: {

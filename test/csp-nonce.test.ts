@@ -91,18 +91,15 @@ describe('CSP nonce-based policy', () => {
     expect(styleSrc).toContain("'unsafe-inline'")
   })
 
-  it('sets x-nonce header in the request for Next.js to use', () => {
+  it('forwards the same policy and nonce to the Next.js renderer', () => {
     const request = new NextRequest(new URL('http://localhost:3000/'))
     const response = proxy(request)
 
-    // The proxy should have set x-nonce in the request headers
-    // We can verify the nonce is consistent between CSP and request
     const csp = response.headers.get('Content-Security-Policy')
-    expect(csp).toBeTruthy()
-
-    const nonceMatch = csp!.match(/'nonce-([A-Za-z0-9+/=]+)'/)
-    expect(nonceMatch).toBeTruthy()
-    expect(nonceMatch![1]).toHaveLength(24) // Base64 encoded 16 bytes = 24 chars
+    const nonce = csp?.match(/'nonce-([A-Za-z0-9+/=]+)'/)?.[1]
+    expect(nonce).toHaveLength(24)
+    expect(response.headers.get('x-middleware-request-x-nonce')).toBe(nonce)
+    expect(response.headers.get('x-middleware-request-content-security-policy')).toBe(csp)
   })
 
   it('includes all required security headers', () => {

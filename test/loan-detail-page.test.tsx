@@ -380,6 +380,27 @@ describe('LoanDetailsPage', () => {
     })
   })
 
+  describe('document CID field (#583)', () => {
+    it('gives the CID input an accessible name that does not depend on its placeholder', async () => {
+      mockGetLoanProposal.mockResolvedValue({
+        id: 1,
+        borrower: 'GBORROWER',
+        amount: BigInt(1000_0000000),
+        interest_rate: 500,
+        status: 'Pending',
+        phase: 'Voting',
+        for_votes: 2,
+        against_votes: 1,
+        created_at: 1000,
+        editing_period_end: 2000,
+      })
+      renderWithProviders(<LoanDetailsPage />)
+
+      const input = await screen.findByRole('textbox', { name: 'IPFS CID or content hash' })
+      expect(input).toHaveAttribute('placeholder', 'IPFS CID or content hash…')
+    })
+  })
+
   describe('awaiting treasury funds (#540)', () => {
     const awaitingProposal = {
       id: 1,

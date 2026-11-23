@@ -12,7 +12,7 @@ The matrix is deliberately small — a few meaningful snapshots beat exhaustive
 coverage nobody waits for:
 
 - **Routes:** the nine main routes listed in `test/visual/routes.spec.ts`
-  (landing, register, dashboard, loans, governance, create-proposal, treasury,
+  (landing, register, members, loans, governance, create-proposal, treasury,
   privacy, admin).
 - **Themes:** each route is captured in **light and dark** (the two axes the
   dual-theme requirement doubles).
@@ -24,11 +24,11 @@ That is 9 routes × 2 themes × 2 viewports = **36 committed baselines** in
 `test/visual/__screenshots__/<project>/`.
 
 Routes render their **wallet-disconnected state**: CI has no Freighter
-extension, and those gates are real UI worth protecting. Two routes are
-deliberately excluded:
+extension, and those gates are real UI worth protecting. The matrix excludes
+routes without a stable disconnected screen:
 
-- `/loans/request` — redirects to `/` without a wallet, so it could only ever
-  picture the landing page.
+- `/dashboard` and `/loans/request` require a wallet and redirect to `/`. The connected
+  flows are covered by `npm run e2e`.
 - `/loans/[id]` — raises a transient "Loan not found" toast on load, which is
   not deterministic enough to baseline.
 

@@ -18,6 +18,7 @@ import {
 import { fetchProposalPage } from './enumeration'
 import { queryKeys } from '@/lib/query-keys'
 import { QUERY_REFRESH_INTERVAL_MS } from '@/constants'
+import { useStreamPolling } from '@/hooks/useLiveEvents'
 
 /** All loan proposals (newest first), read live from the contract, paginated. */
 export function useLoanProposals() {
@@ -27,10 +28,12 @@ export function useLoanProposals() {
     isError: countError,
     refetch: refetchCount,
   } = useQuery({
+  const refetchInterval = useStreamPolling(backendConfigured)
+  const { data: stats, isError: countError, refetch: refetchCount } = useQuery({
     queryKey: queryKeys.backendStats(),
     enabled: backendConfigured,
     queryFn: ({ signal }) => backend.getStats({ signal }),
-    refetchInterval: backendConfigured ? QUERY_REFRESH_INTERVAL_MS : false,
+    refetchInterval,
     refetchIntervalInBackground: false,
   })
   const count = stats?.totalLoanProposals ?? 0
@@ -149,10 +152,12 @@ export function useTreasuryProposals() {
     isError: countError,
     refetch: refetchCount,
   } = useQuery({
+  const refetchInterval = useStreamPolling(backendConfigured)
+  const { data: stats, isError: countError, refetch: refetchCount } = useQuery({
     queryKey: queryKeys.backendStats(),
     enabled: backendConfigured,
     queryFn: ({ signal }) => backend.getStats({ signal }),
-    refetchInterval: backendConfigured ? QUERY_REFRESH_INTERVAL_MS : false,
+    refetchInterval,
     refetchIntervalInBackground: false,
   })
   const count = stats?.totalTreasuryProposals ?? 0

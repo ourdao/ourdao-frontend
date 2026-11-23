@@ -10,8 +10,8 @@ import { gotoInTheme, type Theme } from './helpers'
  * Routes are captured in their wallet-disconnected state — CI has no
  * Freighter extension, and those gates are real UI worth protecting.
  * Deliberately not snapshotted (see docs/visual-tests.md):
- *   - /loans/request redirects to / without a wallet, so it would only ever
- *     picture the landing page;
+ *   - /dashboard and /loans/request require a wallet and redirect to /,
+ *     so they lack a stable disconnected screen;
  *   - /loans/[id] raises a transient "Loan not found" toast on load, which is
  *     not deterministic enough to baseline;
  *   - /governance/create and /admin additionally render Member Only /
@@ -20,7 +20,7 @@ import { gotoInTheme, type Theme } from './helpers'
 const ROUTES: { name: string; path: string }[] = [
   { name: 'landing', path: '/' },
   { name: 'register', path: '/register' },
-  { name: 'dashboard', path: '/dashboard' },
+  { name: 'members', path: '/members' },
   { name: 'loans', path: '/loans' },
   { name: 'governance', path: '/governance' },
   { name: 'create-proposal', path: '/governance/create' },
@@ -35,6 +35,7 @@ for (const route of ROUTES) {
   for (const theme of THEMES) {
     test(`${route.name} renders in the ${theme} theme`, async ({ page }) => {
       await gotoInTheme(page, route.path, theme)
+      await expect(page).toHaveURL((url) => url.pathname === route.path)
       await expect(page).toHaveScreenshot(`${route.name}-${theme}.png`)
     })
   }

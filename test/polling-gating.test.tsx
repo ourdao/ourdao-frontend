@@ -151,7 +151,7 @@ describe('Polling and query gating (#242)', () => {
     await waitFor(() => expect(result.current.isLoading).toBe(false))
     expect(result.current.isMember).toBe(true)
 
-    await waitFor(() => expect(mockGetLoans).toHaveBeenCalledWith('GALICE'))
+    await waitFor(() => expect(mockGetLoans).toHaveBeenCalledWith('GALICE', { signal: expect.any(AbortSignal) }))
     expect(result.current.loans.length).toBe(1)
     expect(result.current.loans[0].id).toBe(1)
   })

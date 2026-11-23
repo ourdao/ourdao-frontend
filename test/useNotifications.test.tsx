@@ -379,10 +379,10 @@ describe('useActivityFeed', () => {
   })
 
   it.each([
-    ['loan_rej', 'loan', 'Loan rejected'],
-    ['loan_wait', 'loan', 'Loan awaiting funds'],
-    ['tre_rej', 'treasury', 'Treasury proposal rejected'],
-    ['tre_wait', 'treasury', 'Treasury withdrawal awaiting funds'],
+    ['loan_rej', 'loan', 'Loan proposal rejected'],
+    ['loan_wait', 'loan', 'Loan approved, awaiting treasury funds'],
+    ['tre_rej', 'treasury', 'Treasury withdrawal rejected'],
+    ['tre_wait', 'treasury', 'Treasury withdrawal approved, awaiting funds'],
   ])('surfaces the failure event %s as a distinct activity', async (symbol, type, title) => {
     mockGetEvents.mockResolvedValue([event({ symbol })])
     let latest: ReturnType<typeof useActivityFeed> | undefined

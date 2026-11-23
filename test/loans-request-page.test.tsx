@@ -4,6 +4,7 @@ import { render, screen, fireEvent, waitFor } from '@testing-library/react'
 import RequestLoanPage from '@/app/(app)/loans/request/page'
 
 const mockPush = vi.fn()
+const mockReplace = vi.fn()
 const mockRequestLoan = vi.fn()
 const mockAttach = vi.fn()
 const mockToastSuccess = vi.fn()
@@ -28,7 +29,7 @@ let mockUserData: Record<string, unknown> = {
 }
 
 vi.mock('next/navigation', () => ({
-  useRouter: () => ({ push: mockPush }),
+  useRouter: () => ({ push: mockPush, replace: mockReplace }),
 }))
 
 vi.mock('react-hot-toast', () => ({
@@ -105,6 +106,7 @@ describe('RequestLoanPage', () => {
       mockUserData = { isConnected: false, isMember: false, isLoading: true, hasActiveLoan: false }
       render(<RequestLoanPage />)
 
+      expect(mockReplace).not.toHaveBeenCalled()
       expect(mockPush).not.toHaveBeenCalled()
     })
 
@@ -122,20 +124,23 @@ describe('RequestLoanPage', () => {
       mockUserData = { isConnected: false, isMember: false, isLoading: false, hasActiveLoan: false }
       render(<RequestLoanPage />)
 
-      await waitFor(() => expect(mockPush).toHaveBeenCalledWith('/'))
+      await waitFor(() => expect(mockReplace).toHaveBeenCalledWith('/'))
+      expect(mockPush).not.toHaveBeenCalled()
     })
 
     it('redirects to /register once settled and confirmed a non-member', async () => {
       mockUserData = { isConnected: true, isMember: false, isLoading: false, hasActiveLoan: false }
       render(<RequestLoanPage />)
 
-      await waitFor(() => expect(mockPush).toHaveBeenCalledWith('/register'))
+      await waitFor(() => expect(mockReplace).toHaveBeenCalledWith('/register'))
+      expect(mockPush).not.toHaveBeenCalled()
     })
 
     it('keeps a connected member on the page with no redirect', async () => {
       render(<RequestLoanPage />)
 
       await screen.findByLabelText(/Loan Amount/)
+      expect(mockReplace).not.toHaveBeenCalled()
       expect(mockPush).not.toHaveBeenCalled()
     })
   })

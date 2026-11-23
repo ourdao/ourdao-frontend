@@ -83,7 +83,7 @@ describe('Issue #218 — Wallet Watcher Visibility & State Updates', () => {
     })
 
     await waitFor(() => expect(latest?.address).toBe('ACCOUNT_A'))
-    expect(freighter.WatchWalletChanges).toHaveBeenCalled()
+    await waitFor(() => expect(freighter.WatchWalletChanges).toHaveBeenCalled())
 
     // Hide document
     Object.defineProperty(document, 'hidden', { value: true, configurable: true })

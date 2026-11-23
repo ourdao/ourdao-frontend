@@ -10,6 +10,10 @@ on:
   # never report there, so every queued PR stalls in AWAITING_CHECKS until the
   # ruleset's 30-minute timeout evicts it and nothing can ever merge.
   merge_group:
+  schedule:
+    # Check for upstream contract ABI drift against ourdao-contracts main
+    # without waiting for a frontend PR (#541). Non-blocking on schedule.
+    - cron: '0 6 * * *'
 
 permissions:
   contents: read
@@ -20,6 +24,7 @@ concurrency:
 
 jobs:
   lint:
+    if: github.event_name != 'schedule'
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
@@ -35,6 +40,7 @@ jobs:
       - run: npm run format:check
 
   typecheck:
+    if: github.event_name != 'schedule'
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
@@ -53,6 +59,7 @@ jobs:
   test:
     # Node 20 is the required check and keeps the plain `test` name the
     # ruleset and the `status` job expect; 22 and 24 are informational.
+    if: github.event_name != 'schedule'
     name: ${{ matrix.node == 20 && 'test' || format('test (node {0}, informational)', matrix.node) }}
     runs-on: ubuntu-latest
     timeout-minutes: 10
@@ -78,6 +85,7 @@ jobs:
   # lockfile-clean. The summary is published to the job output so the
   # per-file report is the main deliverable without opening the artifact.
   coverage:
+    if: github.event_name != 'schedule'
     name: Coverage
     runs-on: ubuntu-latest
     timeout-minutes: 10
@@ -121,6 +129,7 @@ jobs:
   build:
     # Node 20 is the required check and keeps the plain `build` name the
     # ruleset and the `status` job expect; 22 and 24 are informational.
+    if: github.event_name != 'schedule'
     name: ${{ matrix.node == 20 && 'build' || format('build (node {0}, informational)', matrix.node) }}
     runs-on: ubuntu-latest
     timeout-minutes: 15
@@ -147,6 +156,20 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-nextjs-${{ hashFiles('**/package-lock.json') }}-
       - run: npm run build
+      - name: Package Lighthouse production build
+        if: matrix.node == 20
+        run: |
+          cp -R .next/static .next/standalone/.next/static
+          cp -R public .next/standalone/public
+          tar -czf "$RUNNER_TEMP/lighthouse-build.tar.gz" -C .next/standalone .
+      - name: Upload Lighthouse production build
+        if: matrix.node == 20
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: lighthouse-build
+          path: ${{ runner.temp }}/lighthouse-build.tar.gz
+          retention-days: 1
+          overwrite: true
 
   # Screenshot baselines for the main routes in both themes × two viewports
   # (#270). An unreviewed visual change fails this job and, through `status`,
@@ -154,6 +177,7 @@ jobs:
   # upload the actual/expected/diff PNGs as the `visual-diffs` artifact.
   # Policy and baseline-update instructions: docs/visual-tests.md
   visual:
+    if: github.event_name != 'schedule'
     name: Visual regression
     runs-on: ubuntu-latest
     timeout-minutes: 20
@@ -178,6 +202,7 @@ jobs:
 
   # End-to-end smoke tests (Playwright) against mocked RPC and backend (#374)
   e2e:
+    if: github.event_name != 'schedule'
     name: E2E smoke tests
     runs-on: ubuntu-latest
     timeout-minutes: 15
@@ -206,6 +231,7 @@ jobs:
   # means a fresh finding shows up as a visible (yellow-triangle) warning here
   # without turning unrelated PRs red or blocking their merge.
   audit:
+    if: github.event_name != 'schedule'
     name: Dependency audit
     runs-on: ubuntu-latest
     timeout-minutes: 10
@@ -227,6 +253,7 @@ jobs:
   # triggers it necessarily touched, so it's kept off `status`'s needs rather
   # than folded into an existing required job.
   depcheck:
+    if: github.event_name != 'schedule'
     name: Unused dependencies
     runs-on: ubuntu-latest
     timeout-minutes: 10
@@ -248,6 +275,7 @@ jobs:
   # `status`'s needs like depcheck/audit: an unused export landing in one file
   # isn't something every open PR should turn red for.
   knip:
+    if: github.event_name != 'schedule'
     name: Unused exports
     runs-on: ubuntu-latest
     timeout-minutes: 10
@@ -264,57 +292,65 @@ jobs:
       - name: Fail on a stale baseline
         run: npm run knip:baseline -- --check
 
-  # Deliberately commented out: this is a design note for #143, not a disabled
-  # job. It becomes a real job once the interface artifact can be regenerated
-  # in CI.
-  #
-  # TODO #143: Contract ABI drift detection is missing. Once the interface
-  # artifact from P2-012a exists, nothing in CI verifies it against the
-  # contract. All jobs (lint, typecheck, test, build) pass against a stale
-  # ABI because none can see the contract. Failure surfaces only at user
-  # signature time, not in CI.
-  #
-  # IMPROVEMENT STRATEGY:
-  # 1. Add a CI job that:
-  #    a) Checks out a pinned ourdao-contracts ref (e.g., via submodule or explicit clone)
-  #    b) Regenerates the interface artifact with the Stellar CLI
-  #    c) Diffs against the committed artifact in this repo
-  #    d) Fails on mismatch with a message naming the regeneration command
-  #
-  # 2. Example job skeleton:
-  #    contract-abi-check:
-  #      name: Contract ABI drift detection
-  #      runs-on: ubuntu-latest
-  #      steps:
-  #        - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-  #          with:
-  #            persist-credentials: false
-  #        - name: Install Stellar CLI
-  #          run: ...  # Install soroban-cli at the pinned version
-  #        - name: Regenerate interface from pinned contract
-  #          run: |
-  #            cd ourdao-contracts/  # or clone it
-  #            soroban contract build
-  #            soroban contract bindings typescript ...
-  #        - name: Compare against committed artifact
-  #          run: |
-  #            diff -u src/lib/contract-interface.ts generated/contract-interface.ts \
-  #              && echo "Contract ABI matches" \
-  #              || (echo "ERROR: Contract ABI has drifted. Run: npm run regenerate-contract-interface" && exit 1)
-  #
-  # 3. Run on both pull requests and a schedule (e.g., daily) so contract-side
-  #    drift surfaces without waiting for a frontend PR.
-  #
-  # 4. Consider making the scheduled run non-blocking and open an issue instead
-  #    so a contract outage doesn't block unrelated frontend work.
-  #
-  # Note: This depends on ourdao-contracts repo, so it fails for network/ref
-  # reasons unrelated to the PR. Keep it scoped so such failures don't cascade.
+  # Verifies that src/lib/generated/dao-bindings.ts matches the pinned
+  # ourdao-contracts ref in contract/interface.json on PRs/pushes, and checks
+  # for upstream contract drift against ourdao-contracts main on schedule
+  # (non-blocking) (#143, #541).
+  contract-abi-check:
+    name: Contract ABI drift check
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    continue-on-error: ${{ github.event_name == 'schedule' }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 20
+          cache: npm
+      - name: Resolve target ourdao-contracts ref
+        id: ref
+        run: |
+          if [ "${{ github.event_name }}" = "schedule" ]; then
+            echo "ref=main" >> "$GITHUB_OUTPUT"
+          else
+            PINNED=$(node -e "const i=require('./contract/interface.json'); console.log(i._last_verified.split('@')[1].trim())")
+            echo "ref=$PINNED" >> "$GITHUB_OUTPUT"
+          fi
+      - name: Install Stellar CLI
+        env:
+          STELLAR_CLI_VERSION: "30.0.1"
+        run: |
+          curl -fsSL "https://github.com/stellar/stellar-cli/releases/download/v${STELLAR_CLI_VERSION}/stellar-cli-${STELLAR_CLI_VERSION}-x86_64-unknown-linux-gnu.tar.gz" \
+            | tar -xz -C /usr/local/bin stellar
+          stellar --version
+      - name: Fetch or build contract wasm
+        id: wasm
+        env:
+          REF: ${{ steps.ref.outputs.ref }}
+        run: |
+          mkdir -p /tmp/ourdao-contract
+          WASM_URL="https://github.com/ourdao/ourdao-contracts/releases/download/${REF}/ourdao_dao.optimized.wasm"
+          if curl -fsSL "$WASM_URL" -o /tmp/ourdao-contract/ourdao_dao.optimized.wasm; then
+            echo "path=/tmp/ourdao-contract/ourdao_dao.optimized.wasm" >> "$GITHUB_OUTPUT"
+          else
+            echo "No release asset at ${WASM_URL}; building ourdao-contracts @ ${REF} from source"
+            git init -q /tmp/ourdao-contracts-src
+            git -C /tmp/ourdao-contracts-src fetch --depth 1 https://github.com/ourdao/ourdao-contracts.git "$REF"
+            git -C /tmp/ourdao-contracts-src checkout FETCH_HEAD
+            rustup target add wasm32v1-none
+            cargo build --manifest-path /tmp/ourdao-contracts-src/Cargo.toml --locked --target wasm32v1-none --release -p ourdao-dao
+            echo "path=/tmp/ourdao-contracts-src/target/wasm32v1-none/release/ourdao_dao.wasm" >> "$GITHUB_OUTPUT"
+          fi
+      - name: Check contract bindings against wasm
+        run: npm run gen:contract -- "${{ steps.wasm.outputs.path }}" "${{ steps.ref.outputs.ref }}" --check
 
   # Compares the client JS/CSS actually shipped (.next/static) against the
   # latest baseline captured from main, so a PR's effect on bundle size is
   # visible instead of invisible until someone notices the app got slower.
   bundle-size:
+    if: github.event_name != 'schedule'
     name: Bundle size
     runs-on: ubuntu-latest
     timeout-minutes: 15
@@ -392,14 +428,14 @@ jobs:
           path: bundle-composition-current.json
           if-no-files-found: ignore
 
-  # Runs on every PR (same cadence as bundle-size, not scheduled) because
-  # this is a small app where a regression is easy to introduce in any given
-  # PR and cheap to catch immediately — waiting for a nightly/scheduled run
-  # would let a Core Web Vitals regression sit on main for up to a day
-  # before anyone noticed. See lighthouserc.js for the budgets and an
-  # explicit note that they're placeholders pending the first real run.
   lighthouse-ci:
-    name: Lighthouse CI
+    if: github.event_name != 'schedule'
+    name: Lighthouse CI (group ${{ matrix.group }})
+    needs: build
+    strategy:
+      fail-fast: false
+      matrix:
+        group: [0, 1, 2]
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
@@ -411,26 +447,37 @@ jobs:
           node-version: 20
           cache: npm
       - run: npm ci --ignore-scripts
-      - name: Cache Next.js build
-        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+      - name: Download Lighthouse production build
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         with:
-          path: |
-            .next/cache
-          key: ${{ runner.os }}-nextjs-${{ hashFiles('**/package-lock.json') }}-${{ hashFiles('src/**/*.ts', 'src/**/*.tsx', 'src/**/*.js', 'src/**/*.jsx') }}
-          restore-keys: |
-            ${{ runner.os }}-nextjs-${{ hashFiles('**/package-lock.json') }}-
-      - run: npm run build
+          name: lighthouse-build
+          path: ${{ runner.temp }}
+      - name: Extract Lighthouse production build
+        run: mkdir -p "$RUNNER_TEMP/lighthouse-build" && tar -xzf "$RUNNER_TEMP/lighthouse-build.tar.gz" -C "$RUNNER_TEMP/lighthouse-build"
       - name: Run Lighthouse CI against the production build
-        run: npm run lhci
+        run: npm run lhci -- --collect.startServerCommand="node $RUNNER_TEMP/lighthouse-build/server.js"
         env:
+          HOSTNAME: 127.0.0.1
+          LHCI_ROUTE_GROUP: ${{ matrix.group }}
           LHCI_BUILD_CONTEXT__CURRENT_HASH: ${{ github.sha }}
+
+  lighthouse-status:
+    name: Lighthouse CI
+    if: always() && github.event_name != 'schedule'
+    needs: lighthouse-ci
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - run: test "$LIGHTHOUSE_RESULT" = success
+        env:
+          LIGHTHOUSE_RESULT: ${{ needs.lighthouse-ci.result }}
 
   # Records each job's outcome as an artifact so the privileged ci-status-comment.yml
   # workflow (triggered via workflow_run, never a fork's copy of it) can post a PR
   # comment. This job itself never runs with elevated permissions or fork code.
   status:
     name: Record status
-    if: always()
+    if: always() && github.event_name != 'schedule'
     needs: [lint, typecheck, test, coverage, build, visual]
     runs-on: ubuntu-latest
     timeout-minutes: 5

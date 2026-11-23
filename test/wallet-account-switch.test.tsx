@@ -97,7 +97,7 @@ describe('WalletProvider — Freighter account switch (issue #59)', () => {
     await waitFor(() => expect(latest?.address).toBe('ACCOUNT_A'))
 
     // The watcher should now be running.
-    expect(freighter.WatchWalletChanges).toHaveBeenCalled()
+    await waitFor(() => expect(freighter.WatchWalletChanges).toHaveBeenCalled())
     expect(watchCallback).not.toBeNull()
 
     // Simulate the user switching to account B inside Freighter.
@@ -196,7 +196,7 @@ describe('WalletProvider — Freighter account switch (issue #59)', () => {
     })
 
     await waitFor(() => expect(latest?.address).toBe('ACCOUNT_A'))
-    expect(freighter.WatchWalletChanges).toHaveBeenCalled()
+    await waitFor(() => expect(freighter.WatchWalletChanges).toHaveBeenCalled())
 
     act(() => {
       latest!.disconnect()

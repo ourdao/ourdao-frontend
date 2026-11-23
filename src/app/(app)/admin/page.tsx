@@ -345,11 +345,14 @@ function GovernanceTab({ stats }: { stats: ReturnType<typeof useDAOStats> }) {
               value={newAdmin}
               onChange={(e) => setNewAdmin(e.target.value)}
               placeholder="G… address to add as admin"
+              aria-label="Address to add as admin"
               aria-invalid={newAdminError}
               className="border-input dark:bg-muted dark:text-foreground w-full rounded-md border px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:outline-none"
+              aria-describedby={newAdminError ? 'new-admin-error' : undefined}
+              className="w-full px-3 py-2 border border-input rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-muted dark:text-foreground"
             />
             {newAdminError && (
-              <p className="mt-1 text-sm text-red-600 dark:text-red-400">
+              <p id="new-admin-error" className="mt-1 text-sm text-red-600 dark:text-red-400">
                 Enter a valid Stellar destination address (G… or C…)
               </p>
             )}
@@ -379,6 +382,7 @@ function GovernanceTab({ stats }: { stats: ReturnType<typeof useDAOStats> }) {
             max={10_000}
             value={threshold}
             onChange={(e) => setThresholdInput(e.target.value)}
+            aria-label="Consensus threshold in basis points"
             placeholder="e.g. 5100 for 51%"
             className="border-input dark:bg-muted dark:text-foreground flex-1 rounded-md border px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:outline-none"
           />

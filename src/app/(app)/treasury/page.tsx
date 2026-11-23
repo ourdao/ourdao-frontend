@@ -402,6 +402,7 @@ export default function TreasuryPage() {
               <Search className="text-muted-foreground absolute top-2.5 left-2.5 h-4 w-4" />
               <input
                 type="text"
+                aria-label="Search treasury proposals"
                 placeholder="Search proposals..."
                 value={proposalFilters.filters.search}
                 onChange={(e) => proposalFilters.setSearch(e.target.value)}

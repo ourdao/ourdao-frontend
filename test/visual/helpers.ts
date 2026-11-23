@@ -20,7 +20,7 @@ export type Theme = 'light' | 'dark'
  *   the DOM; `toHaveScreenshot` finally polls for a frame that stops
  *   changing.
  * - Dev chrome: Next.js's dev-tools button/overlay (`<nextjs-portal>`) is
- *   removed from the DOM before capture — it slides in on its own schedule
+ *   hidden before capture — it slides in on its own schedule
  *   and would otherwise be the flakiest element in every baseline. It is
  *   dev-only UI that never ships to production.
  */
@@ -32,9 +32,8 @@ export async function gotoInTheme(page: Page, path: string, theme: Theme): Promi
 
   await page.goto(path, { waitUntil: 'load' })
   await page.waitForLoadState('networkidle', { timeout: 30_000 })
-  await page.evaluate(() => {
-    document.fonts.ready.then(() => undefined)
-    document.querySelectorAll('nextjs-portal').forEach((el) => el.remove())
-  })
+  await expect(page.locator('html')).toHaveClass(new RegExp(`\\b${theme}\\b`))
+  await page.evaluate(() => document.fonts.ready.then(() => undefined))
+  await page.addStyleTag({ content: 'nextjs-portal { display: none !important }' })
   await expect(page.locator('.skeleton')).toHaveCount(0, { timeout: 20_000 })
 }

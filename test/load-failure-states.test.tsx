@@ -76,11 +76,11 @@ describe('LoansPage when the proposal count cannot be loaded', () => {
   })
 
   it('retry refetches and, once the indexer is back, shows the genuine empty state', async () => {
-    mockGetStats.mockRejectedValueOnce(new BackendError('down'))
-    mockGetStats.mockResolvedValue({ totalLoanProposals: 0 })
+    mockGetStats.mockRejectedValue(new BackendError('down'))
     renderWithProviders(<LoansPage />)
 
     await screen.findByTestId('load-error')
+    mockGetStats.mockResolvedValue({ totalLoanProposals: 0 })
     screen.getByRole('button', { name: 'Try again' }).click()
 
     await waitFor(() => expect(screen.getByText('No proposals found')).toBeInTheDocument())
