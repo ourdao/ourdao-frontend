@@ -20,6 +20,17 @@ report can name the entry below it came from. See
 ## [Unreleased]
 
 ### Added
+- The admin quarantine list can now re-evaluate an individual failed event
+  (showing `still_failing` inline) and batch-resolve selected events with a
+  resolution, optional note, confirmation, and a summary of how many the
+  backend actually resolved. Selections above 500 ids are split into chunks
+  (#637, #638, #639).
+- Proposal lifecycle actions: borrowers/proposers can cancel while the editing
+  window is open, anyone can finalize an expired proposal once its voting
+  window has closed, and Fund now / Execute are disabled with the contract's
+  reason when the treasury is short or the loan would breach the exposure cap.
+  Funding confirmations now state that loan terms are re-quoted at
+  disbursement (#550, #605–#612).
 - Live DAO updates refresh affected pages as indexer events arrive. The app header shows connection status, and covered queries return to polling during an outage. Private notifications keep polling (#554).
 - A **Fund now** (loan) / **Execute** (treasury withdrawal) action on proposals that passed their vote while the treasury was short, so any member can complete them once the treasury is topped up; contract failures such as `InsufficientTreasury` are shown in plain language (#540).
 - A test guard that fails when a DOM-touching test file lands without `// @vitest-environment jsdom` (#539).

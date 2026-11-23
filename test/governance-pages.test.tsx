@@ -22,6 +22,8 @@ const mockGetNotifications = vi.fn()
 const mockGetEvents = vi.fn()
 const mockGetStats = vi.fn()
 const mockProposeTreasuryWithdrawal = vi.fn()
+const mockExpireLoanProposal = vi.fn()
+const mockExpireTreasuryProposal = vi.fn()
 
 vi.mock('next/navigation', () => ({
   usePathname: () => '/governance',
@@ -62,6 +64,8 @@ vi.mock('@/lib/dao-client', () => ({
   },
   daoWrite: () => ({
     proposeTreasuryWithdrawal: (...a: unknown[]) => mockProposeTreasuryWithdrawal(...a),
+    expireLoanProposal: (...a: unknown[]) => mockExpireLoanProposal(...a),
+    expireTreasuryProposal: (...a: unknown[]) => mockExpireTreasuryProposal(...a),
   }),
 }))
 
@@ -123,6 +127,111 @@ describe('GovernancePage', () => {
 
     await waitFor(() => expect(screen.getAllByText(/GBOR/).length).toBeGreaterThan(0))
     expect(screen.queryByText('No loan proposals yet.')).not.toBeInTheDocument()
+  })
+})
+
+describe('finalize expired proposals (#612)', () => {
+  const NOW_MS = Date.UTC(2026, 0, 1)
+  const nowSec = Math.floor(NOW_MS / 1000)
+
+  const loan = (editingEnd: number) => ({
+    id: 3,
+    borrower: 'GBORROWER',
+    amount: BigInt(1000_0000000),
+    interest_rate: 500,
+    status: 'Pending',
+    phase: 'Voting',
+    for_votes: 0,
+    against_votes: 0,
+    created_at: 1000,
+    editing_period_end: editingEnd,
+    voting_period: 60,
+  })
+
+  const treasury = (createdAt: number, isPrivate = false) => ({
+    id: 4,
+    proposer: 'GPROPOSER',
+    amount: BigInt(500_0000000),
+    destination: 'GDESTINATION',
+    status: 'Pending',
+    reason: 'Pay a contractor',
+    for_votes: 0,
+    against_votes: 0,
+    created_at: createdAt,
+    voting_period: 60,
+    private: isPrivate,
+  })
+
+  beforeEach(() => {
+    vi.useFakeTimers({ shouldAdvanceTime: true })
+    vi.setSystemTime(NOW_MS)
+    resetDefaults()
+    mockExpireLoanProposal.mockResolvedValue({ hash: 'tx-expire', returnValue: null })
+    mockExpireTreasuryProposal.mockResolvedValue({ hash: 'tx-expire', returnValue: null })
+  })
+  afterEach(() => {
+    vi.useRealTimers()
+  })
+
+  async function renderLoans(proposal: ReturnType<typeof loan>) {
+    mockGetStats.mockResolvedValue({ totalLoanProposals: 1, totalTreasuryProposals: 0 })
+    mockGetLoanProposal.mockResolvedValue(proposal)
+    renderWithProviders(<GovernancePage />)
+    await screen.findByText(/Loan Proposal #3/)
+  }
+
+  async function renderTreasury(proposal: ReturnType<typeof treasury>) {
+    mockGetStats.mockResolvedValue({ totalLoanProposals: 0, totalTreasuryProposals: 1 })
+    mockGetTreasuryProposal.mockResolvedValue(proposal)
+    renderWithProviders(<GovernancePage />)
+    await screen.findByText('Pay a contractor')
+  }
+
+  it('offers Finalize for a loan only after editing_period_end + voting_period', async () => {
+    await renderLoans(loan(nowSec - 100))
+    expect(screen.getByRole('button', { name: 'Finalize expired proposal' })).toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: 'Finalize expired proposal' }))
+    await waitFor(() => expect(mockExpireLoanProposal).toHaveBeenCalledWith(3))
+  })
+
+  it('does not offer Finalize for a loan before the deadline', async () => {
+    await renderLoans(loan(nowSec + 1000))
+    expect(screen.queryByRole('button', { name: 'Finalize expired proposal' })).not.toBeInTheDocument()
+    expect(mockExpireLoanProposal).not.toHaveBeenCalled()
+  })
+
+  it('does not offer Finalize while the DAO is paused', async () => {
+    mockIsPaused.mockResolvedValue(true)
+    await renderLoans(loan(nowSec - 100))
+    expect(screen.queryByRole('button', { name: 'Finalize expired proposal' })).not.toBeInTheDocument()
+  })
+
+  it('offers Finalize for a treasury proposal only after created_at + voting_period', async () => {
+    await renderTreasury(treasury(nowSec - 100))
+    fireEvent.click(screen.getByRole('button', { name: 'Finalize expired proposal' }))
+    await waitFor(() => expect(mockExpireTreasuryProposal).toHaveBeenCalledWith(4))
+  })
+
+  it('does not offer Finalize for a treasury proposal before its deadline', async () => {
+    await renderTreasury(treasury(nowSec - 10))
+    expect(screen.queryByRole('button', { name: 'Finalize expired proposal' })).not.toBeInTheDocument()
+  })
+
+  it('waits for the doubled window before offering Finalize on a private proposal', async () => {
+    // One period has elapsed (contract expire() would succeed), but private
+    // voting remains open for two periods.
+    await renderTreasury(treasury(nowSec - 100, true))
+    expect(screen.queryByRole('button', { name: 'Finalize expired proposal' })).not.toBeInTheDocument()
+
+    // Rendering again past 2 * voting_period makes it available.
+    vi.clearAllMocks()
+    mockExpireTreasuryProposal.mockResolvedValue({ hash: 'tx-expire', returnValue: null })
+    mockGetStats.mockResolvedValue({ totalLoanProposals: 0, totalTreasuryProposals: 1 })
+    mockGetTreasuryProposal.mockResolvedValue(treasury(nowSec - 200, true))
+    renderWithProviders(<GovernancePage />)
+    await waitFor(() =>
+      expect(screen.getAllByRole('button', { name: 'Finalize expired proposal' }).length).toBeGreaterThan(0),
+    )
   })
 })
 

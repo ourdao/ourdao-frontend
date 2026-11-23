@@ -129,6 +129,37 @@ export const isBackendFailedEvent = (value: unknown): value is BackendFailedEven
   )
 }
 
+/** The backend's answer to `POST /admin/failed-events/:id/re-evaluate`.
+ *  `still_failing` arrives as a normal (422) result, not as a transport error. */
+export interface ReEvaluateFailedEventResult {
+  eventId: string
+  status: string
+}
+
+/** How a quarantine row is being closed. */
+export type FailedEventResolution = 'resolved' | 'ignored'
+
+/** Body of `POST /admin/failed-events/batch-resolve`. */
+export interface BatchResolveFailedEventsInput {
+  ids: number[]
+  resolution: FailedEventResolution
+  note?: string
+}
+
+/** The backend only counts rows it actually changed (already-resolved ids are skipped). */
+export interface BatchResolveFailedEventsResult {
+  resolved: number
+}
+
+/** The backend rejects more than 500 ids per batch; chunk before sending. */
+export const MAX_BATCH_RESOLVE_IDS = 500
+
+const isReEvaluateResult = (value: unknown): value is ReEvaluateFailedEventResult =>
+  isRecord(value) && isString(value.eventId) && isString(value.status)
+
+const isBatchResolveResult = (value: unknown): value is BatchResolveFailedEventsResult =>
+  isRecord(value) && isNumber(value.resolved)
+
 export interface BackendDocumentAttachment {
   id: number | string
   kind: string
@@ -606,6 +637,94 @@ async function patch(
   return { ok: true, status: res.status }
 }
 
+/**
+ * POST a JSON body with a freshly signed challenge header.
+ *
+ * Unlike `patch` (whose callers apply optimistic state and need a typed
+ * `MutationResult`), these admin mutations throw a {@link BackendError} on a
+ * failed request so the caller can show the outcome inline. A status in
+ * `allowedStatuses` is still returned with its parsed body: the re-evaluate
+ * endpoint uses 422 for the normal `still_failing` outcome, which must not be
+ * dressed up as a transport failure.
+ */
+async function signedPost<T>(
+  path: string,
+  signer: AuthSigner,
+  body: unknown,
+  options: BackendRequestOptions | AbortSignal | undefined,
+  allowedStatuses: readonly number[] = []
+): Promise<{ status: number; body: T }> {
+  if (!isBackendConfigured()) {
+    throw new BackendError('No backend is configured, so this change cannot be saved.')
+  }
+
+  const userSignal = options instanceof AbortSignal ? options : options?.signal
+  const timeoutMs =
+    options && !(options instanceof AbortSignal) && options.timeoutMs !== undefined
+      ? options.timeoutMs
+      : DEFAULT_BACKEND_TIMEOUT_MS
+  const { signal, cleanup } = combineSignals(timeoutMs, userSignal)
+
+  let auth: SignedAuth
+  try {
+    // One fresh handshake per call: a nonce is single-use, and callers serialize
+    // overlapping requests for the same address at the hook layer.
+    auth = await requestSignedAuth(signer)
+  } catch (cause) {
+    cleanup()
+    if (cause instanceof AuthError) {
+      throw new BackendError(cause.message, cause.status)
+    }
+    throw new BackendError(
+      cause instanceof Error ? cause.message : 'Could not obtain a signature.'
+    )
+  }
+
+  const base = process.env.NEXT_PUBLIC_BACKEND_URL || ''
+  let res: Response
+  try {
+    res = await fetch(`${base}${path}`, {
+      method: 'POST',
+      headers: {
+        Authorization: buildAuthHeader(auth),
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(body),
+      cache: 'no-store',
+      signal,
+    })
+  } catch (cause) {
+    if (signal.aborted && signal.reason instanceof Error) {
+      throw new BackendError(signal.reason.message)
+    }
+    throw new BackendError(
+      `Could not reach the backend: ${cause instanceof Error ? cause.message : String(cause)}`
+    )
+  } finally {
+    cleanup()
+  }
+
+  let payload: unknown
+  try {
+    payload = await res.json()
+  } catch (cause) {
+    throw new BackendError(
+      `Backend response for ${path} was not valid JSON: ${
+        cause instanceof Error ? cause.message : String(cause)
+      }`,
+      res.ok ? null : res.status
+    )
+  }
+  if (!res.ok && !allowedStatuses.includes(res.status)) {
+    const detail = isRecord(payload) && isString(payload.error) && payload.error
+    throw new BackendError(
+      detail ? String(detail) : `Backend responded ${res.status}`,
+      res.status
+    )
+  }
+  return { status: res.status, body: payload as T }
+}
+
 // --- Endpoints --------------------------------------------------------------
 
 export const backend = {
@@ -700,6 +819,60 @@ export const backend = {
 
   getFailedEvents: (options?: BackendRequestOptions | AbortSignal) =>
     get<BackendFailedEvent[]>('/api/admin/failed-events', [], arrayOf(isBackendFailedEvent), options),
+
+  /**
+   * Re-run the indexer handler for one quarantined event. A 422 with
+   * `status: "still_failing"` is a normal outcome and is returned rather than
+   * thrown; every other non-2xx rejects with a BackendError (#637).
+   */
+  reEvaluateFailedEvent: async (
+    id: number | string,
+    signer: AuthSigner,
+    options?: BackendRequestOptions | AbortSignal
+  ): Promise<ReEvaluateFailedEventResult> => {
+    const path = `/api/admin/failed-events/${encodeURIComponent(String(id))}/re-evaluate`
+    const { body } = await signedPost<unknown>(path, signer, {}, options, [422])
+    if (!isReEvaluateResult(body)) {
+      throw new BackendError(`Backend response for ${path} did not match the expected shape`)
+    }
+    return body
+  },
+
+  /**
+   * Close a batch of quarantined events. Validates the ids and batch size
+   * before signing anything; callers chunk selections larger than 500 (#637).
+   * The returned count can be smaller than `ids.length` — already-resolved ids
+   * are skipped by the backend.
+   */
+  batchResolveFailedEvents: async (
+    input: BatchResolveFailedEventsInput,
+    signer: AuthSigner,
+    options?: BackendRequestOptions | AbortSignal
+  ): Promise<BatchResolveFailedEventsResult> => {
+    const { ids, resolution, note } = input
+    if (!Array.isArray(ids) || ids.length === 0 || ids.length > MAX_BATCH_RESOLVE_IDS) {
+      throw new BackendError(`ids must contain between 1 and ${MAX_BATCH_RESOLVE_IDS} entries`)
+    }
+    if (!ids.every((id) => Number.isSafeInteger(id) && id > 0)) {
+      throw new BackendError('ids must all be positive integers')
+    }
+    if (resolution !== 'resolved' && resolution !== 'ignored') {
+      throw new BackendError("resolution must be 'resolved' or 'ignored'")
+    }
+    if (note !== undefined && typeof note !== 'string') {
+      throw new BackendError('note must be a string')
+    }
+    const { body } = await signedPost<unknown>(
+      '/api/admin/failed-events/batch-resolve',
+      signer,
+      { ids, resolution, ...(note !== undefined ? { note } : {}) },
+      options
+    )
+    if (!isBatchResolveResult(body)) {
+      throw new BackendError('Backend response for batch-resolve did not match the expected shape')
+    }
+    return body
+  },
 
   getDocumentHistory: (
     kind: string,

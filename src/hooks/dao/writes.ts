@@ -296,6 +296,61 @@ export function useEditLoanProposal() {
   return { editLoanProposal, isPending, error, isSuccess, cancelSignature }
 }
 
+/**
+ * Withdraw a loan or treasury proposal while its editing window is open (#609).
+ * Only the borrower/proposer may call it; the contract enforces ownership,
+ * phase and the pause guard. Both paths move the proposal detail, its list and
+ * the aggregate counts, so all of those keys are invalidated.
+ */
+export function useCancelProposal() {
+  const { run, isPending, isSuccess, error, address, cancelSignature } = useWriteAction()
+  const cancelProposal = (kind: 'Loan' | 'Treasury', proposalId: number) =>
+    run(
+      'Cancelling proposal',
+      (w) =>
+        kind === 'Loan'
+          ? w.cancelLoanProposal(proposalId)
+          : w.cancelTreasuryProposal(proposalId),
+      [
+        kind === 'Loan'
+          ? queryKeys.loanProposal(proposalId)
+          : queryKeys.treasuryProposal(proposalId),
+        kind === 'Loan' ? queryKeys.loanProposalsAll() : queryKeys.treasuryProposalsAll(),
+        queryKeys.userData(address!),
+        queryKeys.daoStats(),
+        queryKeys.backendStats(),
+      ]
+    )
+  return { cancelProposal, isPending, isSuccess, error, cancelSignature }
+}
+
+/**
+ * Persist the expired phase of a proposal whose voting window has passed (#612).
+ * Permissionless; the contract rejects calls made before the deadline (or a
+ * second treasury call, which is not idempotent).
+ */
+export function useExpireProposal() {
+  const { run, isPending, isSuccess, error, address, cancelSignature } = useWriteAction()
+  const expireProposal = (kind: 'Loan' | 'Treasury', proposalId: number) =>
+    run(
+      'Finalizing expired proposal',
+      (w) =>
+        kind === 'Loan'
+          ? w.expireLoanProposal(proposalId)
+          : w.expireTreasuryProposal(proposalId),
+      [
+        kind === 'Loan'
+          ? queryKeys.loanProposal(proposalId)
+          : queryKeys.treasuryProposal(proposalId),
+        kind === 'Loan' ? queryKeys.loanProposalsAll() : queryKeys.treasuryProposalsAll(),
+        queryKeys.userData(address!),
+        queryKeys.daoStats(),
+        queryKeys.backendStats(),
+      ]
+    )
+  return { expireProposal, isPending, isSuccess, error, cancelSignature }
+}
+
 export function useVoting() {
   const { run, isPending, isSuccess, error, address, cancelSignature } = useWriteAction()
   const voteOnProposal = (proposalId: number, support: boolean) =>
@@ -434,13 +489,25 @@ export function useDisburseApprovedLoan() {
   return { disburseApprovedLoan, isPending, error, isSuccess, cancelSignature }
 }
 
+/**
+ * Name used by the lifecycle spec (#608) for the disbursement action. Keeps the
+ * original `useDisburseApprovedLoan` name too, since callers already use it.
+ */
+export function useDisburseLoan() {
+  const action = useDisburseApprovedLoan()
+  return { ...action, disburseLoan: action.disburseApprovedLoan }
+}
+
 /** Executes a treasury withdrawal approved while the treasury was short (#540). */
 export function useExecuteTreasuryProposal() {
-  const { run, isPending, isSuccess, error, cancelSignature } = useWriteAction()
+  const { run, isPending, isSuccess, error, address, cancelSignature } = useWriteAction()
   const executeTreasuryProposal = (proposalId: number) =>
     run('Executing treasury withdrawal', (w) => w.executeTreasuryProposal(proposalId), [
       queryKeys.treasuryProposal(proposalId),
       queryKeys.treasuryProposalsAll(),
+      // daoStats carries the treasury balance; userData carries the member's
+      // share of it (#608).
+      queryKeys.userData(address!),
       queryKeys.daoStats(),
       queryKeys.backendStats(),
     ])

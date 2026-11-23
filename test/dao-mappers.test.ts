@@ -291,6 +291,16 @@ describe('mapTreasuryProposal', () => {
     expect(mapTreasuryProposal(raw, true).hasVoted).toBe(true)
     expect(mapTreasuryProposal(raw, false).hasVoted).toBe(false)
   })
+
+  it('uses the voting period stored on the proposal for the Finalize deadline (#612)', () => {
+    expect(
+      mapTreasuryProposal({ id: 1, status: 'Pending', voting_period: 120 }).votingPeriod
+    ).toBe(120)
+    // Older records without a stored period use the labelled fallback.
+    expect(mapTreasuryProposal({ id: 1, status: 'Pending' }).votingPeriod).toBe(
+      GOVERNANCE_PERIOD_FALLBACKS.votingPeriod
+    )
+  })
 })
 
 describe('eventLabel', () => {

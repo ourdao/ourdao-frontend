@@ -25,6 +25,7 @@ import {
   useTreasuryProposals,
   useVoting,
   useTreasuryVoting,
+  useExpireProposal,
   useHasVoted,
   type UILoanProposal,
   type UITreasuryProposal,
@@ -33,7 +34,12 @@ import { LoadError } from '@/components/LoadError'
 import { useAnnounceLoad } from '@/lib/useAnnounceLoad'
 import { formatToken, formatThreshold } from '@/lib/utils'
 import { AddressLink } from '@/components/AddressLink'
-import { PROPOSAL_STATUS_LABELS, PROPOSAL_STATUS_AWAITING_FUNDS } from '@/constants'
+import { useNow } from '@/hooks/useNow'
+import {
+  PROPOSAL_STATUS_LABELS,
+  PROPOSAL_STATUS_AWAITING_FUNDS,
+  PROPOSAL_STATUS_EXPIRED,
+} from '@/constants'
 import { VirtualizedList } from '@/components/ui/virtualized-list'
 
 function StatusBadge({ status }: { status: number }) {
@@ -89,18 +95,52 @@ function AlreadyVotedLabel() {
   )
 }
 
+/** Permissionless keeper action for a proposal past its voting deadline (#612). */
+function FinalizeButton({
+  onClick,
+  isPending,
+}: {
+  onClick: () => void
+  isPending: boolean
+}) {
+  return (
+    <Button
+      size="sm"
+      variant="outline"
+      onClick={onClick}
+      disabled={isPending}
+      aria-label="Finalize expired proposal"
+    >
+      {isPending ? 'Finalizing…' : 'Finalize'}
+    </Button>
+  )
+}
+
 function LoanProposalRow({
   proposal: p,
   canVote,
   votingLoan,
+  paused,
   onVote,
 }: {
   proposal: UILoanProposal
   canVote: boolean
   votingLoan: boolean
+  paused: boolean
   onVote: (proposalId: number, support: boolean) => Promise<unknown>
 }) {
   const { hasVoted, refetch } = useHasVoted('Loan', p.id, p.status === 2)
+  const { expireProposal, isPending: isFinalizing } = useExpireProposal()
+  const now = useNow()
+  // loans::refresh_phase expires a Pending loan once the stored voting window
+  // has closed. `votingEndTime` is editing_period_end + the period stored on
+  // this proposal, so a policy change after creation cannot shift it (#521).
+  const canFinalize =
+    !paused &&
+    p.status === 2 &&
+    p.votingEndTime > 0 &&
+    now !== null &&
+    Math.floor(now / 1000) > p.votingEndTime
 
   return (
     <li className="flex flex-wrap items-start justify-between gap-3 py-4">
@@ -131,6 +171,16 @@ function LoanProposalRow({
           />
         )}
         {canVote && p.status === 2 && hasVoted && <AlreadyVotedLabel />}
+        {canFinalize && (
+          <FinalizeButton
+            isPending={isFinalizing}
+            onClick={() => {
+              void expireProposal('Loan', p.id).catch(() => {
+                /* reported by useWriteAction */
+              })
+            }}
+          />
+        )}
       </div>
     </li>
   )
@@ -140,14 +190,30 @@ function TreasuryProposalRow({
   proposal: p,
   canVote,
   votingTreasury,
+  paused,
   onVote,
 }: {
   proposal: UITreasuryProposal
   canVote: boolean
   votingTreasury: boolean
+  paused: boolean
   onVote: (proposalId: number, support: boolean) => Promise<unknown>
 }) {
   const { hasVoted, refetch } = useHasVoted('Treasury', p.id, p.status === 2 && !p.isPrivate)
+  const { expireProposal, isPending: isFinalizing } = useExpireProposal()
+  const now = useNow()
+  // treasury::expire_treasury_proposal only checks one voting period, but
+  // treasury::tally still accepts votes on a private proposal for two periods
+  // (commit + reveal). Withhold Finalize until the longer window has closed.
+  // The call is not idempotent, so once the mapped status is Expired we hide it.
+  const deadline = p.creationTime + p.votingPeriod * (p.isPrivate ? 2 : 1)
+  const canFinalize =
+    !paused &&
+    p.status === 2 &&
+    p.status !== PROPOSAL_STATUS_EXPIRED &&
+    p.creationTime > 0 &&
+    now !== null &&
+    Math.floor(now / 1000) > deadline
 
   return (
     <li className="flex flex-wrap items-start justify-between gap-3 py-4">
@@ -179,6 +245,16 @@ function TreasuryProposalRow({
           />
         )}
         {canVote && p.status === 2 && !p.isPrivate && hasVoted && <AlreadyVotedLabel />}
+        {canFinalize && (
+          <FinalizeButton
+            isPending={isFinalizing}
+            onClick={() => {
+              void expireProposal('Treasury', p.id).catch(() => {
+                /* reported by useWriteAction */
+              })
+            }}
+          />
+        )}
       </div>
     </li>
   )
@@ -333,6 +409,7 @@ export default function GovernancePage() {
                       proposal={p}
                       canVote={userData.isMember}
                       votingLoan={votingLoan || stats.isPaused}
+                      paused={stats.isPaused}
                       onVote={voteOnProposal}
                     />
                   )}
@@ -383,6 +460,7 @@ export default function GovernancePage() {
                       proposal={p}
                       canVote={userData.isMember}
                       votingTreasury={votingTreasury || stats.isPaused}
+                      paused={stats.isPaused}
                       onVote={voteOnTreasury}
                     />
                   )}

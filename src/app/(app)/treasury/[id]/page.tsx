@@ -22,11 +22,13 @@ import {
 import { PageHeader } from '@/components/PageHeader'
 import { AddressLink } from '@/components/AddressLink'
 import { ProposalTimeline } from '@/components/ProposalTimeline'
+import { ConfirmDialog } from '@/components/ConfirmDialog'
 import {
   useUserData,
   useTreasuryProposal,
   useTreasuryVoting,
   useExecuteTreasuryProposal,
+  useCancelProposal,
   useCommitVote,
   useRevealVote,
   useProposalDocument,
@@ -34,7 +36,12 @@ import {
   useDAOStats,
 } from '@/hooks/useDAO'
 import { generateCommitment, storeCommitSalt, loadCommitSalt } from '@/lib/utils'
-import { PROPOSAL_STATUS_LABELS, PROPOSAL_STATUS_AWAITING_FUNDS } from '@/constants'
+import { useNow } from '@/hooks/useNow'
+import {
+  PROPOSAL_STATUS_LABELS,
+  PROPOSAL_STATUS_AWAITING_FUNDS,
+  GOVERNANCE_PERIOD_FALLBACKS,
+} from '@/constants'
 import toast from 'react-hot-toast'
 
 /** File picker for a salt backup. Shared by both places a salt can be imported. */
@@ -68,15 +75,18 @@ export default function TreasuryProposalDetailPage() {
   const { proposal, isLoading, isError, hasVoted, refetch } = useTreasuryProposal(proposalId)
   const { voteOnTreasury, isPending: isVoting } = useTreasuryVoting()
   const { executeTreasuryProposal, isPending: isExecuting } = useExecuteTreasuryProposal()
+  const { cancelProposal, isPending: isCancelling } = useCancelProposal()
   const { commitVote, isPending: isCommitting } = useCommitVote()
   const { revealVote, isPending: isRevealing } = useRevealVote()
-  const { isPaused } = useDAOStats()
+  const { isPaused, treasuryBalance } = useDAOStats()
   const { cid: documentCid } = useProposalDocument('Treasury', proposalId)
+  const now = useNow()
 
   const [showCommitDialog, setShowCommitDialog] = useState(false)
   const [commitSupport, setCommitSupport] = useState<boolean | null>(null)
   const [showRevealDialog, setShowRevealDialog] = useState(false)
   const [revealSupport, setRevealSupport] = useState<boolean | null>(null)
+  const [showCancelDialog, setShowCancelDialog] = useState(false)
   const [importedSalt, setImportedSalt] = useState<Uint8Array | null>(null)
   // The commitment and salt for the vote being committed. Held only until the
   // commit is sent or the dialog is cancelled (#519).
@@ -242,6 +252,36 @@ export default function TreasuryProposalDetailPage() {
     }
   }
 
+  // #610: mirror the contract's InsufficientTreasury guard so the member isn't
+  // asked to sign a transaction that cannot succeed yet.
+  const executionBlocker =
+    treasuryBalance < proposal.amount
+      ? 'InsufficientTreasury: the treasury cannot cover this withdrawal yet.'
+      : null
+
+  // #609: only the proposer may cancel, and only while Pending inside the
+  // editing window. Treasury proposals don't store the window; the contract
+  // applies the current policy's editing_period to created_at. The frontend
+  // has no read for that policy, so use the labelled fallback as a best effort
+  // — the contract remains the authority and re-checks at signing time.
+  const canCancel =
+    !!address &&
+    address.toLowerCase() === proposal.proposer.toLowerCase() &&
+    proposal.status === 2 &&
+    now !== null &&
+    proposal.creationTime > 0 &&
+    Math.floor(now / 1000) <= proposal.creationTime + GOVERNANCE_PERIOD_FALLBACKS.editingPeriod
+
+  const handleCancel = async () => {
+    setShowCancelDialog(false)
+    try {
+      await cancelProposal('Treasury', proposalId)
+      refetch()
+    } catch {
+      /* reported by useWriteAction */
+    }
+  }
+
   const statusLabel =
     PROPOSAL_STATUS_LABELS[proposal.status as keyof typeof PROPOSAL_STATUS_LABELS] || 'Unknown'
   const canVotePublic = isMember && proposal.status === 2 && !proposal.isPrivate && !hasVoted
@@ -278,13 +318,27 @@ export default function TreasuryProposalDetailPage() {
               treasury is topped up, any member can execute it.
             </CardDescription>
           </CardHeader>
-          {isMember && (
-            <CardContent>
-              <Button onClick={handleExecute} disabled={isExecuting || isPaused}>
+          <CardContent className="flex flex-col gap-3">
+            {isMember && (
+              <Button
+                onClick={handleExecute}
+                disabled={isExecuting || isPaused || !!executionBlocker}
+                title={executionBlocker || undefined}
+              >
                 {isExecuting ? 'Executing…' : 'Execute'}
               </Button>
-            </CardContent>
-          )}
+            )}
+            {executionBlocker && (
+              <p role="status" className="text-sm text-amber-700 dark:text-amber-400">
+                {executionBlocker}
+              </p>
+            )}
+            {isPaused && (
+              <p className="text-sm text-muted-foreground">
+                Execution is unavailable while the DAO is paused.
+              </p>
+            )}
+          </CardContent>
         </Card>
       )}
 
@@ -425,6 +479,28 @@ export default function TreasuryProposalDetailPage() {
               </div>
             </CardHeader>
             <CardContent className="space-y-6">
+              {canCancel && (
+                <div className="flex flex-col gap-2 rounded-lg border border-red-200 p-4 dark:border-red-900/40">
+                  <p className="text-sm text-muted-foreground">
+                    You can withdraw this proposal while it is still in the editing period.
+                  </p>
+                  <Button
+                    variant="destructive"
+                    onClick={() => setShowCancelDialog(true)}
+                    disabled={isPaused}
+                    title={isPaused ? 'Cancelling is unavailable while the DAO is paused.' : undefined}
+                    aria-label="Cancel treasury proposal"
+                    className="self-start"
+                  >
+                    {isCancelling ? 'Cancelling…' : 'Cancel proposal'}
+                  </Button>
+                  {isPaused && (
+                    <p className="text-xs text-muted-foreground">
+                      Cancelling is unavailable while the DAO is paused.
+                    </p>
+                  )}
+                </div>
+              )}
               {proposal.isPrivate && (
                 <div className="flex items-center gap-2 rounded-lg border border-amber-200 bg-amber-50 p-4 text-sm text-amber-800 dark:border-amber-900/40 dark:bg-amber-950/20 dark:text-amber-300">
                   <Lock className="h-5 w-5 shrink-0" />
@@ -676,6 +752,18 @@ export default function TreasuryProposalDetailPage() {
           </Card>
         </div>
       </div>
+
+      <ConfirmDialog
+        open={showCancelDialog}
+        onOpenChange={setShowCancelDialog}
+        title="Cancel this treasury proposal?"
+        description="The withdrawal request will be withdrawn and members will no longer be able to vote on it. This cannot be undone."
+        confirmLabel="Confirm cancellation"
+        cancelLabel="Keep proposal"
+        destructive
+        isPending={isCancelling}
+        onConfirm={() => void handleCancel()}
+      />
     </div>
   )
 }

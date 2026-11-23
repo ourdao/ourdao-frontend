@@ -563,6 +563,30 @@ export function daoWrite(
         proposal_id: proposalId,
         new_amount: BigInt(newAmount),
       }),
+
+    // The pinned bindings (ourdao-contracts @ 16e4222) predate the cancel
+    // entrypoints, so they cannot encode these two calls from the spec. Build
+    // the same ScVals by hand — the escape hatch tokenRead uses for calls
+    // outside the bindings — until the bindings are regenerated. The contract
+    // signature is cancel_loan_proposal(borrower: Address, proposal_id: u32);
+    // cancel_treasury_proposal takes the proposer in the same first position.
+    cancelLoanProposal: (proposalId: number) =>
+      invoke(
+        address,
+        signXDR,
+        'cancel_loan_proposal',
+        new Address(address).toScVal(),
+        xdr.ScVal.scvU32(proposalId)
+      ),
+    cancelTreasuryProposal: (proposalId: number) =>
+      invoke(
+        address,
+        signXDR,
+        'cancel_treasury_proposal',
+        new Address(address).toScVal(),
+        xdr.ScVal.scvU32(proposalId)
+      ),
+
     voteOnLoanProposal: (proposalId: number, support: boolean) =>
       send('vote_on_loan_proposal', { voter: address, proposal_id: proposalId, support }),
     repayLoan: (loanId: number) =>
@@ -583,13 +607,24 @@ export function daoWrite(
       send('mark_loan_defaulted', { loan_id: loanId }),
 
     // Permissionless and idempotent from `ApprovedPendingDisbursement`: completes
-    // an approved loan once the treasury can cover it (#540).
+    // an approved loan once the treasury can cover it (#540). The contract can
+    // reject with `NotInVotingPhase` (already funded/not awaiting funds),
+    // `InsufficientTreasury`, `ExceedsTreasuryRatio`, or `Paused` (#607).
     disburseApprovedLoan: (proposalId: number) =>
       send('disburse_approved_loan', { proposal_id: proposalId }),
 
-    // Same, for an approved treasury withdrawal (#540).
+    // Same, for an approved treasury withdrawal (#540). `NotInVotingPhase` or
+    // `InsufficientTreasury` when the withdrawal cannot be executed yet.
     executeTreasuryProposal: (proposalId: number) =>
       send('execute_treasury_proposal', { proposal_id: proposalId }),
+
+    // Permissionless keepers for proposals whose voting windows have lapsed.
+    // `expire_loan_proposal` is a no-op when the phase is already Expired;
+    // `expire_treasury_proposal` fails with `NotInVotingPhase` on a second call.
+    expireLoanProposal: (proposalId: number) =>
+      send('expire_loan_proposal', { proposal_id: proposalId }),
+    expireTreasuryProposal: (proposalId: number) =>
+      send('expire_treasury_proposal', { proposal_id: proposalId }),
 
     proposeTreasuryWithdrawal: (
       amount: bigint | number,

@@ -1,9 +1,12 @@
 // @vitest-environment jsdom
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { screen, waitFor, fireEvent } from '@testing-library/react'
+import { screen, waitFor, fireEvent, renderHook, act, within } from '@testing-library/react'
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
+import type { ReactNode } from 'react'
 import toast from 'react-hot-toast'
 import { renderWithProviders } from './test-utils'
 import AdminPage from '@/app/(app)/admin/page'
+import { useBatchResolveFailedEvents } from '@/hooks/useFailedEventActions'
 
 const mockIsMember = vi.fn()
 const mockIsAdmin = vi.fn()
@@ -17,6 +20,9 @@ const mockGetTreasuryBalance = vi.fn()
 const mockGetLoanPolicy = vi.fn()
 const mockIsPaused = vi.fn()
 const mockGetLoans = vi.fn()
+const mockGetFailedEvents = vi.fn()
+const mockReEvaluateFailedEvent = vi.fn()
+const mockBatchResolveFailedEvents = vi.fn()
 const mockGetAdminLog = vi.fn()
 const mockAddAdmin = vi.fn()
 const mockSetThreshold = vi.fn()
@@ -35,6 +41,7 @@ vi.mock('@/lib/wallet', () => ({
     connect: vi.fn(),
     disconnect: vi.fn(),
     signXDR: vi.fn(),
+    signMessage: vi.fn(async () => 'c2lnbmF0dXJl'),
   }),
 }))
 
@@ -79,9 +86,14 @@ vi.mock('@/lib/backend', () => ({
     getEvents: vi.fn().mockResolvedValue([]),
     getStats: vi.fn().mockResolvedValue(null),
     getAdminLog: (...a: unknown[]) => mockGetAdminLog(...a),
+    getFailedEvents: (...a: unknown[]) => mockGetFailedEvents(...a),
+    reEvaluateFailedEvent: (...a: unknown[]) => mockReEvaluateFailedEvent(...a),
+    batchResolveFailedEvents: (...a: unknown[]) => mockBatchResolveFailedEvents(...a),
     markNotificationRead: vi.fn(),
     markAllNotificationsRead: vi.fn(),
   },
+  BackendError: class BackendError extends Error {},
+  MAX_BATCH_RESOLVE_IDS: 500,
 }))
 
 vi.mock('react-hot-toast', () => ({
@@ -286,6 +298,102 @@ describe('AdminPage', () => {
       await waitFor(() => expect(toast.error).toHaveBeenCalledTimes(1))
       await settle()
       expect(unhandled).toEqual([])
+    })
+  })
+
+  // ── quarantined event actions (#638/#639) ──────────────────────────────
+  describe('quarantined event actions', () => {
+    const events = [
+      { id: 7, ledger: 100, symbol: 'loan_created', error: 'boom', created_at: '2026-01-01T00:00:00Z' },
+      { id: 8, ledger: 101, symbol: 'vote_cast', error: 'bang', created_at: '2026-01-02T00:00:00Z' },
+    ]
+
+    async function openQuarantineTab() {
+      mockIsMember.mockResolvedValue(true)
+      mockIsAdmin.mockResolvedValue(true)
+      mockGetFailedEvents.mockResolvedValue(events)
+      renderWithProviders(<AdminPage />)
+      await waitFor(() => expect(screen.getByText('Admin Dashboard')).toBeInTheDocument())
+      fireEvent.click(screen.getByRole('button', { name: /Quarantined Events/ }))
+      await waitFor(() => expect(screen.getByText('Ledger #100')).toBeInTheDocument())
+    }
+
+    beforeEach(() => {
+      mockReEvaluateFailedEvent.mockResolvedValue({ eventId: '7', status: 'reprocessed' })
+      mockBatchResolveFailedEvents.mockResolvedValue({ resolved: 2 })
+    })
+    afterEach(() => vi.restoreAllMocks())
+
+    it('shows still_failing beside the row and refreshes the list after a re-evaluation', async () => {
+      mockReEvaluateFailedEvent.mockResolvedValue({ eventId: '7', status: 'still_failing' })
+      await openQuarantineTab()
+      const before = mockGetFailedEvents.mock.calls.length
+
+      fireEvent.click(screen.getByRole('button', { name: 'Re-evaluate event 7' }))
+
+      await waitFor(() => expect(mockReEvaluateFailedEvent).toHaveBeenCalledWith(7))
+      expect(await screen.findByText('Still failing')).toBeInTheDocument()
+      expect(toast.error).not.toHaveBeenCalled()
+      await waitFor(() => expect(mockGetFailedEvents.mock.calls.length).toBeGreaterThan(before))
+    })
+
+    it('reports a re-evaluation error by toast, not as an inline outcome', async () => {
+      mockReEvaluateFailedEvent.mockRejectedValue(new Error('backend down'))
+      await openQuarantineTab()
+
+      fireEvent.click(screen.getByRole('button', { name: 'Re-evaluate event 7' }))
+
+      await waitFor(() => expect(toast.error).toHaveBeenCalledTimes(1))
+      expect(screen.queryByText('Still failing')).not.toBeInTheDocument()
+    })
+
+    it('selects all rows, asks for a resolution, confirms, and shows the returned count', async () => {
+      await openQuarantineTab()
+
+      fireEvent.click(screen.getByLabelText('Select all quarantined events'))
+      fireEvent.change(screen.getByLabelText('Resolution'), { target: { value: 'ignored' } })
+      fireEvent.change(screen.getByLabelText('Resolution note'), { target: { value: 'duplicate' } })
+      fireEvent.click(screen.getByRole('button', { name: /Resolve selected/ }))
+
+      const dialog = await screen.findByRole('dialog', { name: 'Resolve selected quarantined events?' })
+      expect(dialog).toHaveTextContent('2 selected event(s)')
+      fireEvent.click(within(dialog).getByRole('button', { name: 'Resolve selected' }))
+
+      await waitFor(() => expect(mockBatchResolveFailedEvents).toHaveBeenCalledWith({
+        ids: [7, 8],
+        resolution: 'ignored',
+        note: 'duplicate',
+      }))
+      expect(await screen.findByText('Resolved 2 of 2 selected event(s).')).toBeInTheDocument()
+    })
+
+    it('does nothing without a chosen resolution', async () => {
+      await openQuarantineTab()
+
+      fireEvent.click(screen.getByLabelText('Select all quarantined events'))
+      expect(screen.getByRole('button', { name: /Resolve selected/ })).toBeDisabled()
+      fireEvent.click(screen.getByRole('button', { name: /Resolve selected/ }))
+
+      expect(mockBatchResolveFailedEvents).not.toHaveBeenCalled()
+      expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+    })
+
+    it('chunks selections larger than the backend\'s 500-id cap', async () => {
+      const ids = Array.from({ length: 501 }, (_, i) => i + 1)
+      mockBatchResolveFailedEvents.mockResolvedValue({ resolved: 1 })
+      const client = new QueryClient({ defaultOptions: { queries: { retry: false } } })
+      const wrapper = ({ children }: { children: ReactNode }) => (
+        <QueryClientProvider client={client}>{children}</QueryClientProvider>
+      )
+      const { result } = renderHook(() => useBatchResolveFailedEvents(), { wrapper })
+
+      await act(async () => {
+        await result.current.batchResolveFailedEvents({ ids, resolution: 'resolved' })
+      })
+
+      expect(mockBatchResolveFailedEvents).toHaveBeenCalledTimes(2)
+      expect(mockBatchResolveFailedEvents.mock.calls[0][0].ids).toHaveLength(500)
+      expect(mockBatchResolveFailedEvents.mock.calls[1][0].ids).toEqual([501])
     })
   })
 })

@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { screen, waitFor, fireEvent } from '@testing-library/react'
+import { screen, waitFor, fireEvent, within } from '@testing-library/react'
 import { renderWithProviders } from './test-utils'
 import TreasuryProposalDetailPage from '@/app/(app)/treasury/[id]/page'
 import * as utils from '@/lib/utils'
@@ -9,6 +9,7 @@ const mockGetTreasuryProposal = vi.fn()
 const mockHasVoted = vi.fn()
 const mockIsMember = vi.fn()
 const mockExecuteTreasury = vi.fn()
+const mockCancelTreasury = vi.fn()
 const mockCommitTreasuryVote = vi.fn().mockResolvedValue({ hash: 'tx-commit', returnValue: null })
 const mockAnnounce = vi.fn()
 
@@ -64,6 +65,7 @@ vi.mock('@/lib/dao-client', () => ({
   daoWrite: () => ({
     voteOnTreasuryProposal: (...a: unknown[]) => mockVoteOnTreasury(...a),
     executeTreasuryProposal: (...a: unknown[]) => mockExecuteTreasury(...a),
+    cancelTreasuryProposal: (...a: unknown[]) => mockCancelTreasury(...a),
     commitTreasuryVote: (...a: unknown[]) => mockCommitTreasuryVote(...a),
   }),
   InvokeError: class InvokeError extends Error {
@@ -83,6 +85,7 @@ describe('TreasuryProposalDetailPage (/treasury/[id])', () => {
     vi.clearAllMocks()
     mockIsMember.mockResolvedValue(true)
     mockHasVoted.mockResolvedValue(false)
+    vi.spyOn(window, 'confirm').mockReturnValue(true)
   })
 
   afterEach(() => {
@@ -219,6 +222,58 @@ describe('TreasuryProposalDetailPage (/treasury/[id])', () => {
       await screen.findByText(/awaiting treasury funds/i)
 
       expect(screen.queryByRole('button', { name: /^Execute$/ })).not.toBeInTheDocument()
+    })
+
+    it('disables Execute and names InsufficientTreasury when the treasury is short', async () => {
+      mockGetTreasuryProposal.mockResolvedValue({ ...awaiting, amount: '2000000000' })
+
+      renderWithProviders(<TreasuryProposalDetailPage />)
+
+      const button = await screen.findByRole('button', { name: /^Execute$/ })
+      expect(button).toBeDisabled()
+      expect(screen.getByText(/InsufficientTreasury/)).toBeInTheDocument()
+      fireEvent.click(button)
+      expect(mockExecuteTreasury).not.toHaveBeenCalled()
+    })
+  })
+
+  describe('cancel treasury proposal (#609)', () => {
+    const editable = {
+      id: 42,
+      proposer: 'GALICE',
+      destination: 'GBBD47IF6LWK7P7MDEVSCWR7DPUWV3NY3DTQEVFL4NAT4AQH3ZLLFLA5',
+      reason: 'Pay a contractor',
+      amount: '50000000',
+      status: 'Pending',
+      votesFor: '0',
+      votesAgainst: '0',
+      isPrivate: false,
+      created_at: Math.floor(Date.now() / 1000) - 10,
+    }
+
+    it('offers Cancel to the proposer inside the editing window', async () => {
+      mockGetTreasuryProposal.mockResolvedValue(editable)
+      mockCancelTreasury.mockResolvedValue({ hash: 'tx-cancel', returnValue: null })
+
+      renderWithProviders(<TreasuryProposalDetailPage />)
+
+      fireEvent.click(await screen.findByRole('button', { name: 'Cancel treasury proposal' }))
+
+      const dialog = await screen.findByRole('dialog', { name: 'Cancel this treasury proposal?' })
+      expect(dialog).toHaveTextContent('cannot be undone')
+      expect(window.confirm).not.toHaveBeenCalled()
+      fireEvent.click(within(dialog).getByRole('button', { name: 'Confirm cancellation' }))
+
+      await waitFor(() => expect(mockCancelTreasury).toHaveBeenCalledWith(42))
+    })
+
+    it('hides Cancel from a different wallet', async () => {
+      mockGetTreasuryProposal.mockResolvedValue({ ...editable, proposer: 'GBOB' })
+
+      renderWithProviders(<TreasuryProposalDetailPage />)
+      await screen.findByText(/Proposal Details/)
+
+      expect(screen.queryByRole('button', { name: 'Cancel treasury proposal' })).not.toBeInTheDocument()
     })
   })
 

@@ -20,6 +20,9 @@ import {
 } from '@/hooks/useDAO'
 import { AddressLink } from '@/components/AddressLink'
 import { LoadError } from '@/components/LoadError'
+import { ConfirmDialog } from '@/components/ConfirmDialog'
+import { useBatchResolveFailedEvents, useReEvaluateFailedEvent } from '@/hooks/useFailedEventActions'
+import type { FailedEventResolution } from '@/lib/backend'
 import { useAnnounceLoad } from '@/lib/useAnnounceLoad'
 import { formatToken, formatDate, formatThreshold } from '@/lib/utils'
 import { formatStellarAddress, isStellarAddress } from '@/lib/stellar'
@@ -372,6 +375,66 @@ function ActivityTab() {
 
 function QuarantinedEventsTab() {
   const { failedEvents, isLoading, isError, refetch } = useFailedEvents()
+  const { reEvaluateFailedEvent, isPending: isReEvaluating } = useReEvaluateFailedEvent()
+  const { batchResolveFailedEvents, isPending: isResolving } = useBatchResolveFailedEvents()
+  const [outcomes, setOutcomes] = useState<Record<string, string>>({})
+  const [selected, setSelected] = useState<string[]>([])
+  const [resolution, setResolution] = useState<'' | FailedEventResolution>('')
+  const [note, setNote] = useState('')
+  const [lastResult, setLastResult] = useState<{ resolved: number; selected: number } | null>(null)
+  const [showResolveDialog, setShowResolveDialog] = useState(false)
+
+  const allSelected = failedEvents.length > 0 && selected.length === failedEvents.length
+  const ids = selected.map(Number).filter((id) => Number.isSafeInteger(id) && id > 0)
+
+  const toggleAll = () => {
+    setSelected(allSelected ? [] : failedEvents.map((ev) => String(ev.id)))
+    setLastResult(null)
+  }
+
+  const toggleOne = (id: string) => {
+    setSelected((prev) => (prev.includes(id) ? prev.filter((v) => v !== id) : [...prev, id]))
+    setLastResult(null)
+  }
+
+  const handleReEvaluate = async (id: number | string) => {
+    try {
+      const result = await reEvaluateFailedEvent(id)
+      // A 422 still_failing is an answer, not an error: show it beside the row.
+      setOutcomes((prev) => ({
+        ...prev,
+        [String(id)]: result.status === 'still_failing' ? 'Still failing' : `Re-evaluated: ${result.status}`,
+      }))
+      void refetch()
+    } catch {
+      /* the hook has already shown one error toast */
+    }
+  }
+
+  const handleResolveSubmit = (e: FormEvent) => {
+    e.preventDefault()
+    if (ids.length === 0 || !resolution) return
+    setShowResolveDialog(true)
+  }
+
+  const confirmResolve = async () => {
+    setShowResolveDialog(false)
+    const count = ids.length
+    try {
+      const result = await batchResolveFailedEvents({
+        ids,
+        resolution,
+        ...(note.trim() ? { note: note.trim() } : {}),
+      })
+      setLastResult({ resolved: result.resolved, selected: count })
+      setSelected([])
+      setResolution('')
+      setNote('')
+      void refetch()
+    } catch {
+      /* the hook has already shown one error toast */
+    }
+  }
 
   return (
     <div className="bg-card rounded-lg border border-border">
@@ -383,6 +446,66 @@ function QuarantinedEventsTab() {
           Events that failed indexer handler processing and are quarantined for investigation.
         </p>
       </div>
+      <form onSubmit={handleResolveSubmit} className="px-6 py-4 border-b border-border flex flex-wrap items-end gap-3">
+        <label className="flex items-center gap-2 text-sm text-foreground">
+          <input
+            type="checkbox"
+            checked={allSelected}
+            onChange={toggleAll}
+            disabled={failedEvents.length === 0 || isResolving}
+            aria-label="Select all quarantined events"
+          />
+          Select all
+        </label>
+        <label className="flex flex-col gap-1 text-sm text-foreground">
+          Resolution
+          <select
+            value={resolution}
+            onChange={(e) => setResolution(e.target.value as '' | FailedEventResolution)}
+            disabled={isResolving}
+            aria-label="Resolution"
+            className="rounded-md border border-input bg-card px-2 py-1 text-sm"
+          >
+            <option value="">Choose a resolution…</option>
+            <option value="resolved">resolved</option>
+            <option value="ignored">ignored</option>
+          </select>
+        </label>
+        <label className="flex flex-col gap-1 text-sm text-foreground">
+          Note (optional)
+          <input
+            type="text"
+            value={note}
+            onChange={(e) => setNote(e.target.value)}
+            disabled={isResolving}
+            aria-label="Resolution note"
+            placeholder="Why were these resolved?"
+            className="rounded-md border border-input bg-card px-2 py-1 text-sm"
+          />
+        </label>
+        <button
+          type="submit"
+          disabled={ids.length === 0 || !resolution || isResolving}
+          className="px-4 py-2 rounded-md bg-blue-600 text-white text-sm hover:bg-blue-700 disabled:opacity-50"
+        >
+          {isResolving ? 'Resolving…' : `Resolve selected${ids.length ? ` (${ids.length})` : ''}`}
+        </button>
+        {lastResult && (
+          <p role="status" className="w-full text-sm text-green-700 dark:text-green-400">
+            Resolved {lastResult.resolved} of {lastResult.selected} selected event(s).
+          </p>
+        )}
+      </form>
+      <ConfirmDialog
+        open={showResolveDialog}
+        onOpenChange={setShowResolveDialog}
+        title="Resolve selected quarantined events?"
+        description={`Resolve ${ids.length} selected event(s) as ${resolution}? Already-resolved ids are skipped by the backend.`}
+        confirmLabel="Resolve selected"
+        cancelLabel="Keep selection"
+        isPending={isResolving}
+        onConfirm={() => void confirmResolve()}
+      />
       <div className="divide-y divide-border">
         {isLoading && <div className="px-6 py-4 text-sm text-muted-foreground">Loading quarantined events…</div>}
         {isError && <LoadError what="quarantined events" onRetry={() => void refetch()} className="m-4" />}
@@ -395,6 +518,13 @@ function QuarantinedEventsTab() {
           <div key={ev.id} className="px-6 py-4 flex flex-col gap-1">
             <div className="flex items-center justify-between">
               <div className="flex items-center space-x-3">
+                <input
+                  type="checkbox"
+                  checked={selected.includes(String(ev.id))}
+                  onChange={() => toggleOne(String(ev.id))}
+                  disabled={isResolving}
+                  aria-label={`Select event ${ev.id}`}
+                />
                 <span className="px-2 py-1 text-xs font-mono bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-300 rounded">
                   {ev.symbol}
                 </span>
@@ -402,8 +532,24 @@ function QuarantinedEventsTab() {
                 {ev.retry_count !== undefined && (
                   <span className="text-xs text-muted-foreground">Retries: {ev.retry_count}</span>
                 )}
+                {outcomes[String(ev.id)] && (
+                  <span role="status" className="px-2 py-1 text-xs rounded bg-amber-100 text-amber-800 dark:bg-amber-950/40 dark:text-amber-300">
+                    {outcomes[String(ev.id)]}
+                  </span>
+                )}
               </div>
-              <span className="text-xs text-muted-foreground">{formatDate(ev.created_at)}</span>
+              <div className="flex items-center space-x-3">
+                <button
+                  type="button"
+                  onClick={() => void handleReEvaluate(ev.id)}
+                  disabled={isReEvaluating || isResolving}
+                  aria-label={`Re-evaluate event ${ev.id}`}
+                  className="text-sm text-blue-600 hover:text-blue-800 dark:text-blue-400 disabled:opacity-50"
+                >
+                  {isReEvaluating ? 'Re-evaluating…' : 'Re-evaluate'}
+                </button>
+                <span className="text-xs text-muted-foreground">{formatDate(ev.created_at)}</span>
+              </div>
             </div>
             <div className="text-xs font-mono text-red-600 dark:text-red-400 mt-1 bg-red-50 dark:bg-red-950/20 p-2 rounded">
               {ev.error}

@@ -285,6 +285,8 @@ export interface UITreasuryProposal {
   votesFor: number
   votesAgainst: number
   creationTime: number
+  /** Voting window stored on the proposal, in seconds (#612). */
+  votingPeriod: number
   isPrivate: boolean
   hasVoted: boolean
 }
@@ -321,6 +323,7 @@ export function mapTreasuryProposal(raw: Record<string, unknown>, hasVoted = fal
       votesFor: 0,
       votesAgainst: 0,
       creationTime: 0,
+      votingPeriod: GOVERNANCE_PERIOD_FALLBACKS.votingPeriod,
       isPrivate: false,
       hasVoted,
     }
@@ -339,6 +342,9 @@ export function mapTreasuryProposal(raw: Record<string, unknown>, hasVoted = fal
     votesFor: v.for_votes,
     votesAgainst: v.against_votes,
     creationTime: v.created_at,
+    // Older records predate the stored period; fall back to the labelled
+    // governance assumption rather than treating the deadline as "now".
+    votingPeriod: v.voting_period > 0 ? v.voting_period : GOVERNANCE_PERIOD_FALLBACKS.votingPeriod,
     isPrivate: v.private,
     hasVoted,
   }

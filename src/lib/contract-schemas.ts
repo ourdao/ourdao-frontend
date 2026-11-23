@@ -103,6 +103,9 @@ export const treasuryProposalSchema = z.object({
   for_votes: finiteNumber(0),
   against_votes: finiteNumber(0),
   created_at: finiteNumber(0),
+  // Stored on the proposal at creation (unlike the editing window, which
+  // comes from the policy at cancel time). Needed for the Finalize deadline.
+  voting_period: finiteNumber(0),
   private: booleanValue(false),
 })
 

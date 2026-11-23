@@ -29,26 +29,29 @@ import {
   useLoan,
   useMarkLoanDefaulted,
   useDisburseApprovedLoan,
+  useCancelProposal,
   useProposalDocument,
   useAttachDocument,
   type UILoan,
 } from '@/hooks/useDAO'
 import { useNow } from '@/hooks/useNow'
-import { formatToken, formatDate, calculatePercentage, parseToken } from '@/lib/utils'
+import { formatToken, formatDate, calculatePercentage, parseToken, computeMaxLoan } from '@/lib/utils'
 import { AddressLink } from '@/components/AddressLink'
 import { PROPOSAL_STATUS_LABELS, PROPOSAL_STATUS_AWAITING_FUNDS, IPFS_GATEWAY } from '@/constants'
 import toast from 'react-hot-toast'
 import { PageHeader } from '@/components/PageHeader'
 import { DocumentHistory } from '@/components/DocumentHistory'
 import { ProposalTimeline } from '@/components/ProposalTimeline'
+import { ConfirmDialog } from '@/components/ConfirmDialog'
 
 export default function LoanDetailsPage() {
   const params = useParams()
   const router = useRouter()
   const userData = useUserData()
-  const { activeMembers, isPaused } = useDAOStats()
+  const { activeMembers, isPaused, treasuryBalance, maxLoanToTreasuryRatio } = useDAOStats()
   const { voteOnProposal, isPending: isVoting } = useVoting()
   const { editLoanProposal, isPending: isEditing } = useEditLoanProposal()
+  const { cancelProposal, isPending: isCancelling } = useCancelProposal()
   const { repayLoan, repayLoanPartial, isPending: isRepaying } = useLoanRepayment()
   const { markLoanDefaulted, isPending: isMarkingDefaulted } = useMarkLoanDefaulted()
   const { disburseApprovedLoan, isPending: isFunding } = useDisburseApprovedLoan()
@@ -76,6 +79,7 @@ export default function LoanDetailsPage() {
   const [isEditMode, setIsEditMode] = useState(false)
   const [editAmount, setEditAmount] = useState('')
   const [editError, setEditError] = useState<string | null>(null)
+  const [showCancelDialog, setShowCancelDialog] = useState(false)
 
   useEffect(() => {
     if (!isLoading && !proposal) {
@@ -195,6 +199,15 @@ export default function LoanDetailsPage() {
   // can cover it. A failure (e.g. still short of funds) is already surfaced by
   // the write hook as a toast with the contract's plain-language message.
   const handleFundNow = async () => {
+    // #611: make the re-quote explicit — the interest rate and repayment terms
+    // are recalculated from the treasury balance at disbursement, so they may
+    // differ from the figures shown when the member voted.
+    if (
+      !window.confirm(
+        'Fund this approved loan now? The loan terms are re-quoted at disbursement based on the current treasury balance, so the final interest rate and repayment may differ from the voted figures.'
+      )
+    )
+      return
     try {
       await disburseApprovedLoan(loanId)
       refetchProposal()
@@ -258,6 +271,34 @@ export default function LoanDetailsPage() {
     if (!now || !proposal.editingPeriodEnd) return false
     return Math.floor(now / 1000) < proposal.editingPeriodEnd
   }
+
+  // #609: the borrower may only withdraw while the contract still sees the
+  // proposal as Pending + Editing (status 1 here) and the stored deadline has
+  // not passed. The contract re-checks all of this at signing time; hiding the
+  // action just avoids an avoidable rejection.
+  const canCancel = () => isBorrower() && isInEditingPhase()
+
+  const handleCancel = async () => {
+    setShowCancelDialog(false)
+    try {
+      await cancelProposal('Loan', loanId)
+      refetchProposal()
+    } catch {
+      /* reported by useWriteAction */
+    }
+  }
+
+  // #611: the contract re-applies the treasury exposure cap at disbursement.
+  // Mirror it here so a member isn't asked to sign a transaction that can only
+  // fail with InsufficientTreasury / ExceedsTreasuryRatio.
+  const disbursementBlocker = (() => {
+    if (!proposal) return null
+    if (treasuryBalance < proposal.amount) return 'InsufficientTreasury: the treasury cannot cover this loan.'
+    const maxLoan = computeMaxLoan(treasuryBalance, maxLoanToTreasuryRatio)
+    if (proposal.amount > maxLoan)
+      return 'ExceedsTreasuryRatio: this loan is above the current treasury exposure limit.'
+    return null
+  })()
 
   const getEditingTimeLeft = () => {
     if (!now || !proposal?.editingPeriodEnd) return ''
@@ -448,6 +489,25 @@ export default function LoanDetailsPage() {
                       >
                         Edit Amount
                       </Button>
+                      {canCancel() && (
+                        <>
+                          <Button
+                            variant="destructive"
+                            onClick={() => setShowCancelDialog(true)}
+                            disabled={isPaused}
+                            title={isPaused ? 'Cancelling is unavailable while the DAO is paused.' : undefined}
+                            className="w-full"
+                            aria-label="Cancel loan proposal"
+                          >
+                            Cancel proposal
+                          </Button>
+                          {isPaused && (
+                            <p className="text-xs text-muted-foreground">
+                              Cancelling is unavailable while the DAO is paused.
+                            </p>
+                          )}
+                        </>
+                      )}
                     </div>
                   ) : (
                     <div className="space-y-4">
@@ -573,18 +633,35 @@ export default function LoanDetailsPage() {
                   <CardDescription>
                     Members voted to approve this loan, but the treasury balance is too low to
                     disburse {formatToken(proposal.amount)} right now. It will be paid out once the
-                    treasury is topped up and the loan is disbursed.
+                    treasury is topped up and the loan is disbursed. Loan terms are re-quoted at
+                    disbursement from the treasury balance at that time.
                   </CardDescription>
                 </CardHeader>
-                <CardContent className="flex flex-wrap gap-3">
-                  {userData.isMember && (
-                    <Button onClick={handleFundNow} disabled={isFunding || isPaused}>
-                      {isFunding ? 'Funding…' : 'Fund now'}
+                <CardContent className="flex flex-col gap-3">
+                  <div className="flex flex-wrap gap-3">
+                    {userData.isMember && (
+                      <Button
+                        onClick={handleFundNow}
+                        disabled={isFunding || isPaused || !!disbursementBlocker}
+                        title={disbursementBlocker || undefined}
+                      >
+                        {isFunding ? 'Funding…' : 'Fund now'}
+                      </Button>
+                    )}
+                    <Button asChild variant="outline">
+                      <Link href="/treasury">Go to Treasury</Link>
                     </Button>
+                  </div>
+                  {disbursementBlocker && (
+                    <p role="status" className="text-sm text-amber-700 dark:text-amber-400">
+                      {disbursementBlocker}
+                    </p>
                   )}
-                  <Button asChild variant="outline">
-                    <Link href="/treasury">Go to Treasury</Link>
-                  </Button>
+                  {isPaused && (
+                    <p className="text-sm text-muted-foreground">
+                      Disbursement is unavailable while the DAO is paused.
+                    </p>
+                  )}
                 </CardContent>
               </Card>
             )}
@@ -870,6 +947,18 @@ export default function LoanDetailsPage() {
           </div>
         </div>
       </div>
+
+      <ConfirmDialog
+        open={showCancelDialog}
+        onOpenChange={setShowCancelDialog}
+        title="Cancel this loan proposal?"
+        description="The request will be withdrawn and members will no longer be able to vote on it. This cannot be undone."
+        confirmLabel="Confirm cancellation"
+        cancelLabel="Keep proposal"
+        destructive
+        isPending={isCancelling}
+        onConfirm={() => void handleCancel()}
+      />
     </>
   )
 }

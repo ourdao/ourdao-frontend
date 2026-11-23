@@ -302,6 +302,119 @@ describe('backend fetch wrappers', () => {
   })
 })
 
+describe('failed-event admin mutations (#637)', () => {
+  const ADDRESS = 'GADMIN'
+  const NONCE = 'b'.repeat(64)
+  const SIGNATURE = 'c2lnbmF0dXJl'
+  const signer = { address: ADDRESS, signMessage: vi.fn(async () => SIGNATURE) }
+
+  beforeEach(() => {
+    vi.stubGlobal('fetch', vi.fn())
+    vi.stubEnv('NEXT_PUBLIC_BACKEND_URL', CONFIGURED_URL)
+    signer.signMessage.mockClear()
+  })
+  afterEach(() => {
+    vi.unstubAllGlobals()
+    vi.unstubAllEnvs()
+  })
+
+  /** Two requests per call: a signed-auth challenge, then the POST. */
+  const mockPostResponse = (body: unknown, status: number) =>
+    vi.mocked(fetch)
+      .mockResolvedValueOnce(jsonResponse({ nonce: NONCE }))
+      .mockResolvedValueOnce({ ok: status >= 200 && status < 300, status, json: () => Promise.resolve(body) } as Response)
+
+  it('re-evaluate posts with the signed header and returns the 200 body', async () => {
+    mockPostResponse({ eventId: '12', status: 'reprocessed' }, 200)
+
+    await expect(backend.reEvaluateFailedEvent(12, signer)).resolves.toEqual({
+      eventId: '12',
+      status: 'reprocessed',
+    })
+
+    expect(signer.signMessage).toHaveBeenCalledWith(`${NONCE}:${ADDRESS}`)
+    const [url, init] = vi.mocked(fetch).mock.calls[1]
+    expect(url).toBe(`${CONFIGURED_URL}/api/admin/failed-events/12/re-evaluate`)
+    expect(init?.method).toBe('POST')
+    expect((init?.headers as Record<string, string>).Authorization).toBe(
+      `StellarSignature ${ADDRESS}:${SIGNATURE}:${NONCE}`
+    )
+  })
+
+  it('returns a 422 still_failing result rather than throwing', async () => {
+    mockPostResponse({ eventId: '12', status: 'still_failing' }, 422)
+
+    await expect(backend.reEvaluateFailedEvent('12', signer)).resolves.toEqual({
+      eventId: '12',
+      status: 'still_failing',
+    })
+  })
+
+  it('throws BackendError on a 401 from re-evaluate', async () => {
+    mockPostResponse({ error: 'Invalid or expired nonce' }, 401)
+
+    await expect(backend.reEvaluateFailedEvent(12, signer)).rejects.toMatchObject({
+      name: 'BackendError',
+      status: 401,
+      message: 'Invalid or expired nonce',
+    })
+  })
+
+  it('batch-resolve posts the body and returns the resolved count', async () => {
+    mockPostResponse({ resolved: 2 }, 200)
+
+    await expect(
+      backend.batchResolveFailedEvents(
+        { ids: [1, 2, 3], resolution: 'ignored', note: 'known bad event' },
+        signer
+      )
+    ).resolves.toEqual({ resolved: 2 })
+
+    const [url, init] = vi.mocked(fetch).mock.calls[1]
+    expect(url).toBe(`${CONFIGURED_URL}/api/admin/failed-events/batch-resolve`)
+    expect(init?.method).toBe('POST')
+    expect(JSON.parse(String(init?.body))).toEqual({
+      ids: [1, 2, 3],
+      resolution: 'ignored',
+      note: 'known bad event',
+    })
+  })
+
+  it('throws BackendError on a 401 from batch-resolve', async () => {
+    mockPostResponse({ error: 'Unauthorized' }, 401)
+
+    await expect(
+      backend.batchResolveFailedEvents({ ids: [1], resolution: 'resolved' }, signer)
+    ).rejects.toBeInstanceOf(BackendError)
+  })
+
+  it('refuses more than 500 ids before signing or fetching', async () => {
+    const ids = Array.from({ length: 501 }, (_, i) => i + 1)
+
+    await expect(
+      backend.batchResolveFailedEvents({ ids, resolution: 'resolved' }, signer)
+    ).rejects.toThrow(/1 and 500/)
+
+    expect(fetch).not.toHaveBeenCalled()
+    expect(signer.signMessage).not.toHaveBeenCalled()
+  })
+
+  it('refuses invalid ids and resolutions before signing or fetching', async () => {
+    await expect(
+      backend.batchResolveFailedEvents({ ids: [0], resolution: 'resolved' }, signer)
+    ).rejects.toThrow(/positive integers/)
+    expect(fetch).not.toHaveBeenCalled()
+
+    await expect(
+      backend.batchResolveFailedEvents(
+        { ids: [1], resolution: 'nonsense' as 'resolved' },
+        signer
+      )
+    ).rejects.toThrow(/resolution/)
+    expect(fetch).not.toHaveBeenCalled()
+  })
+})
+
 describe('isBackendConfigured', () => {
   afterEach(() => vi.unstubAllEnvs())
 

@@ -89,6 +89,10 @@ describe('daoWrite — method name and ScVal argument types per entrypoint', () 
     ['claimRewards', (w) => w.claimRewards(), 'claim_rewards', ['scvAddress']],
     ['requestLoan', (w) => w.requestLoan(BigInt(100)), 'request_loan', ['scvAddress', 'scvI128', 'scvVoid']],
     ['editLoanProposal', (w) => w.editLoanProposal(1, BigInt(50)), 'edit_loan_proposal', ['scvAddress', 'scvU32', 'scvI128']],
+    // Pinned bindings predate these entrypoints, so they go through raw
+    // invoke() with hand-built ScVals (#605).
+    ['cancelLoanProposal', (w) => w.cancelLoanProposal(9), 'cancel_loan_proposal', ['scvAddress', 'scvU32']],
+    ['cancelTreasuryProposal', (w) => w.cancelTreasuryProposal(9), 'cancel_treasury_proposal', ['scvAddress', 'scvU32']],
     ['voteOnLoanProposal', (w) => w.voteOnLoanProposal(1, true), 'vote_on_loan_proposal', ['scvAddress', 'scvU32', 'scvBool']],
     ['repayLoan', (w) => w.repayLoan(2), 'repay_loan', ['scvAddress', 'scvU32']],
     ['repayLoanPartial', (w) => w.repayLoanPartial(2, BigInt(10)), 'repay_loan_partial', ['scvAddress', 'scvU32', 'scvI128']],
@@ -96,6 +100,8 @@ describe('daoWrite — method name and ScVal argument types per entrypoint', () 
     ['markLoanDefaulted', (w) => w.markLoanDefaulted(3), 'mark_loan_defaulted', ['scvU32']],
     ['disburseApprovedLoan', (w) => w.disburseApprovedLoan(5), 'disburse_approved_loan', ['scvU32']],
     ['executeTreasuryProposal', (w) => w.executeTreasuryProposal(6), 'execute_treasury_proposal', ['scvU32']],
+    ['expireLoanProposal', (w) => w.expireLoanProposal(8), 'expire_loan_proposal', ['scvU32']],
+    ['expireTreasuryProposal', (w) => w.expireTreasuryProposal(8), 'expire_treasury_proposal', ['scvU32']],
     [
       'proposeTreasuryWithdrawal',
       (w) => w.proposeTreasuryWithdrawal(BigInt(5), OTHER, 'why', false),

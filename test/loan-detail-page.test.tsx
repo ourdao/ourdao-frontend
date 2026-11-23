@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { screen, waitFor, fireEvent } from '@testing-library/react'
+import { screen, waitFor, fireEvent, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { renderWithProviders } from './test-utils'
 import LoanDetailsPage from '@/app/(app)/loans/[id]/page'
@@ -27,6 +27,7 @@ const mockPush = vi.fn()
 const mockRepayLoan = vi.fn().mockResolvedValue({ hash: 'tx-repay', returnValue: null })
 const mockRepayLoanPartial = vi.fn().mockResolvedValue({ hash: 'tx-partial', returnValue: null })
 const mockDisburseApprovedLoan = vi.fn()
+const mockCancelLoanProposal = vi.fn()
 const mockMarkLoanDefaulted = vi.fn().mockResolvedValue({ hash: 'tx-default', returnValue: null })
 
 vi.mock('next/navigation', () => ({
@@ -76,6 +77,7 @@ vi.mock('@/lib/dao-client', () => ({
     repayLoanPartial: (...a: unknown[]) => mockRepayLoanPartial(...a),
     markLoanDefaulted: (...a: unknown[]) => mockMarkLoanDefaulted(...a),
     disburseApprovedLoan: (...a: unknown[]) => mockDisburseApprovedLoan(...a),
+    cancelLoanProposal: (...a: unknown[]) => mockCancelLoanProposal(...a),
     voteOnLoanProposal: vi.fn().mockResolvedValue({ hash: 'tx-vote', returnValue: null }),
     attachDocument: vi.fn().mockResolvedValue({ hash: 'tx-attach', returnValue: null }),
   }),
@@ -117,6 +119,7 @@ describe('LoanDetailsPage', () => {
     mockGetNotifications.mockResolvedValue([])
     mockGetEvents.mockResolvedValue([])
     mockGetStats.mockResolvedValue(null)
+    vi.spyOn(window, 'confirm').mockReturnValue(true)
   })
   afterEach(() => vi.clearAllMocks())
 
@@ -401,6 +404,13 @@ describe('LoanDetailsPage', () => {
       editing_period_end: 2000,
     }
 
+    beforeEach(() => {
+      // A funded treasury inside the exposure cap, so the gating added in #611
+      // doesn't mask the #540 behaviour these cases are about.
+      mockGetTreasuryBalance.mockResolvedValue(BigInt(10000_0000000))
+      mockGetLoanPolicy.mockResolvedValue({ max_loan_to_treasury_ratio: 10000 })
+    })
+
     it('offers Fund now to a member and calls disburse_approved_loan', async () => {
       mockGetLoanProposal.mockResolvedValue(awaitingProposal)
       mockDisburseApprovedLoan.mockResolvedValue({ hash: 'tx-fund', returnValue: null })
@@ -458,6 +468,77 @@ describe('LoanDetailsPage', () => {
       await screen.findByText(/awaiting treasury funds/i)
 
       expect(screen.queryByRole('button', { name: /Fund now/i })).not.toBeInTheDocument()
+    })
+
+    it('disables Fund now and names ExceedsTreasuryRatio when the exposure cap is breached', async () => {
+      mockGetLoanProposal.mockResolvedValue(awaitingProposal)
+      // 5% of 10,000 = 500 < the 1,000-token request.
+      mockGetLoanPolicy.mockResolvedValue({ max_loan_to_treasury_ratio: 500 })
+      renderWithProviders(<LoanDetailsPage />)
+
+      const button = await screen.findByRole('button', { name: /Fund now/i })
+      expect(button).toBeDisabled()
+      expect(screen.getByText(/ExceedsTreasuryRatio/)).toBeInTheDocument()
+      await userEvent.click(button)
+      expect(mockDisburseApprovedLoan).not.toHaveBeenCalled()
+    })
+
+    it('mentions that terms are re-quoted in the funding confirmation', async () => {
+      mockGetLoanProposal.mockResolvedValue(awaitingProposal)
+      mockDisburseApprovedLoan.mockResolvedValue({ hash: 'tx-fund', returnValue: null })
+      renderWithProviders(<LoanDetailsPage />)
+
+      await userEvent.click(await screen.findByRole('button', { name: /Fund now/i }))
+
+      expect(window.confirm).toHaveBeenCalledWith(
+        expect.stringContaining('re-quoted at disbursement')
+      )
+    })
+  })
+
+  describe('cancel loan proposal (#609)', () => {
+    const editable = {
+      id: 1,
+      borrower: 'GALICE',
+      amount: BigInt(500_0000000),
+      interest_rate: 500,
+      status: 'Pending',
+      phase: 'Editing',
+      for_votes: 0,
+      against_votes: 0,
+      created_at: 1000,
+      editing_period_end: Math.floor(Date.now() / 1000) + 3600,
+    }
+
+    it('offers Cancel to the borrower inside the editing window', async () => {
+      mockGetLoanProposal.mockResolvedValue(editable)
+      mockCancelLoanProposal.mockResolvedValue({ hash: 'tx-cancel', returnValue: null })
+      renderWithProviders(<LoanDetailsPage />)
+
+      await userEvent.click(await screen.findByRole('button', { name: 'Cancel loan proposal' }))
+
+      const dialog = await screen.findByRole('dialog', { name: 'Cancel this loan proposal?' })
+      expect(dialog).toHaveTextContent('cannot be undone')
+      expect(window.confirm).not.toHaveBeenCalled()
+      await userEvent.click(within(dialog).getByRole('button', { name: 'Confirm cancellation' }))
+
+      await waitFor(() => expect(mockCancelLoanProposal).toHaveBeenCalledWith(1))
+    })
+
+    it('hides Cancel once the stored editing deadline has passed', async () => {
+      mockGetLoanProposal.mockResolvedValue({ ...editable, editing_period_end: 1000 })
+      renderWithProviders(<LoanDetailsPage />)
+
+      await screen.findByText(/Loan Proposal #1/)
+      expect(screen.queryByRole('button', { name: 'Cancel loan proposal' })).not.toBeInTheDocument()
+    })
+
+    it('hides Cancel from a wallet that is not the borrower', async () => {
+      mockGetLoanProposal.mockResolvedValue({ ...editable, borrower: 'GBORROWER' })
+      renderWithProviders(<LoanDetailsPage />)
+
+      await screen.findByText(/Loan Proposal #1/)
+      expect(screen.queryByRole('button', { name: 'Cancel loan proposal' })).not.toBeInTheDocument()
     })
   })
 })
