@@ -2,7 +2,7 @@
 
 import { useParams } from 'next/navigation'
 import { PageHeader } from '@/components/PageHeader'
-import { useMemberSummary, useMemberActivity, eventLabel } from '@/hooks/useDAO'
+import { useMemberSummary, useMemberActivity, useMemberOverview, eventLabel } from '@/hooks/useDAO'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { formatToken, formatDate } from '@/lib/utils'
@@ -15,7 +15,32 @@ export default function MemberProfilePage() {
   const address = decodeURIComponent(rawAddress)
 
   const { summary } = useMemberSummary(address)
+  // #644: single overview read from the contract (member record, stake, yield, name, delegate).
+  const { overview, isLoading: isOverviewLoading } = useMemberOverview(address)
   const { activity, isLoading: isActivityLoading } = useMemberActivity(address, 50)
+
+  // Non-member guard: show a clear state when the contract confirms this
+  // address is not a DAO member (overview loaded, isMember explicitly false).
+  const isNotMember = !isOverviewLoading && overview?.isMember === false
+
+  if (isNotMember) {
+    return (
+      <div className="space-y-6">
+        <PageHeader
+          title="Member Profile"
+          subtitle={`${formatStellarAddress(address)} is not a DAO member`}
+        />
+        <Card>
+          <CardContent className="pt-6">
+            <p className="text-sm text-muted-foreground">
+              This address has not joined the DAO. If you believe this is an error, the member may
+              have exited or not yet registered.
+            </p>
+          </CardContent>
+        </Card>
+      </div>
+    )
+  }
 
   return (
     <div className="space-y-6">
@@ -48,6 +73,19 @@ export default function MemberProfilePage() {
                 <p className="text-muted-foreground mt-0.5 text-xs">
                   Joined: {summary?.joined_at ? formatDate(summary.joined_at) : 'Active'}
                 </p>
+                {overview?.name && (
+                  <p className="text-xs text-muted-foreground mt-0.5">
+                    Name: <span className="font-medium text-foreground">{overview.name}</span>
+                  </p>
+                )}
+                {overview?.delegate && overview.delegate !== address && (
+                  <p className="text-xs text-muted-foreground mt-0.5">
+                    Delegating to:{' '}
+                    <span className="font-mono font-medium text-foreground">
+                      {formatStellarAddress(overview.delegate)}
+                    </span>
+                  </p>
+                )}
               </div>
             </div>
             {(() => {

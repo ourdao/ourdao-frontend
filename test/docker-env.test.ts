@@ -40,8 +40,19 @@ describe('container configuration', () => {
     }
   })
 
-  it('does not default the browser bundle to a localhost backend', () => {
-    const compose = readFileSync(join(root, 'docker-compose.yml'), 'utf8')
-    expect(compose).not.toMatch(/NEXT_PUBLIC_BACKEND_URL[^\n]*localhost/)
-  })
-})
+  it("does not default the browser bundle to a localhost backend", () => {
+    const compose = readFileSync(join(root, "docker-compose.yml"), "utf8");
+    expect(compose).not.toMatch(/NEXT_PUBLIC_BACKEND_URL[^\n]*localhost/);
+  });
+
+  it("documents every RATE_LIMIT_* variable read in src/ in .env.example (#591)", () => {
+    const envExample = readFileSync(join(root, ".env.example"), "utf8");
+    const rateLimitVars = [
+      ...new Set(source.match(/RATE_LIMIT_[A-Z0-9_]+/g) ?? []),
+    ];
+    expect(rateLimitVars.length).toBeGreaterThan(0);
+    for (const varName of rateLimitVars) {
+      expect(envExample).toContain(varName);
+    }
+  });
+});

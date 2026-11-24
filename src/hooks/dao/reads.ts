@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { useWallet } from '@/lib/wallet'
 import { CONTRACT_ID, isContractConfigured } from '@/lib/stellar'
-import { daoRead } from '@/lib/dao-client'
+import { daoRead, type Raw, type LoanPolicy } from '@/lib/dao-client'
 import { backend } from '@/lib/backend'
 // Hooks import the gate from the config module (see backend-config.ts). Pulling it
 // through `@/lib/backend` made every test that mocks only `backend` fail (#517).
@@ -171,19 +171,47 @@ export type ExtendedStats = DAOStats & {
 /** The loan policy as the contract currently has it. An admin can change it at
  *  any time, so it is refetched rather than cached forever; until the first
  *  read lands the labelled fallbacks stand in (`fromChain` is false). */
+async function fetchLoanPolicy() {
+  const [policy, threshold] = await Promise.all([
+    daoRead.getLoanPolicy(),
+    daoRead.getConsensusThreshold(),
+  ])
+  return { policy, threshold }
+}
+
+// Shared by useLoanPolicy and useRawLoanPolicy: both read the same cache entry.
+const loanPolicyQuery = () => ({
+  queryKey: queryKeys.loanPolicy(),
+  enabled: isContractConfigured(),
+  queryFn: fetchLoanPolicy,
+})
+
 export function useLoanPolicy(): UILoanPolicy {
-  const { data } = useQuery({
-    queryKey: queryKeys.loanPolicy(),
-    enabled: isContractConfigured(),
-    queryFn: async () => {
-      const [policy, threshold] = await Promise.all([
-        daoRead.getLoanPolicy(),
-        daoRead.getConsensusThreshold(),
-      ])
-      return { policy, threshold }
-    },
-  })
+  const { data } = useQuery(loanPolicyQuery())
   return resolveLoanPolicy(data?.policy, data?.threshold)
+}
+
+/** The full on-chain loan policy as the contract returns it, or null until it
+ *  has loaded. Used where every field is compared, such as the pending-update diff. */
+export function useRawLoanPolicy(): Raw<LoanPolicy> | null {
+  const { data } = useQuery(loanPolicyQuery())
+  return data?.policy ?? null
+}
+
+/** A queued policy change awaiting its timelock (#192). `pending` is null when
+ *  nothing is queued. Refetched like the live policy because it changes on admin actions. */
+export function usePendingPolicyUpdate() {
+  const query = useQuery({
+    queryKey: queryKeys.pendingPolicyUpdate(),
+    enabled: isContractConfigured(),
+    queryFn: () => daoRead.getPendingPolicyUpdate(),
+  })
+  return {
+    pending: query.data ?? null,
+    isLoading: query.isLoading,
+    isError: query.isError,
+    refetch: query.refetch,
+  }
 }
 
 /** Wait this long after the amount stops changing before pricing it, so
@@ -500,6 +528,50 @@ export function useMembers(limit = 50) {
   }
 }
 
+// ---------------------------------------------------------------------------
+// #643 — useDaoSummary: single summary read for landing stats
+// ---------------------------------------------------------------------------
+
+export function useDaoSummary() {
+  const enabled = isContractConfigured()
+  const { data, isLoading, isError } = useQuery({
+    queryKey: queryKeys.daoSummary(),
+    enabled,
+    queryFn: () => daoRead.getDaoSummary(),
+    staleTime: 30_000,
+    refetchIntervalInBackground: false,
+  })
+  return { summary: data ?? null, isLoading, isError }
+}
+
+// ---------------------------------------------------------------------------
+// #644 — useMemberOverview: single overview read for the member profile page
+// ---------------------------------------------------------------------------
+
+export function useMemberOverview(address?: string | null) {
+  const enabled = isContractConfigured() && !!address
+  const { data, isLoading, isError } = useQuery({
+    queryKey: queryKeys.memberOverview(address ?? ''),
+    enabled,
+    queryFn: () => daoRead.getMemberOverview(address!),
+    staleTime: 30_000,
+    refetchIntervalInBackground: false,
+  })
+  return { overview: data ?? null, isLoading, isError }
+}
+
+// ---------------------------------------------------------------------------
+// #549 — useDelegate / useVotingWeight
+// ---------------------------------------------------------------------------
+
+export function useDelegate(address?: string | null) {
+  const enabled = isContractConfigured() && !!address
+  const { data, isLoading, isError, refetch } = useQuery({
+    queryKey: queryKeys.delegate(address ?? ''),
+    enabled,
+    queryFn: () => daoRead.getDelegate(address!),
+    staleTime: 30_000,
+    refetchIntervalInBackground: false,
 /**
  * The address `delegator` has delegated their vote to, or `null` when they have
  * not delegated. Reads `get_delegate` (#601).
@@ -513,6 +585,16 @@ export function useDelegate(delegator?: string | null) {
   return { delegate: data ?? null, isLoading, isError, refetch }
 }
 
+export function useVotingWeight(address?: string | null) {
+  const enabled = isContractConfigured() && !!address
+  const { data, isLoading, isError } = useQuery({
+    queryKey: queryKeys.votingWeight(address ?? ''),
+    enabled,
+    queryFn: () => daoRead.getVotingWeight(address!),
+    staleTime: 30_000,
+    refetchIntervalInBackground: false,
+  })
+  return { votingWeight: data ?? null, isLoading, isError }
 /**
  * The voting weight the contract reports for `member` (`get_voting_weight`).
  * `votingWeight` is `null` until the read lands and stays `null` on failure, so

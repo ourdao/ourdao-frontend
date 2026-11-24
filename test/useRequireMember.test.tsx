@@ -32,7 +32,7 @@ function makeUserData(overrides: Partial<UserData> = {}): UserData {
   }
 }
 
-describe('useRequireMember (#566)', () => {
+describe('useRequireMember (#566, #593)', () => {
   beforeEach(() => {
     vi.clearAllMocks()
   })
@@ -50,6 +50,54 @@ describe('useRequireMember (#566)', () => {
 
     expect(mockReplace).not.toHaveBeenCalled()
     expect(mockPush).not.toHaveBeenCalled()
+  })
+
+  it('redirects a connected non-member to /register and a disconnected visitor to /', () => {
+    // 1. Disconnected visitor redirects to '/'
+    const { unmount } = renderHook(() =>
+      useRequireMember({
+        userData: makeUserData({
+          isConnected: false,
+          isMember: false,
+        }),
+      }),
+    )
+
+    expect(mockReplace).toHaveBeenCalledWith('/')
+    expect(mockPush).not.toHaveBeenCalled()
+
+    unmount()
+    mockReplace.mockClear()
+
+    // 2. Connected non-member redirects to '/register'
+    renderHook(() =>
+      useRequireMember({
+        userData: makeUserData({
+          isConnected: true,
+          isMember: false,
+        }),
+      }),
+    )
+
+    expect(mockReplace).toHaveBeenCalledWith('/register')
+    expect(mockPush).not.toHaveBeenCalled()
+  })
+
+  it('does not redirect when membership read fails (isError)', () => {
+    const { result } = renderHook(() =>
+      useRequireMember({
+        userData: makeUserData({
+          isConnected: true,
+          isMember: false,
+          isError: true,
+        }),
+      }),
+    )
+
+    expect(mockReplace).not.toHaveBeenCalled()
+    expect(mockPush).not.toHaveBeenCalled()
+    expect(result.current.isError).toBe(true)
+    expect(result.current.redirectTo).toBeNull()
   })
 
   it('uses router.replace (not push) when wallet is disconnected', () => {
@@ -95,9 +143,25 @@ describe('useRequireMember (#566)', () => {
   })
 })
 
-describe('useRedirectIfMember (#566)', () => {
+describe('useRedirectIfMember (#566, #593)', () => {
   beforeEach(() => {
     vi.clearAllMocks()
+  })
+
+  it('redirects a member from /register to the destination', () => {
+    const { result } = renderHook(() =>
+      useRedirectIfMember(
+        '/dashboard',
+        makeUserData({
+          isConnected: true,
+          isMember: true,
+        }),
+      ),
+    )
+
+    expect(mockReplace).toHaveBeenCalledWith('/dashboard')
+    expect(mockPush).not.toHaveBeenCalled()
+    expect(result.current.shouldRedirect).toBe(true)
   })
 
   it('does not redirect while isLoading is true', () => {

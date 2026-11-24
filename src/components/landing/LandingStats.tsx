@@ -1,15 +1,24 @@
 'use client'
 
-import { useDAOStats, useDAOEvents } from '@/hooks/useDAO'
+import { useDaoSummary } from '@/hooks/dao/reads'
 import { useToken } from '@/hooks/useToken'
+import { useDAOEvents } from '@/hooks/useDAO'
 import { Users, Shield, BarChart3, CreditCard } from 'lucide-react'
 
+// #643: feeds all landing stats from a single getDaoSummary read.
+// Falls back to null/zero values when the read fails so the section
+// always renders rather than disappearing silently.
 export function LandingStats() {
-  const stats = useDAOStats()
+  const { summary, isError } = useDaoSummary()
   const token = useToken()
-  useDAOEvents() // Start listening for events
+  useDAOEvents()
 
-  if (!stats.initialized) {
+  const totalMembers = summary?.totalMembers ?? 0
+  const activeMembers = summary?.activeMembers ?? 0
+  const treasuryBalance = summary?.treasuryBalance ?? BigInt(0)
+  const totalLoans = summary?.totalLoans ?? 0
+
+  if (!summary && !isError) {
     return null
   }
 

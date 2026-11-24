@@ -60,34 +60,42 @@ Open [http://localhost:3000](http://localhost:3000). Connect through Freighter, 
 
 All config is env-driven with public-testnet defaults (see `.env.example`):
 
-| Variable                         | Purpose                                                                                                                                                                                            | Default                                                                                                    |
-| -------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------- |
-| `NEXT_PUBLIC_CONTRACT_ID`        | Deployed OurDAO contract id (`C…`)                                                                                                                                                                 | _(empty → read-only "not configured")_                                                                     |
-| `NEXT_PUBLIC_SOROBAN_RPC_URL`    | Soroban RPC endpoint                                                                                                                                                                               | `https://soroban-testnet.stellar.org`                                                                      |
-| `NEXT_PUBLIC_NETWORK_PASSPHRASE` | Network passphrase                                                                                                                                                                                 | testnet                                                                                                    |
-| `NEXT_PUBLIC_IPFS_GATEWAY`       | Gateway(s) for reading document content hashes (no credential needed); comma-separate several to fall back in order                                                                                | _(empty → downloads disabled)_                                                                             |
-| `PINATA_JWT`                     | **Server-only** Pinata credential for pinning uploaded documents — read by `src/app/api/documents/route.ts`, never exposed to the client                                                           | _(empty → uploads fail with a visible error)_                                                              |
-| `NEXT_PUBLIC_BACKEND_URL`        | [`ourdao-backend`](https://github.com/ourdao/ourdao-backend) indexer/API (loan history, notifications, admin log, events)                                                                          | _(empty → on-chain-only, no backend)_ — set to `http://localhost:4000` for local dev (see `.env.example`)_ |
-| `NEXT_PUBLIC_SITE_URL`           | Public site origin, no trailing slash — used as `metadataBase` so Open Graph/Twitter image URLs resolve to an absolute address                                                                     | `http://localhost:3000`                                                                                    |
-| `NEXT_PUBLIC_FEATURE_FLAGS`      | Comma-separated names of the risky changes to **enable** in this build — everything is off unless listed, so a risky change can ship disabled (see [docs/FEATURE_FLAGS.md](docs/FEATURE_FLAGS.md)) | _(empty → all flags off)_                                                                                  |
+| Variable | Purpose | Default |
+|---|---|---|
+| `NEXT_PUBLIC_CONTRACT_ID` | Deployed OurDAO contract id (`C…`) | _(empty → read-only "not configured")_ |
+| `NEXT_PUBLIC_SOROBAN_RPC_URL` | Soroban RPC endpoint | `https://soroban-testnet.stellar.org` |
+| `NEXT_PUBLIC_NETWORK_PASSPHRASE` | Network passphrase | testnet |
+| `NEXT_PUBLIC_IPFS_GATEWAY` | Gateway(s) for reading document content hashes (no credential needed); comma-separate several to fall back in order | _(empty → downloads disabled)_ |
+| `PINATA_JWT` | **Server-only** Pinata credential for pinning uploaded documents — read by `src/app/api/documents/route.ts`, never exposed to the client | _(empty → uploads fail with a visible error)_ |
+| `NEXT_PUBLIC_BACKEND_URL` | [`ourdao-backend`](https://github.com/ourdao/ourdao-backend) indexer/API (loan history, notifications, admin log, events) | _(empty → on-chain-only, no backend)_ — set to `http://localhost:4000` for local dev (see `.env.example`)_ |
+| `NEXT_PUBLIC_SITE_URL` | Public site origin, no trailing slash — used as `metadataBase` so Open Graph/Twitter image URLs resolve to an absolute address | `http://localhost:3000` |
+| `NEXT_PUBLIC_FEATURE_FLAGS` | Comma-separated names of the risky changes to **enable** in this build — everything is off unless listed, so a risky change can ship disabled (see [docs/FEATURE_FLAGS.md](docs/FEATURE_FLAGS.md)) | _(empty → all flags off)_ |
+| `RATE_LIMIT_IP_MAX` | **Server-only** Max document upload requests allowed per IP address within the sliding window | `10` |
+| `RATE_LIMIT_IP_WINDOW_MS` | **Server-only** Sliding window duration for IP-based upload rate limiting (in milliseconds) | `60000` |
+| `RATE_LIMIT_MEMBER_MAX` | **Server-only** Max document upload requests allowed per member address within the sliding window | `5` |
+| `RATE_LIMIT_MEMBER_WINDOW_MS` | **Server-only** Sliding window duration for member-based upload rate limiting (in milliseconds) | `60000` |
 
 Without a `NEXT_PUBLIC_CONTRACT_ID` the UI runs and renders, but on-chain reads/writes are disabled until you point it at a deployed contract. Without a reachable backend, everything backend-derived (loan history, notifications, activity/admin logs) degrades to empty rather than erroring — see `src/lib/backend.ts`. Without `PINATA_JWT`, document uploads fail with a clear error rather than uploading nowhere silently.
 
 ## Routes
 
-| Route                | Purpose                                                                                                                                                                                   |
-| -------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `/`                  | Landing page — product overview, live DAO stats, wallet connect entry point.                                                                                                              |
-| `/register`          | Join the DAO (pays the membership fee via a real contract call).                                                                                                                          |
-| `/dashboard`         | Member home: membership status, voting weight, pending yield, quick actions, DAO-wide stats, recent activity.                                                                             |
-| `/loans`             | Browse and vote on loan proposals.                                                                                                                                                        |
-| `/loans/request`     | Multi-step loan request form.                                                                                                                                                             |
-| `/loans/[id]`        | Loan detail — proposal vote state, and once approved, the real disbursed loan's status (Active/Repaid/Defaulted), due date, and a permissionless "Mark as Defaulted" action once overdue. |
-| `/governance`        | Browse and vote on both loan and treasury proposals in one place.                                                                                                                         |
-| `/governance/create` | Create a treasury withdrawal proposal (optionally private, via commit-reveal).                                                                                                            |
-| `/treasury`          | Treasury balance, staking (stake/unstake for voting-weight boost), claimable yield.                                                                                                       |
-| `/privacy`           | What's actually private on-chain (commit-reveal voting, document encryption) and how to use it.                                                                                           |
-| `/admin`             | Admin-only: pause/unpause, add/remove admins, set consensus threshold, governance audit log.                                                                                              |
+| Route | Purpose |
+|---|---|
+| `/` | Landing page — product overview, live DAO stats, wallet connect entry point. |
+| `/register` | Join the DAO (pays the membership fee via a real contract call). |
+| `/dashboard` | Member home: membership status, voting weight, pending yield, quick actions, DAO-wide stats, recent activity. |
+| `/loans` | Browse and vote on loan proposals. |
+| `/loans/request` | Multi-step loan request form. |
+| `/loans/[id]` | Loan detail — proposal vote state, and once approved, the real disbursed loan's status (Active/Repaid/Defaulted), due date, and a permissionless "Mark as Defaulted" action once overdue. |
+| `/governance` | Browse and vote on both loan and treasury proposals in one place. |
+| `/governance/create` | Create a treasury withdrawal proposal (optionally private, via commit-reveal). |
+| `/treasury` | Treasury balance, staking (stake/unstake for voting-weight boost), claimable yield. |
+| `/treasury/[id]` | Treasury proposal detail — vote status, timeline, document verification, commit-reveal voting, and execution. |
+| `/members` | Member directory — browse members, statuses, join dates, and active loan indicators. |
+| `/members/[address]` | Member profile — summary snapshot, staking status, and on-chain DAO activity for an address. |
+| `/exit` | Voluntary exit flow — withdraw share balance, return stake, claim pending yield, and leave the DAO. |
+| `/privacy` | What's actually private on-chain (commit-reveal voting, document encryption) and how to use it. |
+| `/admin` | Admin-only: pause/unpause, add/remove admins, set consensus threshold, governance audit log. |
 
 ## Architecture
 
