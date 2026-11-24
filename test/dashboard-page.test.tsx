@@ -18,6 +18,7 @@ const mockGetEvents = vi.fn()
 const mockGetStats = vi.fn()
 const mockGetLoans = vi.fn()
 const mockGetNotifications = vi.fn()
+const mockGetVotingWeight = vi.fn()
 
 vi.mock('next/navigation', () => ({
   usePathname: () => '/dashboard',
@@ -52,6 +53,7 @@ vi.mock('@/lib/dao-client', () => ({
     getTreasuryBalance: (...a: unknown[]) => mockGetTreasuryBalance(...a),
     getLoanPolicy: (...a: unknown[]) => mockGetLoanPolicy(...a),
     isPaused: (...a: unknown[]) => mockIsPaused(...a),
+    getVotingWeight: (...a: unknown[]) => mockGetVotingWeight(...a),
   },
   daoWrite: () => ({ claimRewards: vi.fn().mockResolvedValue({ hash: 'tx', returnValue: null }) }),
 }))
@@ -98,6 +100,7 @@ describe('DashboardPage', () => {
     mockGetStats.mockResolvedValue(null)
     mockGetLoans.mockResolvedValue([])
     mockGetNotifications.mockResolvedValue([])
+    mockGetVotingWeight.mockResolvedValue(BigInt(4))
   })
   afterEach(() => vi.clearAllMocks())
 
@@ -169,6 +172,26 @@ describe('DashboardPage', () => {
 
     await waitFor(() => expect(screen.getByText('Quick Actions')).toBeInTheDocument())
     expect(screen.queryByRole('button', { name: 'Claim' })).not.toBeInTheDocument()
+  })
+
+  it('shows the contract-reported voting weight', async () => {
+    renderWithProviders(<DashboardPage />)
+
+    await waitFor(() =>
+      expect(screen.getByText('Voting Weight').nextElementSibling).toHaveTextContent(/^4$/),
+    )
+    expect(mockGetVotingWeight).toHaveBeenCalledWith('GALICE')
+  })
+
+  it('shows the weight as unavailable, not zero, when the read fails (#603)', async () => {
+    mockGetVotingWeight.mockRejectedValue(new Error('rpc unavailable'))
+    renderWithProviders(<DashboardPage />)
+
+    await waitFor(
+      () => expect(screen.getByText('Unavailable')).toBeInTheDocument(),
+      { timeout: 3000 },
+    )
+    expect(screen.getByText('Voting Weight').nextElementSibling).not.toHaveTextContent(/^0$/)
   })
 
   it('populated state: shows the rewards section and lets the member claim', async () => {

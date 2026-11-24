@@ -80,10 +80,8 @@ jobs:
       - run: npm test
 
   # Issue #240: coverage is measured per file with the V8 provider and a
-  # ratchet threshold (see vitest.config.mts). The provider is pinned to the
-  # vitest version and installed with --no-save so `npm ci` stays
-  # lockfile-clean. The summary is published to the job output so the
-  # per-file report is the main deliverable without opening the artifact.
+  # ratchet threshold (see vitest.config.mts). The job output includes
+  # the per-file report alongside the uploaded artifact.
   coverage:
     if: github.event_name != 'schedule'
     name: Coverage
@@ -95,11 +93,10 @@ jobs:
           persist-credentials: false
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
-          node-version: 20
+          # The locked Vitest and jsdom releases require a newer runtime.
+          node-version: 24
           cache: npm
       - run: npm ci --ignore-scripts
-      - name: Install V8 coverage provider (pinned to vitest version)
-        run: npm install --no-save @vitest/coverage-v8@5.0.5
       - name: Run coverage (enforces thresholds in vitest.config.mts)
         run: npm run coverage
       - name: Publish coverage summary to job output

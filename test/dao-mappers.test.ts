@@ -10,6 +10,8 @@ import {
   mapLoan,
   eventLabel,
   resolveLoanPolicy,
+  mapDaoSummary,
+  mapMemberOverview,
 } from '@/lib/dao-mappers'
 import { MemberStatus } from '@/types/dao'
 import {
@@ -403,5 +405,60 @@ describe('mapLoanProposal voting end', () => {
 
   it('leaves the deadline at 0 when editing never ended', () => {
     expect(mapLoanProposal({ voting_period: 60 }).votingEndTime).toBe(0)
+  })
+})
+
+describe('mapDaoSummary', () => {
+  it('maps every field from snake_case keys', () => {
+    const raw = {
+      total_members: 10,
+      active_members: 7,
+      treasury_balance: BigInt(500),
+      total_loans_issued: 3,
+      consensus_threshold: 60,
+      is_paused: false,
+    }
+    const summary = mapDaoSummary(raw)
+    expect(summary.totalMembers).toBe(10)
+    expect(summary.activeMembers).toBe(7)
+    expect(summary.treasuryBalance).toBe(BigInt(500))
+    expect(summary.totalLoansIssued).toBe(3)
+    expect(summary.consensusThreshold).toBe(60)
+    expect(summary.isPaused).toBe(false)
+  })
+
+  it('defaults missing fields to zero / false', () => {
+    const summary = mapDaoSummary({})
+    expect(summary.totalMembers).toBe(0)
+    expect(summary.treasuryBalance).toBe(BigInt(0))
+    expect(summary.isPaused).toBe(false)
+  })
+})
+
+describe('mapMemberOverview', () => {
+  it('maps every field', () => {
+    const raw = {
+      status: 'ActiveMember',
+      join_date: 1_000_000,
+      contribution_amount: BigInt(200),
+      share_balance: BigInt(100),
+      has_active_loan: true,
+      pending_yield: BigInt(10),
+    }
+    const overview = mapMemberOverview('GADDR', raw)
+    expect(overview.address).toBe('GADDR')
+    expect(overview.status).toBe(MemberStatus.ACTIVE_MEMBER)
+    expect(overview.joinDate).toBe(1_000_000)
+    expect(overview.contributionAmount).toBe(BigInt(200))
+    expect(overview.shareBalance).toBe(BigInt(100))
+    expect(overview.hasActiveLoan).toBe(true)
+    expect(overview.pendingYield).toBe(BigInt(10))
+  })
+
+  it('defaults missing fields to zero / false', () => {
+    const overview = mapMemberOverview('GADDR', {})
+    expect(overview.joinDate).toBe(0)
+    expect(overview.hasActiveLoan).toBe(false)
+    expect(overview.pendingYield).toBe(BigInt(0))
   })
 })

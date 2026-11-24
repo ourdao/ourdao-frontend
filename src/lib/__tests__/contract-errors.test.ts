@@ -16,3 +16,16 @@ describe('CONTRACT_ERROR_MESSAGES', () => {
     )
   })
 })
+
+describe('delegation error codes', () => {
+  // NotMember (12), MemberNotActive (20) and InvalidDelegation (79) are the
+  // codes delegate_vote can return.
+  it.each([
+    [12, 'NotMember'],
+    [20, 'MemberNotActive'],
+    [79, 'InvalidDelegation'],
+  ])('gives %i (%s) a specific message', (code) => {
+    expect(CONTRACT_ERROR_MESSAGES[code]).toBeDefined()
+    expect(formatContractError(`HostError: Error(Contract, [#${code}])`)).toBe(CONTRACT_ERROR_MESSAGES[code])
+  })
+})

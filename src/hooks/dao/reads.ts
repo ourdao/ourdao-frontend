@@ -89,6 +89,7 @@ export function useUserData(): UserData {
   })
 
   const m = data?.member
+
   return {
     isConnected,
     // `isRestoring` is folded in on purpose (#307). Freighter's `isAllowed()`
@@ -111,7 +112,8 @@ export function useUserData(): UserData {
           // Member.share_balance in ourdao-contracts is a dead field (only set at join/exit, never updated).
           // Paired contract issue: https://github.com/Mikey-222/ourdao-contracts/issues/42
           // We query daoRead.calculateExitShare(address) to compute the member's live treasury claim.
-          shareBalance: asBigInt(data?.exitShare ?? m.share_balance),
+          // When the read fails, shareBalance is null so the exit page can show an unavailable state (#568).
+          shareBalance: data?.exitShare ? asBigInt(data.exitShare) : null,
           hasActiveLoan: !!m.has_active_loan,
           lastLoanDate: Number(m.last_loan_time ?? 0),
         }
@@ -496,4 +498,31 @@ export function useMembers(limit = 50) {
     isError,
     refetch,
   }
+}
+
+/**
+ * The address `delegator` has delegated their vote to, or `null` when they have
+ * not delegated. Reads `get_delegate` (#601).
+ */
+export function useDelegate(delegator?: string | null) {
+  const { data, isLoading, isError, refetch } = useQuery({
+    queryKey: delegator ? queryKeys.delegate(delegator) : queryKeys.delegateDisabled(),
+    enabled: !!delegator && isContractConfigured(),
+    queryFn: () => daoRead.getDelegate(delegator!),
+  })
+  return { delegate: data ?? null, isLoading, isError, refetch }
+}
+
+/**
+ * The voting weight the contract reports for `member` (`get_voting_weight`).
+ * `votingWeight` is `null` until the read lands and stays `null` on failure, so
+ * callers never show a made-up zero (#603).
+ */
+export function useVotingWeight(member?: string | null) {
+  const { data, isLoading, isError, refetch } = useQuery({
+    queryKey: member ? queryKeys.votingWeight(member) : queryKeys.votingWeightDisabled(),
+    enabled: !!member && isContractConfigured(),
+    queryFn: () => daoRead.getVotingWeight(member!),
+  })
+  return { votingWeight: data == null ? null : Number(data), isLoading, isError, refetch }
 }

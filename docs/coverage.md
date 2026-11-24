@@ -4,10 +4,10 @@
 **Status:** Initial adoption — ratchet threshold, not gate.
 **Config:** `vitest.config.mts` (`provider: 'v8'`, reporters `text` +
 `json-summary` + `html`, excludes for tests / generated files / config).
-**CI:** `.github/workflows/ci.yml` `coverage` job installs
-`@vitest/coverage-v8@5.0.5` with `--no-save`, runs `npm run coverage`
-(enforces the thresholds), publishes `coverage/coverage-summary.json` to the
-job output (`$GITHUB_STEP_SUMMARY`) and uploads `coverage/` as an artifact.
+**CI:** The `coverage` job in `.github/workflows/ci.yml` uses Node 24, installs
+dependencies with `npm ci` and runs `npm run coverage` to enforce the thresholds.
+It publishes `coverage/coverage-summary.json` to the job output
+(`$GITHUB_STEP_SUMMARY`) and uploads `coverage/` as an artifact.
 **Thresholds:** `lines/functions/branches/statements: 40` — intentionally at
 initial-adoption level so the job ratchets rather than failing on adoption.
 Raise after the first green summary lands.

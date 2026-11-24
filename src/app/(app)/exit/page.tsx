@@ -28,6 +28,13 @@ export default function ExitPage() {
   // unknown would show and withdraw an amount we cannot vouch for (#486).
   const { stake: myStake } = useStake()
   const stakeKnown = myStake !== null
+  
+  // Calculate share balance and exit amounts (#568)
+  const shareBalance = userData.member?.shareBalance ?? null
+  const shareKnown = shareBalance !== null
+  const amountsKnown = shareKnown && stakeKnown
+  const pendingYield = userData.pendingYield ?? BigInt(0)
+  const totalExitAmount = (shareBalance ?? BigInt(0)) + pendingYield + (myStake ?? BigInt(0))
   const { exitDao, isPending, isSuccess } = useExitDao()
   const { isPaused } = useDAOStats()
   const { isResolving } = useRequireMember({
@@ -104,9 +111,6 @@ export default function ExitPage() {
     )
   }
 
-  const shareBalance = userData.member?.shareBalance ?? BigInt(0)
-  const pendingYield = userData.pendingYield ?? BigInt(0)
-  const totalExitAmount = shareBalance + pendingYield + (myStake ?? BigInt(0))
   const hasActiveLoan = userData.hasActiveLoan
 
   const handleExit = async () => {
@@ -277,7 +281,7 @@ export default function ExitPage() {
 
               <Button
                 onClick={handleExit}
-                disabled={!confirmed || !stakeKnown || isPending || hasActiveLoan || isPaused}
+                disabled={!confirmed || !amountsKnown || isPending || hasActiveLoan || isPaused}
                 variant="destructive"
                 size="lg"
                 className="w-full"
@@ -292,6 +296,12 @@ export default function ExitPage() {
                 )}
               </Button>
 
+              {!shareKnown && (
+                <p className="text-center text-xs text-amber-600 dark:text-amber-400">
+                  Share balance unavailable. Unable to calculate your exit amount.
+                </p>
+              )}
+              
               {hasActiveLoan && (
                 <p className="text-center text-xs text-amber-600 dark:text-amber-400">
                   You must repay your active loan before exiting.

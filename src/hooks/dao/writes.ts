@@ -317,6 +317,17 @@ export function useEditLoanProposal() {
   return { editLoanProposal, isPending, error, isSuccess, cancelSignature }
 }
 
+/** Delegate the connected member's vote to another active member (#601). */
+export function useDelegateVote() {
+  const { run, isPending, isSuccess, error, address, cancelSignature } = useWriteAction()
+  const delegate = (delegatee: string) =>
+    run('Delegating vote', (w) => w.delegateVote(delegatee), [
+      queryKeys.delegate(address!),
+      queryKeys.userData(address!),
+    ])
+  return { delegate, isPending, error, isSuccess, cancelSignature }
+}
+
 export function useVoting() {
   const { run, isPending, isSuccess, error, address, cancelSignature } = useWriteAction()
   const voteOnProposal = (proposalId: number, support: boolean) =>
@@ -571,6 +582,72 @@ export function useExitDao() {
   return { exitDao, isPending, error, isSuccess, cancelSignature }
 }
 
+/** Persists the expired state for a loan proposal whose voting window has closed (#612). */
+export function useExpireLoanProposal() {
+  const { run, isPending, isSuccess, error, cancelSignature } = useWriteAction()
+  const expireLoanProposal = (proposalId: number) =>
+    run('Finalizing expired loan proposal', (w) => w.expireLoanProposal(proposalId), [
+      queryKeys.loanProposal(proposalId),
+      queryKeys.loanProposalsAll(),
+      queryKeys.backendStats(),
+    ])
+  return { expireLoanProposal, isPending, isSuccess, error, cancelSignature }
+}
+
+/** Persists the expired state for a treasury proposal whose voting window has closed (#612). */
+export function useExpireTreasuryProposal() {
+  const { run, isPending, isSuccess, error, cancelSignature } = useWriteAction()
+  const expireTreasuryProposal = (proposalId: number) =>
+    run('Finalizing expired treasury proposal', (w) => w.expireTreasuryProposal(proposalId), [
+      queryKeys.treasuryProposal(proposalId),
+      queryKeys.treasuryProposalsAll(),
+      queryKeys.backendStats(),
+    ])
+  return { expireTreasuryProposal, isPending, isSuccess, error, cancelSignature }
+}
+
+/** Cancels a loan proposal while it is in the editing phase (#609). */
+export function useCancelLoanProposal() {
+  const { run, isPending, isSuccess, error, address, cancelSignature } = useWriteAction()
+  const cancelLoanProposal = (proposalId: number) =>
+    run('Cancelling loan proposal', (w) => w.cancelLoanProposal(proposalId), [
+      queryKeys.loanProposal(proposalId),
+      queryKeys.loanProposalsAll(),
+      queryKeys.userData(address!),
+      queryKeys.backendStats(),
+    ])
+  return { cancelLoanProposal, isPending, isSuccess, error, cancelSignature }
+}
+
+/** Cancels a treasury proposal while it is in the editing window (#609). */
+export function useCancelTreasuryProposal() {
+  const { run, isPending, isSuccess, error, cancelSignature } = useWriteAction()
+  const cancelTreasuryProposal = (proposalId: number) =>
+    run('Cancelling treasury proposal', (w) => w.cancelTreasuryProposal(proposalId), [
+      queryKeys.treasuryProposal(proposalId),
+      queryKeys.treasuryProposalsAll(),
+      queryKeys.backendStats(),
+    ])
+  return { cancelTreasuryProposal, isPending, isSuccess, error, cancelSignature }
+}
+
+/**
+ * Submits votes on multiple loan proposals in a single transaction (#613).
+ * The batch is all-or-nothing: the contract returns on the first error.
+ * Throws before signing when `votes` is empty.
+ */
+export function useVoteBatch() {
+  const { run, isPending, isSuccess, error, address, cancelSignature } = useWriteAction()
+  const voteBatch = (votes: ProposalVote[]) =>
+    run('Casting batch votes', (w) => w.voteBatch(votes), [
+      queryKeys.loanProposalsAll(),
+      queryKeys.userData(address!),
+      queryKeys.daoStats(),
+      queryKeys.backendStats(),
+    ])
+  return { voteBatch, isPending, isSuccess, error, cancelSignature }
+}
+
 export function useAdminActions() {
   const { run, isPending, isSuccess, error, cancelSignature } = useWriteAction()
   const pause = () => run('Pausing the DAO', (w) => w.pause(), [queryKeys.daoStats()])
@@ -594,4 +671,24 @@ export function useAdminActions() {
     error,
     cancelSignature,
   }
+}
+
+export function usePauserActions() {
+  const { run, isPending, isSuccess, error, cancelSignature } = useWriteAction()
+  const setPauser = (pauser: string) =>
+    run('Setting pauser', (w) => w.setPauser(pauser), [queryKeys.daoStats()])
+  const revokePauser = () =>
+    run('Revoking pauser', (w) => w.revokePauser(), [queryKeys.daoStats()])
+  return { setPauser, revokePauser, isPending, isSuccess, error, cancelSignature }
+}
+
+export function usePolicyUpdateActions() {
+  const { run, isPending, isSuccess, error, cancelSignature } = useWriteAction()
+  const proposePolicyUpdate = (policy: DaoWrite['proposePolicyUpdate'] extends (p: infer P) => unknown ? P : never) =>
+    run('Proposing policy update', (w) => w.proposePolicyUpdate(policy), [queryKeys.daoStats()])
+  const executePolicyUpdate = () =>
+    run('Executing policy update', (w) => w.executePolicyUpdate(), [queryKeys.daoStats()])
+  const cancelPolicyUpdate = () =>
+    run('Cancelling policy update', (w) => w.cancelPolicyUpdate(), [queryKeys.daoStats()])
+  return { proposePolicyUpdate, executePolicyUpdate, cancelPolicyUpdate, isPending, isSuccess, error, cancelSignature }
 }

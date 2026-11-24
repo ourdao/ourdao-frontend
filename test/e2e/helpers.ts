@@ -202,6 +202,7 @@ export async function setupMockRpcAndBackend(
       case 'get_pending_yield':
       case 'calculate_exit_share':
       case 'get_stake':
+      case 'get_voting_weight':
         return BigInt(0)
       case 'get_loan_proposal':
         return {

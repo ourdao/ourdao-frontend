@@ -18,6 +18,7 @@ vi.mock('@/hooks/useDAO', () => ({
   }),
   useTreasuryTimeline: () => ({ timeline: [], isLoading: false }),
   eventLabel: (s: string) => s,
+  useVotingWeight: () => ({ votingWeight: 4, isLoading: false, isError: false, refetch: vi.fn() }),
 }))
 
 describe('ProposalTimeline (#561)', () => {

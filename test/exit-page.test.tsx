@@ -41,6 +41,7 @@ vi.mock('@/hooks/useDAO', () => ({
     isSuccess: mockIsSuccess,
   }),
   useDAOStats: () => ({ isPaused: false }),
+  useVotingWeight: () => ({ votingWeight: 4, isLoading: false, isError: false, refetch: vi.fn() }),
 }))
 
 describe('ExitPage (#565)', () => {

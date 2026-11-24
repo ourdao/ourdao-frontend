@@ -3,7 +3,7 @@
 // what the chain/indexer hand back and what components render. Kept out of
 // the hooks modules (src/hooks/dao/) on purpose; they're not data fetching.
 import type { BackendEvent, BackendLoan } from '@/lib/backend'
-import type { Loan } from '@/types/dao'
+import type { DaoSummary, Loan, MemberOverview } from '@/types/dao'
 import { MemberStatus } from '@/types/dao'
 import {
   GOVERNANCE_PERIOD_FALLBACKS,
@@ -549,4 +549,32 @@ export interface AdminLogEntry {
 
 export function toAdminLogEntry(ev: BackendEvent): AdminLogEntry {
   return { id: ev.id, symbol: ev.symbol, ledger: ev.ledger, closedAt: ev.closed_at, data: ev.data }
+}
+
+/** Map the raw contract `get_dao_summary` response onto `DaoSummary`. */
+export function mapDaoSummary(raw: Record<string, unknown>): DaoSummary {
+  return {
+    totalMembers: Number(raw['total_members'] ?? raw['totalMembers'] ?? 0),
+    activeMembers: Number(raw['active_members'] ?? raw['activeMembers'] ?? 0),
+    treasuryBalance: asBigInt(raw['treasury_balance'] ?? raw['treasuryBalance']),
+    totalLoansIssued: Number(raw['total_loans_issued'] ?? raw['totalLoansIssued'] ?? 0),
+    consensusThreshold: Number(raw['consensus_threshold'] ?? raw['consensusThreshold'] ?? 0),
+    isPaused: Boolean(raw['is_paused'] ?? raw['isPaused'] ?? false),
+  }
+}
+
+/** Map the raw contract `get_member_overview` response onto `MemberOverview`. */
+export function mapMemberOverview(
+  address: string,
+  raw: Record<string, unknown>,
+): MemberOverview {
+  return {
+    address,
+    status: toMemberStatus(raw['status']),
+    joinDate: Number(raw['join_date'] ?? raw['joinDate'] ?? 0),
+    contributionAmount: asBigInt(raw['contribution_amount'] ?? raw['contributionAmount']),
+    shareBalance: asBigInt(raw['share_balance'] ?? raw['shareBalance']),
+    hasActiveLoan: Boolean(raw['has_active_loan'] ?? raw['hasActiveLoan'] ?? false),
+    pendingYield: asBigInt(raw['pending_yield'] ?? raw['pendingYield']),
+  }
 }

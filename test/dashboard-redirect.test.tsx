@@ -42,6 +42,7 @@ vi.mock('@/hooks/useDAO', () => ({
     isSuccess: false,
   }),
   useDAOEvents: () => ({ events: [], setEvents: vi.fn() }),
+  useVotingWeight: () => ({ votingWeight: 4, isLoading: false, isError: false, refetch: vi.fn() }),
   eventLabel: (s: unknown) => String(s),
 }))
 

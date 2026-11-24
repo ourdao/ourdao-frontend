@@ -38,6 +38,7 @@ report can name the entry below it came from. See
 
 ### Changed
 
+- The dashboard's voting weight is the value the contract reports from `get_voting_weight`, so delegation is reflected. The local stake estimate shows only while the read is pending, and a failed read shows as unavailable rather than zero (#603).
 - Dependency audit: `uuid` is pinned via a `package.json` `overrides` entry inside `jayson`, clearing the `uuid` advisory that arrived with the optional HOT wallet SDK. The findings that remain — `stream-json` (no compatible fixed version; jayson needs its `streamers/StreamValues` subpath) and the rest of the HOT subtree — are allowlisted in `audit-ci.jsonc` with an expiry and a reachability note, and a bundle check asserts that subtree is absent from client chunks (#478).
 - Contract method names and argument shapes are now compile-checked against TypeScript bindings generated from the contract wasm (`npm run gen:contract`), and arguments are encoded from the contract spec instead of hand-built. This surfaced and fixes drift: the member join time field is `join_time`, not `join_ledger` (#343).
 - Backend stats and loan response types are derived from ourdao-backend's OpenAPI spec (`npm run gen:backend`), and CI fails if the generated file is stale. Two fields are still hand-written until the spec is fixed (#343).
@@ -45,6 +46,7 @@ report can name the entry below it came from. See
 
 ### Fixed
 - The IPFS CID field on the loan page has an accessible name, so screen readers announce its purpose after typing (#583).
+- Keyboard users can focus and open the treasury salt backup picker, and assistive technologies can identify the document encryption and decryption password fields (#584, #585, #586).
 - Test suite: the contract-id fixture is generated with `StrKey.encodeContract` (#537); partial `@/lib/stellar` mocks spread `importOriginal()` (#538); `error-reporting.test.ts` runs in jsdom (#539). A signature cancelled before the wallet prompt opens now aborts instead of hanging.
 - A stake that fails to load or is still loading is shown as unavailable instead of `0`: the treasury and exit pages no longer show a zero stake or base voting weight, the dashboard shows `—` for voting weight, and staking or exiting is disabled until the stake is known (#486).
 - Members who committed a private vote without a stored salt can now import their salt backup from the proposal page and reveal the vote (#518).

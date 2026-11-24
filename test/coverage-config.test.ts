@@ -18,6 +18,20 @@ describe('issue #240 — coverage measurement and threshold', () => {
     expect(pkg.scripts?.coverage).toMatch(/vitest.*--coverage/)
   })
 
+  it('declares a V8 coverage provider matching the locked Vitest version', () => {
+    const pkg = JSON.parse(fs.readFileSync(path.resolve('package.json'), 'utf8')) as {
+      devDependencies: Record<string, string>
+    }
+    const lock = JSON.parse(fs.readFileSync(path.resolve('package-lock.json'), 'utf8')) as {
+      packages: Record<string, { version: string }>
+    }
+    const provider = '@vitest/coverage-v8'
+    const version = lock.packages['node_modules/vitest'].version
+
+    expect(pkg.devDependencies[provider]).toBe(version)
+    expect(lock.packages[`node_modules/${provider}`].version).toBe(version)
+  })
+
   it('configures the V8 provider with per-file reporters and excludes', () => {
     const cfg = fs.readFileSync(path.resolve('vitest.config.mts'), 'utf8')
     expect(cfg).toContain("provider: 'v8'")
@@ -40,7 +54,7 @@ describe('issue #240 — coverage measurement and threshold', () => {
     const ci = fs.readFileSync(path.resolve('.github/workflows/ci.yml'), 'utf8')
     expect(ci).toContain('name: Coverage')
     expect(ci).toContain('npm run coverage')
-    expect(ci).toContain('@vitest/coverage-v8@')
+    expect(ci).not.toContain('--no-save @vitest/coverage-v8')
     expect(ci).toContain('GITHUB_STEP_SUMMARY')
     expect(ci).toContain('coverage/coverage-summary.json')
     // Enforced: the aggregate status job depends on coverage.

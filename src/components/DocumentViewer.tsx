@@ -297,6 +297,7 @@ export default function DocumentViewer({
               <div className="relative flex-1">
                 <input
                   type={showPassword ? 'text' : 'password'}
+                  aria-label="Enter decryption password"
                   placeholder="Enter decryption password"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}

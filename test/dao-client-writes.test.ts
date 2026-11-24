@@ -173,6 +173,9 @@ describe('daoWrite — method name and ScVal argument types per entrypoint', () 
     ['setLoanPolicy', (w) => w.setLoanPolicy(policy), 'set_loan_policy', ['scvAddress', 'scvMap']],
     ['pause', (w) => w.pause(), 'pause', ['scvAddress']],
     ['unpause', (w) => w.unpause(), 'unpause', ['scvAddress']],
+    ['delegateVote', (w) => w.delegateVote(OTHER), 'delegate_vote', ['scvAddress', 'scvAddress']],
+    ['cancelLoanProposal', (w) => w.cancelLoanProposal(9), 'cancel_loan_proposal', ['scvAddress', 'scvU32']],
+    ['cancelTreasuryProposal', (w) => w.cancelTreasuryProposal(10), 'cancel_treasury_proposal', ['scvAddress', 'scvU32']],
   ]
 
   it.each(cases)(

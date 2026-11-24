@@ -17,6 +17,8 @@ import {
   useAdminActions,
   useAdminLog,
   useFailedEvents,
+  usePauserActions,
+  usePolicyUpdateActions,
 } from '@/hooks/useDAO'
 import { AddressLink } from '@/components/AddressLink'
 import { LoadError } from '@/components/LoadError'
@@ -27,11 +29,12 @@ import { LoadingSpinner } from '@/components/ui/skeleton'
 import { PageHeader } from '@/components/PageHeader'
 import { StatCard } from '@/components/ui/stat-card'
 
-type Tab = 'overview' | 'governance' | 'activity' | 'quarantined'
+type Tab = 'overview' | 'governance' | 'policy' | 'activity' | 'quarantined'
 
 const TABS: { id: Tab; name: string; icon: ReactNode }[] = [
   { id: 'overview', name: 'Overview', icon: <ChartBarIcon className="h-4 w-4" /> },
   { id: 'governance', name: 'Governance', icon: <UsersIcon className="h-4 w-4" /> },
+  { id: 'policy', name: 'Policy & Pauser', icon: <ShieldCheckIcon className="h-4 w-4" /> },
   { id: 'activity', name: 'Activity Log', icon: <ClockIcon className="h-4 w-4" /> },
   {
     id: 'quarantined',
@@ -126,6 +129,7 @@ export default function AdminPage() {
           <div className="p-6">
             {activeTab === 'overview' && <OverviewTab stats={stats} />}
             {activeTab === 'governance' && <GovernanceTab stats={stats} />}
+            {activeTab === 'policy' && <PolicyPauserTab />}
             {activeTab === 'activity' && <ActivityTab />}
             {activeTab === 'quarantined' && <QuarantinedEventsTab />}
           </div>
@@ -397,6 +401,162 @@ function GovernanceTab({ stats }: { stats: ReturnType<typeof useDAOStats> }) {
         {isSuccess && (
           <p className="px-6 pb-4 text-sm text-green-600 dark:text-green-400">Updated.</p>
         )}
+      </div>
+    </div>
+  )
+}
+
+function PolicyPauserTab() {
+  const { setPauser, revokePauser, isPending: pauserPending } = usePauserActions()
+  const { proposePolicyUpdate, executePolicyUpdate, cancelPolicyUpdate, isPending: policyPending } = usePolicyUpdateActions()
+  const [pauserAddr, setPauserAddr] = useState('')
+  const [maxAmount, setMaxAmount] = useState('')
+  const [interestBps, setInterestBps] = useState('')
+  const [maxDuration, setMaxDuration] = useState('')
+
+  const submitSetPauser = async (e: FormEvent) => {
+    e.preventDefault()
+    const addr = pauserAddr.trim()
+    if (!addr) return
+    if (!window.confirm(`Grant pause rights to ${addr}?`)) return
+    try { await setPauser(addr) } catch { return }
+    setPauserAddr('')
+  }
+
+  const submitRevokePauser = async () => {
+    if (!window.confirm('Revoke the current pauser role?')) return
+    try { await revokePauser() } catch { return }
+  }
+
+  const submitPropose = async (e: FormEvent) => {
+    e.preventDefault()
+    const amount = Number(maxAmount)
+    const bps = Number(interestBps)
+    const dur = Number(maxDuration)
+    if (!amount || !bps || !dur) return
+    if (!window.confirm(`Propose policy update: max loan ${amount}, interest ${bps} bps, duration ${dur} ledgers?`)) return
+    try {
+      await proposePolicyUpdate({
+        max_loan_amount: BigInt(amount),
+        interest_rate_bps: bps,
+        max_loan_duration_ledgers: dur,
+      } as any)
+    } catch { return }
+    setMaxAmount(''); setInterestBps(''); setMaxDuration('')
+  }
+
+  return (
+    <div className="space-y-6">
+      {/* Pauser role */}
+      <div className="bg-card rounded-lg border border-border">
+        <div className="px-6 py-4 border-b border-border">
+          <h3 className="text-lg font-semibold text-foreground">Pauser Role</h3>
+          <p className="text-sm text-muted-foreground">Grant or revoke the right to pause the DAO without full admin privileges.</p>
+        </div>
+        <form onSubmit={submitSetPauser} className="p-6 flex items-start space-x-2">
+          <input
+            type="text"
+            value={pauserAddr}
+            onChange={(e) => setPauserAddr(e.target.value)}
+            placeholder="G… address to grant pauser role"
+            aria-label="Pauser address"
+            className="flex-1 px-3 py-2 border border-input rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-muted dark:text-foreground"
+          />
+          <button
+            type="submit"
+            disabled={pauserPending || !pauserAddr.trim()}
+            className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50"
+          >
+            Set Pauser
+          </button>
+        </form>
+        <div className="px-6 pb-6">
+          <button
+            onClick={submitRevokePauser}
+            disabled={pauserPending}
+            className="px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700 disabled:opacity-50"
+          >
+            Revoke Pauser
+          </button>
+        </div>
+      </div>
+
+      {/* Policy update flow */}
+      <div className="bg-card rounded-lg border border-border">
+        <div className="px-6 py-4 border-b border-border">
+          <h3 className="text-lg font-semibold text-foreground">Loan Policy Update</h3>
+          <p className="text-sm text-muted-foreground">Propose, execute, or cancel the governed policy-update flow.</p>
+        </div>
+        <form onSubmit={submitPropose} className="p-6 space-y-3">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+            <div>
+              <label className="block text-sm font-medium text-foreground mb-1">Max Loan Amount</label>
+              <input
+                type="number"
+                min={1}
+                value={maxAmount}
+                onChange={(e) => setMaxAmount(e.target.value)}
+                placeholder="stroops"
+                aria-label="Max loan amount in stroops"
+                className="w-full px-3 py-2 border border-input rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-muted dark:text-foreground"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-foreground mb-1">Interest Rate (bps)</label>
+              <input
+                type="number"
+                min={1}
+                max={10000}
+                value={interestBps}
+                onChange={(e) => setInterestBps(e.target.value)}
+                placeholder="e.g. 500 = 5%"
+                aria-label="Interest rate in basis points"
+                className="w-full px-3 py-2 border border-input rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-muted dark:text-foreground"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-foreground mb-1">Max Duration (ledgers)</label>
+              <input
+                type="number"
+                min={1}
+                value={maxDuration}
+                onChange={(e) => setMaxDuration(e.target.value)}
+                placeholder="ledgers"
+                aria-label="Max loan duration in ledgers"
+                className="w-full px-3 py-2 border border-input rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-muted dark:text-foreground"
+              />
+            </div>
+          </div>
+          <button
+            type="submit"
+            disabled={policyPending || !maxAmount || !interestBps || !maxDuration}
+            className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50"
+          >
+            Propose Update
+          </button>
+        </form>
+        <div className="px-6 pb-6 flex space-x-3">
+          <button
+            onClick={async () => {
+              if (!window.confirm('Execute the pending policy update?')) return
+              try { await executePolicyUpdate() } catch { return }
+            }}
+            disabled={policyPending}
+            className="px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 disabled:opacity-50"
+          >
+            Execute Update
+          </button>
+          <button
+            onClick={async () => {
+              if (!window.confirm('Cancel the pending policy update?')) return
+              try { await cancelPolicyUpdate() } catch { return }
+            }}
+            disabled={policyPending}
+            className="px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700 disabled:opacity-50"
+          >
+            Cancel Update
+          </button>
+        </div>
       </div>
     </div>
   )

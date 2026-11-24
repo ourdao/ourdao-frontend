@@ -649,28 +649,43 @@ export function WalletProvider({
       // optimistic-update setup first), and an abort that already fired will
       // never trigger the listener below — so honour it up front.
       if (signal?.aborted) throw new Error('Signing cancelled')
-      const result = await Promise.race([
-        usingKitRef.current
-          ? kit.signTransaction(xdr, addressRef.current || '')
-          : signTransaction(xdr, {
-              networkPassphrase: NETWORK_PASSPHRASE,
-              address: addressRef.current || undefined,
-            }),
-        new Promise<never>((_, reject) => {
-          const timer = setTimeout(() => reject(new Error('Signing timed out')), timeoutMs)
-          if (signal) {
-            signal.addEventListener('abort', () => {
-              clearTimeout(timer)
-              reject(new Error('Signing cancelled'))
-            })
-          }
-        }),
-      ])
-      const { signedTxXdr, error } = readSigned(result)
-      if (error || !signedTxXdr) {
-        throw new Error(error || 'Your wallet returned no signed transaction')
+
+      // The timer id and the abort listener live in this outer scope, not
+      // inside the timeout Promise's executor, so both can be cleaned up
+      // once signing settles — not only on abort. Without this, a normal
+      // (non-aborted) sign left the setTimeout running until it fired on its
+      // own, and the abort listener attached to the caller's signal for the
+      // lifetime of that stray timer (#599; same shape as combineSignals in
+      // backend.ts).
+      let timer: ReturnType<typeof setTimeout> | undefined
+      let timeoutReject: ((reason: Error) => void) | undefined
+      const onAbort = () => {
+        if (timer !== undefined) clearTimeout(timer)
+        timeoutReject?.(new Error('Signing cancelled'))
       }
-      return signedTxXdr
+      try {
+        const result = await Promise.race([
+          usingKitRef.current
+            ? kit.signTransaction(xdr, addressRef.current || '')
+            : signTransaction(xdr, {
+                networkPassphrase: NETWORK_PASSPHRASE,
+                address: addressRef.current || undefined,
+              }),
+          new Promise<never>((_, reject) => {
+            timeoutReject = reject
+            timer = setTimeout(() => reject(new Error('Signing timed out')), timeoutMs)
+            signal?.addEventListener('abort', onAbort, { once: true })
+          }),
+        ])
+        const { signedTxXdr, error } = readSigned(result)
+        if (error || !signedTxXdr) {
+          throw new Error(error || 'Your wallet returned no signed transaction')
+        }
+        return signedTxXdr
+      } finally {
+        if (timer !== undefined) clearTimeout(timer)
+        signal?.removeEventListener('abort', onAbort)
+      }
     },
     [kit]
   )
