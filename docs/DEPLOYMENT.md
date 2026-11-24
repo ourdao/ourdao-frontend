@@ -37,6 +37,13 @@ These are read at runtime and never exposed to the client:
 | Variable | Purpose | Required |
 |----------|---------|----------|
 | `PINATA_JWT` | Pinata credential for document pinning | Yes (for uploads) |
+| `RATE_LIMIT_IP_MAX` | Max document upload requests per IP address per window | No (default `10`) |
+| `RATE_LIMIT_IP_WINDOW_MS` | Sliding window duration for IP rate limiting in ms | No (default `60000`) |
+| `RATE_LIMIT_MEMBER_MAX` | Max document upload requests per member address per window | No (default `5`) |
+| `RATE_LIMIT_MEMBER_WINDOW_MS` | Sliding window duration for member rate limiting in ms | No (default `60000`) |
+
+> [!NOTE]
+> **Rate Limiting Architecture**: The document upload route (`src/app/api/documents/route.ts`) enforces rate limits using in-memory sliding-window maps in `src/lib/rate-limiter.ts`. This limiter is instance-local (per-process). For multi-instance, containerized, or distributed serverless environments (such as Vercel Functions), rate limits apply per instance rather than globally. If global distributed rate limiting is required, an edge-level limiter (e.g. Vercel Firewall / Edge Rate Limiting or Upstash Redis) should be used.
 
 ## Security Headers
 
