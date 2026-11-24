@@ -19,6 +19,8 @@ import {
   useFailedEvents,
   usePauserActions,
   usePolicyUpdateActions,
+  usePendingPolicyUpdate,
+  useRawLoanPolicy,
 } from '@/hooks/useDAO'
 import { AddressLink } from '@/components/AddressLink'
 import { LoadError } from '@/components/LoadError'
@@ -28,6 +30,8 @@ import { formatStellarAddress, isStellarAddress } from '@/lib/stellar'
 import { LoadingSpinner } from '@/components/ui/skeleton'
 import { PageHeader } from '@/components/PageHeader'
 import { StatCard } from '@/components/ui/stat-card'
+import { useNow } from '@/hooks/useNow'
+import type { LoanPolicy } from '@/lib/dao-client'
 
 type Tab = 'overview' | 'governance' | 'policy' | 'activity' | 'quarantined'
 
@@ -191,6 +195,8 @@ function OverviewTab({ stats }: { stats: ReturnType<typeof useDAOStats> }) {
           </button>
         </div>
       </div>
+
+      <PendingPolicyUpdatePanel />
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
         <StatCard label="Active Members" value={stats.activeMembers.toLocaleString()} sub={`${stats.totalMembers} total ever joined`} />
@@ -572,5 +578,143 @@ function QuarantinedEventsTab() {
         ))}
       </div>
     </div>
+  )
+}
+
+// Every LoanPolicy field, in the order the contract stores them. Units follow
+// the contract: basis points (bps), seconds (s), or stroops for the membership fee.
+const POLICY_FIELDS: { key: keyof LoanPolicy; label: string }[] = [
+  { key: 'min_interest_rate', label: 'Min interest rate (bps)' },
+  { key: 'max_interest_rate', label: 'Max interest rate (bps)' },
+  { key: 'max_loan_duration', label: 'Max loan duration (s)' },
+  { key: 'max_loan_to_treasury_ratio', label: 'Max loan to treasury ratio (bps)' },
+  { key: 'membership_contribution', label: 'Membership contribution (stroops)' },
+  { key: 'min_membership_duration', label: 'Min membership duration (s)' },
+  { key: 'cooldown_period', label: 'Cooldown period (s)' },
+  { key: 'editing_period', label: 'Editing period (s)' },
+  { key: 'voting_period', label: 'Voting period (s)' },
+  { key: 'quorum_bps', label: 'Quorum (bps)' },
+  { key: 'default_grace_period', label: 'Default grace period (s)' },
+  { key: 'default_penalty_bps', label: 'Default penalty (bps)' },
+]
+
+function formatPolicyValue(value: unknown): string {
+  return value === undefined || value === null ? '—' : String(value)
+}
+
+function formatTimeLeft(seconds: number): string {
+  if (seconds <= 0) return 'Ready to execute'
+  const days = Math.floor(seconds / 86_400)
+  const hours = Math.floor((seconds % 86_400) / 3_600)
+  const minutes = Math.floor((seconds % 3_600) / 60)
+  if (days === 0 && hours === 0 && minutes === 0) return 'Executable in less than a minute'
+  return `Executable in ${days}d ${hours}h ${minutes}m`
+}
+
+/** Shows a queued policy change beside the live values. Renders nothing when no
+ *  update is pending. Changed fields are marked in text, not only by colour. */
+function PendingPolicyUpdatePanel() {
+  const { pending } = usePendingPolicyUpdate()
+  const current = useRawLoanPolicy()
+  const nowMs = useNow()
+  const { executePolicyUpdate, cancelPolicyUpdate, isPending: busy } = usePolicyUpdateActions()
+
+  if (!pending) return null
+
+  const nowSec = nowMs == null ? null : Math.floor(nowMs / 1000)
+  const timeLeft =
+    nowSec == null ? 'Checking time left…' : formatTimeLeft(pending.executionTime - nowSec)
+  const ready = nowSec != null && nowSec >= pending.executionTime
+
+  const onExecute = async () => {
+    if (!ready) return
+    if (!window.confirm('Execute the pending policy update? The new loan policy applies to every member immediately.')) return
+    try {
+      await executePolicyUpdate()
+    } catch {
+      // `run` has already shown the failure; nothing more to do here.
+    }
+  }
+
+  const onCancel = async () => {
+    if (!window.confirm('Cancel the pending policy update? Its proposed values will be discarded.')) return
+    try {
+      await cancelPolicyUpdate()
+    } catch {
+      // `run` has already shown the failure; nothing more to do here.
+    }
+  }
+
+  return (
+    <section aria-labelledby="pending-policy-heading" className="rounded-lg border border-border bg-card">
+      <div className="px-6 py-4 border-b border-border flex flex-wrap items-center justify-between gap-2">
+        <div>
+          <h3 id="pending-policy-heading" className="text-lg font-semibold text-foreground">
+            Pending policy update
+          </h3>
+          <p className="text-sm text-muted-foreground">
+            Proposed {new Date(pending.proposedAt * 1000).toLocaleString()}
+          </p>
+        </div>
+        <div className="flex flex-wrap items-center gap-3">
+          <span
+            className={`text-sm font-medium ${
+              ready ? 'text-green-600 dark:text-green-400' : 'text-amber-600 dark:text-amber-400'
+            }`}
+          >
+            {timeLeft}
+          </span>
+          <button
+            type="button"
+            onClick={onCancel}
+            disabled={!pending || busy}
+            className="px-3 py-2 rounded-md border border-border text-sm text-foreground hover:bg-muted disabled:opacity-50"
+          >
+            Cancel update
+          </button>
+          <button
+            type="button"
+            onClick={onExecute}
+            disabled={!ready || busy}
+            title={ready ? 'Apply the pending update' : 'Available once the timelock has passed'}
+            className="px-3 py-2 rounded-md bg-blue-600 text-white text-sm hover:bg-blue-700 disabled:opacity-50 dark:bg-blue-500 dark:hover:bg-blue-600"
+          >
+            Execute update
+          </button>
+        </div>
+      </div>
+      <div className="overflow-x-auto">
+        <table className="w-full text-sm">
+          <thead>
+            <tr className="text-left text-muted-foreground">
+              <th scope="col" className="px-6 py-2 font-medium">Setting</th>
+              <th scope="col" className="px-6 py-2 font-medium">Current</th>
+              <th scope="col" className="px-6 py-2 font-medium">Proposed</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-border">
+            {POLICY_FIELDS.map(({ key, label }) => {
+              const before = current?.[key]
+              const proposed = pending.policy[key]
+              const changed = before !== undefined && String(before) !== String(proposed)
+              return (
+                <tr key={key}>
+                  <th scope="row" className="px-6 py-2 text-left font-normal text-foreground">{label}</th>
+                  <td className="px-6 py-2 font-mono text-muted-foreground">{formatPolicyValue(before)}</td>
+                  <td className="px-6 py-2 font-mono text-foreground">
+                    {formatPolicyValue(proposed)}
+                    {changed && (
+                      <span className="ml-2 rounded bg-amber-100 px-2 py-0.5 font-sans text-xs text-amber-800 dark:bg-amber-900/40 dark:text-amber-300">
+                        Changed
+                      </span>
+                    )}
+                  </td>
+                </tr>
+              )
+            })}
+          </tbody>
+        </table>
+      </div>
+    </section>
   )
 }

@@ -752,3 +752,83 @@ export const backend = {
       options
     ),
 }
+
+// --- Event stream (SSE, /api/stream) -----------------------------------------
+
+/** Event types the backend's stream writes (ourdao-backend src/api/stream.ts). */
+export type BackendStreamEventType = 'heartbeat' | 'notification' | 'error' | 'resync'
+
+/** Parsed `data:` body of one named stream frame: `{ type, channel?, payload?, timestamp }`. */
+export interface BackendStreamEvent {
+  type: BackendStreamEventType
+  channel?: string
+  payload?: Record<string, unknown>
+  timestamp: number
+}
+
+export type BackendStreamStatus = 'open' | 'error'
+
+export interface OpenEventStreamOptions {
+  onEvent: (event: BackendStreamEvent) => void
+  onStatus?: (status: BackendStreamStatus) => void
+  /** DAO-wide channel subset, sent as `?channels=`. Omit to receive all of them. */
+  channels?: readonly string[]
+}
+
+const STREAM_EVENT_TYPES: readonly BackendStreamEventType[] = ['heartbeat', 'notification', 'error', 'resync']
+
+export const isBackendStreamEvent = (value: unknown): value is BackendStreamEvent => {
+  if (!isRecord(value)) return false
+  if (!STREAM_EVENT_TYPES.includes(value.type as BackendStreamEventType)) return false
+  if (!isNumber(value.timestamp)) return false
+  if (value.channel !== undefined && !isString(value.channel)) return false
+  if (value.payload !== undefined && !isRecord(value.payload)) return false
+  // A resync must say whether a change may have been missed; the caller refetches on it.
+  if (value.type === 'resync' && !(isRecord(value.payload) && isBoolean(value.payload.missed))) return false
+  return true
+}
+
+/**
+ * Subscribe to the live stream. The server sends *named* events
+ * (`event: <type>`), so `onmessage` never fires: a listener is registered for
+ * each type instead. Malformed frames are logged and dropped, never forwarded.
+ *
+ * Returns a close function. When the backend is not configured (preview mode)
+ * nothing is opened and the returned close is a no-op.
+ */
+export function openEventStream({ onEvent, onStatus, channels }: OpenEventStreamOptions): () => void {
+  if (!isBackendConfigured() || typeof EventSource === 'undefined') return () => {}
+
+  const base = process.env.NEXT_PUBLIC_BACKEND_URL || ''
+  const query = channels && channels.length > 0 ? `?channels=${encodeURIComponent(channels.join(','))}` : ''
+  const source = new EventSource(`${base}/api/stream${query}`)
+
+  source.onopen = () => onStatus?.('open')
+
+  const dispatch = (type: BackendStreamEventType, raw: Event) => {
+    const body = (raw as MessageEvent<unknown>).data
+    if (typeof body !== 'string') {
+      // A transport failure carries no server frame; EventSource retries by itself.
+      onStatus?.('error')
+      return
+    }
+    let parsed: unknown
+    try {
+      parsed = JSON.parse(body)
+    } catch (cause) {
+      console.warn(`[backend] dropped ${type} event: body is not JSON`, cause)
+      return
+    }
+    if (!isBackendStreamEvent(parsed) || parsed.type !== type) {
+      console.warn(`[backend] dropped ${type} event: unexpected shape`, parsed)
+      return
+    }
+    onEvent(parsed)
+  }
+
+  for (const type of STREAM_EVENT_TYPES) {
+    source.addEventListener(type, (raw) => dispatch(type, raw))
+  }
+
+  return () => source.close()
+}

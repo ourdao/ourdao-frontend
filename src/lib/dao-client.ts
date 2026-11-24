@@ -40,6 +40,7 @@ import {
   type LoanProposal,
   type LoanTerms,
   type Member,
+  type PendingPolicyUpdate,
   type ProposalKind,
   type ProposalVote,
   type TreasuryProposal,
@@ -132,6 +133,13 @@ export function encodeArgs<M extends ContractMethod>(
 }
 
 export type { LoanPolicy, ProposalKind }
+
+/** A queued loan-policy change (#192). Times are ledger seconds, as numbers. */
+export interface PendingPolicyUpdateView {
+  policy: Raw<LoanPolicy>
+  proposedAt: number
+  executionTime: number
+}
 
 /**
  * A contract struct as decoded by `scValToNative`: field names are the
@@ -499,6 +507,19 @@ export const daoRead = {
   getConsensusThreshold: (): Promise<number | null> => read('get_consensus_threshold'),
   getTreasuryBalance: (): Promise<bigint | null> => read('get_treasury_balance'),
   getLoanPolicy: (): Promise<Raw<LoanPolicy> | null> => read('get_loan_policy'),
+  // Null when no update is pending. An Option::None comes back as no value, so
+  // both null and undefined mean "nothing pending".
+  getPendingPolicyUpdate: async (): Promise<PendingPolicyUpdateView | null> => {
+    const raw = await read<'get_pending_policy_update', Raw<PendingPolicyUpdate> | undefined>(
+      'get_pending_policy_update'
+    )
+    if (raw == null) return null
+    return {
+      policy: raw.policy as Raw<LoanPolicy>,
+      proposedAt: Number(raw.proposed_at),
+      executionTime: Number(raw.execution_time),
+    }
+  },
   getToken: (): Promise<string | null> => read('get_token'),
   isPaused: (): Promise<boolean | null> => read('is_paused'),
   getAdmins: (): Promise<string[] | null> => read('get_admins'),
@@ -529,7 +550,6 @@ export const daoRead = {
   nameOf: (owner: string): Promise<string | null> => read('name_of', { owner }),
   getDocument: (k: 'Loan' | 'Treasury', id: number): Promise<Uint8Array | null> =>
     read('get_document', { kind: kind(k), proposal_id: id }),
-  getPendingPolicyUpdate: (): Promise<unknown> => read('get_pending_policy_update'),
   // For a private (commit-reveal) treasury proposal this is true as soon as
   // `voter` has committed, not only once revealed — the contract folds both
   // into one bool since a commitment already blocks a second vote. There is
@@ -699,6 +719,12 @@ export function daoWrite(
       send('set_consensus_threshold', { caller: address, threshold }),
     setLoanPolicy: (policy: LoanPolicy) =>
       send('set_loan_policy', { caller: address, policy }),
+    // Timelocked policy changes (#192). Proposing again replaces any pending
+    // update; execute fails until the timelock has passed.
+    proposePolicyUpdate: (policy: LoanPolicy) =>
+      send('propose_policy_update', { caller: address, policy }),
+    executePolicyUpdate: () => send('execute_policy_update', { caller: address }),
+    cancelPolicyUpdate: () => send('cancel_policy_update', { caller: address }),
     pause: () => send('pause', { caller: address }),
     unpause: () => send('unpause', { caller: address }),
 
@@ -707,10 +733,6 @@ export function daoWrite(
     revokePauser: () => send('revoke_pauser', { caller: address }),
 
     // Governed loan-policy update flow (#553)
-    proposePolicyUpdate: (policy: LoanPolicy) =>
-      send('propose_policy_update', { caller: address, policy }),
-    executePolicyUpdate: () => send('execute_policy_update', { caller: address }),
-    cancelPolicyUpdate: () => send('cancel_policy_update', { caller: address }),
 
     // Permissionless keeper call: persists the expired transition for a loan
     // proposal whose voting window has passed without reaching quorum (#612).

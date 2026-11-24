@@ -34,6 +34,7 @@ export const queryKeys = {
   userLoans: (address: Address) => [...queryKeyPrefixes.userLoans, address] as const,
   userLoansDisabled: () => [...queryKeyPrefixes.userLoans, null] as const,
   loanPolicy: () => ['loanPolicy'] as const,
+  pendingPolicyUpdate: () => ['pendingPolicyUpdate'] as const,
   loanEligibility: (address: Address) => [...queryKeyPrefixes.loanEligibility, address] as const,
   loanEligibilityDisabled: () => [...queryKeyPrefixes.loanEligibility, null] as const,
   loanTerms: (amount: bigint) => ['loanTerms', amount.toString()] as const,
