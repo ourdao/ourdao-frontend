@@ -43,11 +43,7 @@ function ConnectButton() {
   )
 }
 
-function Custom({
-  children,
-}: {
-  children: (props: CustomRenderProps) => ReactNode
-}) {
+function Custom({ children }: { children: (props: CustomRenderProps) => ReactNode }) {
   const { address, isConnected, connect, disconnect, networkMismatch } = useWallet()
   return (
     <>

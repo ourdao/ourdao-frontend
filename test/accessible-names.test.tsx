@@ -1,10 +1,12 @@
 // @vitest-environment jsdom
 import { describe, expect, it, vi } from 'vitest'
 import { render, screen, waitFor } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
 import axe from 'axe-core'
 import { renderWithProviders } from './test-utils'
 import { AppShell } from '@/components/AppShell'
 import DocumentUpload from '@/components/DocumentUpload'
+import DocumentViewer from '@/components/DocumentViewer'
 import RegisterPage from '@/app/register/page'
 import CreateProposalPage from '@/app/(app)/governance/create/page'
 import RequestLoanPage from '@/app/(app)/loans/request/page'
@@ -101,8 +103,42 @@ describe('accessible names (axe-core naming rules)', () => {
     expect(await unnamedControls(container)).toEqual([])
   })
 
-  it('document upload, including the per-file remove control', async () => {
+  it('document upload, including the encryption password and per-file remove control', async () => {
+    const user = userEvent.setup()
     const { container } = render(<DocumentUpload onUpload={vi.fn()} />)
+
+    await user.upload(
+      screen.getByLabelText('Choose a file to upload'),
+      new File(['notes'], 'notes.txt')
+    )
+    await user.click(screen.getByRole('checkbox', { name: 'Encrypt files' }))
+
+    const password = screen.getByLabelText('Enter encryption password')
+    await user.type(password, 'test password')
+    expect(password).toHaveAccessibleName('Enter encryption password')
+    expect(await unnamedControls(container)).toEqual([])
+  })
+
+  it('encrypted document viewer, including the decryption password', async () => {
+    const user = userEvent.setup()
+    const { container } = renderWithProviders(
+      <DocumentViewer
+        doc={{
+          name: 'notes.txt',
+          type: 'text/plain',
+          size: 5,
+          uploadedAt: new Date('2026-01-01'),
+          encrypted: true,
+          hash: 'Qmhash',
+          permissions: { public: true },
+        }}
+        userAddress="GALICE"
+      />
+    )
+
+    const password = screen.getByLabelText('Enter decryption password')
+    await user.type(password, 'test password')
+    expect(password).toHaveAccessibleName('Enter decryption password')
     expect(await unnamedControls(container)).toEqual([])
   })
 

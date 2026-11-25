@@ -10,11 +10,7 @@ import interfaceJson from '../../contract/interface.json'
  * when a build has no sha (local `next build`); `dev` under `next dev`.
  */
 export function buildId(): string {
-  return (
-    process.env.NEXT_PUBLIC_GIT_SHA ||
-    process.env.NEXT_PUBLIC_APP_VERSION ||
-    'dev'
-  )
+  return process.env.NEXT_PUBLIC_GIT_SHA || process.env.NEXT_PUBLIC_APP_VERSION || 'dev'
 }
 
 export function buildLabel(): string {

@@ -125,7 +125,9 @@ describe('focus on client-side navigation', () => {
     const { rerenderShell } = renderShell(<Page heading="Dashboard" />)
     mockPathname = '/loans'
     rerenderShell(<Page heading="Loans" />)
-    await waitFor(() => expect(screen.getByRole('heading', { level: 1, name: 'Loans' })).toHaveFocus())
+    await waitFor(() =>
+      expect(screen.getByRole('heading', { level: 1, name: 'Loans' })).toHaveFocus()
+    )
   })
 
   it('falls back to <main> when the new page has no heading', async () => {

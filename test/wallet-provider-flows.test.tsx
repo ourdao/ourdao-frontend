@@ -9,7 +9,14 @@ import { act, render, waitFor } from '@testing-library/react'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import * as freighter from '@stellar/freighter-api'
 import toast from 'react-hot-toast'
-import { WalletProvider, passphraseLabel, readAddress, readSigned, useOptionalWallet, useWallet } from '@/lib/wallet'
+import {
+  WalletProvider,
+  passphraseLabel,
+  readAddress,
+  readSigned,
+  useOptionalWallet,
+  useWallet,
+} from '@/lib/wallet'
 
 const PASSPHRASE = 'Test SDF Network ; September 2015'
 const ADDRESS = 'GABCDEFGHIJKLMNOPQRSTUVWXYZ234567ABCDEFGHIJKLMNOPQRSTUVW'
@@ -57,8 +64,14 @@ const wallet = (ref: { current: Wallet | null }) => ref.current as Wallet
 beforeEach(() => {
   vi.mocked(freighter.isAllowed).mockResolvedValue({ isAllowed: false } as never)
   vi.mocked(freighter.getAddress).mockResolvedValue({ address: ADDRESS } as never)
-  vi.mocked(freighter.getNetwork).mockResolvedValue({ network: 'TESTNET', networkPassphrase: PASSPHRASE } as never)
-  vi.mocked(freighter.isConnected).mockResolvedValue({ isConnected: true, version: '2.5.0' } as never)
+  vi.mocked(freighter.getNetwork).mockResolvedValue({
+    network: 'TESTNET',
+    networkPassphrase: PASSPHRASE,
+  } as never)
+  vi.mocked(freighter.isConnected).mockResolvedValue({
+    isConnected: true,
+    version: '2.5.0',
+  } as never)
 })
 
 afterEach(() => vi.clearAllMocks())
@@ -164,7 +177,10 @@ describe('connect()', () => {
   })
 
   it('flags an unsupported Freighter version', async () => {
-    vi.mocked(freighter.isConnected).mockResolvedValue({ isConnected: true, version: '1.0.0' } as never)
+    vi.mocked(freighter.isConnected).mockResolvedValue({
+      isConnected: true,
+      version: '1.0.0',
+    } as never)
     vi.mocked(freighter.requestAccess).mockResolvedValue({ address: ADDRESS } as never)
     const { ref } = mount()
     await waitFor(() => expect(wallet(ref).isRestoring).toBe(false))
@@ -286,8 +302,11 @@ describe('signXDR()', () => {
     })
   })
 
-  it('throws Freighter\'s error when the member rejects the prompt', async () => {
-    vi.mocked(freighter.signTransaction).mockResolvedValue({ signedTxXdr: '', error: 'User declined' } as never)
+  it("throws Freighter's error when the member rejects the prompt", async () => {
+    vi.mocked(freighter.signTransaction).mockResolvedValue({
+      signedTxXdr: '',
+      error: 'User declined',
+    } as never)
     const { ref } = await connected()
     await expect(wallet(ref).signXDR('XDR')).rejects.toThrow('User declined')
   })
@@ -295,7 +314,9 @@ describe('signXDR()', () => {
   it('throws when Freighter returns no signature at all', async () => {
     vi.mocked(freighter.signTransaction).mockResolvedValue({} as never)
     const { ref } = await connected()
-    await expect(wallet(ref).signXDR('XDR')).rejects.toThrow('Your wallet returned no signed transaction')
+    await expect(wallet(ref).signXDR('XDR')).rejects.toThrow(
+      'Freighter returned no signed transaction'
+    )
   })
 
   it('propagates a rejected signTransaction call', async () => {
@@ -352,7 +373,7 @@ describe('signMessage()', () => {
     await expect(wallet(ref).signMessage('hi')).resolves.toBe('')
   })
 
-  it('throws Freighter\'s error field', async () => {
+  it("throws Freighter's error field", async () => {
     vi.mocked(freighter.signMessage).mockResolvedValue({ error: 'declined' } as never)
     const { ref } = await connected()
     await expect(wallet(ref).signMessage('hi')).rejects.toThrow('declined')

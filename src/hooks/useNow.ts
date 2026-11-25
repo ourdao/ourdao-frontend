@@ -19,7 +19,7 @@ function subscribe(callback: () => void) {
   cachedNow = Date.now()
   // Notify once immediately so the component gets the fresh value on mount.
   callback()
-  
+
   const id = setInterval(() => {
     cachedNow = Date.now()
     callback()

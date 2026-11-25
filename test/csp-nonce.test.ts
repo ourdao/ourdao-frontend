@@ -1,6 +1,6 @@
 /**
  * Tests for CSP nonce-based policy (proxy implementation).
- * 
+ *
  * Verifies that the proxy generates per-request nonces and emits
  * a CSP header with 'nonce-*' and 'strict-dynamic' instead of 'unsafe-inline'
  * for script-src, providing protection against XSS attacks.
@@ -176,10 +176,10 @@ describe('CSP nonce-based policy', () => {
 
     try {
       const request = new NextRequest(new URL('http://localhost:3000/'))
-      
+
       // Should not throw
       expect(() => proxy(request)).not.toThrow()
-      
+
       const response = proxy(request)
       const csp = response.headers.get('Content-Security-Policy')
       expect(csp).toBeTruthy()
@@ -204,11 +204,11 @@ describe('CSP nonce-based policy', () => {
     expect(imgSrcMatch).toBeTruthy()
 
     const imgSrc = imgSrcMatch![0]
-    
+
     // Should not contain bare 'https:' which allows any HTTPS origin
     expect(imgSrc).not.toMatch(/\bhttps:\s/)
     expect(imgSrc).not.toMatch(/\bhttps:$/)
-    
+
     // Should contain expected sources
     expect(imgSrc).toContain("'self'")
     expect(imgSrc).toContain('data:')
@@ -217,7 +217,8 @@ describe('CSP nonce-based policy', () => {
 
   it('includes IPFS gateway origins in img-src', () => {
     const originalGateway = process.env.NEXT_PUBLIC_IPFS_GATEWAY
-    process.env.NEXT_PUBLIC_IPFS_GATEWAY = 'https://ipfs.example.com/ipfs/,https://gateway2.example.com/'
+    process.env.NEXT_PUBLIC_IPFS_GATEWAY =
+      'https://ipfs.example.com/ipfs/,https://gateway2.example.com/'
 
     try {
       const request = new NextRequest(new URL('http://localhost:3000/'))
@@ -258,7 +259,7 @@ describe('CSP nonce-based policy', () => {
     for (const part of parts) {
       const isKeyword = part === "'self'" || part === 'data:' || part === 'blob:'
       const isFullOrigin = /^https?:\/\/[^/]+$/.test(part)
-      
+
       expect(isKeyword || isFullOrigin).toBe(true)
       // Should never be just 'https:' which is a wildcard
       expect(part).not.toBe('https:')

@@ -32,7 +32,9 @@ let report
 const current = collect(report.issues)
 
 if (!existsSync(baselinePath)) {
-  console.error(`knip-check: baseline ${baselinePath} not found. Generate it with: npm run knip:baseline`)
+  console.error(
+    `knip-check: baseline ${baselinePath} not found. Generate it with: npm run knip:baseline`
+  )
   process.exit(1)
 }
 
@@ -41,13 +43,19 @@ const baseline = new Set(JSON.parse(readFileSync(baselinePath, 'utf8')))
 const { added, removed } = diff(current, baseline)
 
 if (added.length > 0) {
-  console.error(`\nknip-check: ${added.length} NEW unused-code finding(s) — fix or allowlist before merging:\n`)
+  console.error(
+    `\nknip-check: ${added.length} NEW unused-code finding(s) — fix or allowlist before merging:\n`
+  )
   for (const x of added) console.error(`  + ${x}`)
-  console.error('\nIntentionally-public exports get a /** @public */ JSDoc tag; see docs/unused-exports.md.')
+  console.error(
+    '\nIntentionally-public exports get a /** @public */ JSDoc tag; see docs/unused-exports.md.'
+  )
 }
 
 if (removed.length > 0) {
-  console.error(`\nknip-check: ${removed.length} baseline entr(y|ies) no longer appear — the baseline is stale:\n`)
+  console.error(
+    `\nknip-check: ${removed.length} baseline entr(y|ies) no longer appear — the baseline is stale:\n`
+  )
   for (const x of removed) console.error(`  - ${x}`)
   console.error('\nRegenerate with: npm run knip:baseline')
 }

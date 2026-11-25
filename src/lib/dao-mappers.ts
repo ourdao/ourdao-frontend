@@ -3,7 +3,7 @@
 // what the chain/indexer hand back and what components render. Kept out of
 // the hooks modules (src/hooks/dao/) on purpose; they're not data fetching.
 import type { BackendEvent, BackendLoan } from '@/lib/backend'
-import type { Loan } from '@/types/dao'
+import type { DaoSummary, Loan, MemberOverview } from '@/types/dao'
 import { MemberStatus } from '@/types/dao'
 import {
   GOVERNANCE_PERIOD_FALLBACKS,
@@ -39,12 +39,13 @@ export const tag = (v: unknown): string => String(Array.isArray(v) ? v[0] : v)
 export function toLoan(l: BackendLoan): Loan {
   const amount = asBigInt(l.amount)
   const outstanding = asBigInt(l.outstanding)
-  const amountPaid = l.repaid_amount != null
-    ? asBigInt(l.repaid_amount)
-    : (amount > outstanding ? amount - outstanding : BigInt(0))
-  const totalInterest = l.interest_charge != null
-    ? asBigInt(l.interest_charge)
-    : BigInt(0)
+  const amountPaid =
+    l.repaid_amount != null
+      ? asBigInt(l.repaid_amount)
+      : amount > outstanding
+        ? amount - outstanding
+        : BigInt(0)
+  const totalInterest = l.interest_charge != null ? asBigInt(l.interest_charge) : BigInt(0)
   return {
     id: l.id,
     borrower: l.borrower,
@@ -307,7 +308,10 @@ export const TREASURY_STATUS_CODES: Record<string, number> = {
  *  that from a fully revealed vote (see `daoRead.hasVoted`); this mapper
  *  passes that same single boolean through rather than inventing a
  *  distinction the contract doesn't expose. */
-export function mapTreasuryProposal(raw: Record<string, unknown>, hasVoted = false): UITreasuryProposal {
+export function mapTreasuryProposal(
+  raw: Record<string, unknown>,
+  hasVoted = false
+): UITreasuryProposal {
   const parsed = parseContract(treasuryProposalSchema, raw, 'TreasuryProposal')
   if (!parsed.ok) {
     return {
@@ -367,37 +371,163 @@ export interface EventCatalogEntry {
 }
 
 export const EVENT_CATALOG: Record<string, EventCatalogEntry> = {
-  joined:    { label: 'New member joined',                          description: 'A member joined the DAO',                                                      category: 'member'   },
-  exited:    { label: 'Member exited',                             description: 'A member withdrew their share',                                                 category: 'member'   },
-  claimed:   { label: 'Yield claimed',                             description: 'A member claimed rewards',                                                      category: 'treasury' },
-  loan_req:  { label: 'Loan requested',                            description: 'A new loan proposal was opened',                                                category: 'loan'     },
-  loan_edit: { label: 'Loan proposal edited',                      description: 'A loan proposal was updated',                                                   category: 'loan'     },
-  loan_vote: { label: 'Loan vote cast',                            description: 'A vote was cast on a loan proposal',                                            category: 'vote'     },
-  loan_appr: { label: 'Loan approved',                             description: 'A loan was approved and disbursed',                                             category: 'loan'     },
-  loan_rpy:  { label: 'Loan repayment',                            description: 'A loan repayment was received',                                                 category: 'loan'     },
-  loan_dflt: { label: 'Loan defaulted',                            description: 'A loan was not repaid by its due date',                                         category: 'loan'     },
-  loan_rej:  { label: 'Loan proposal rejected',                    description: 'A loan proposal can no longer reach quorum',                                    category: 'loan'     },
-  loan_exp:  { label: 'Loan expired',                              description: 'A loan proposal expired without reaching quorum',                               category: 'loan'     },
-  loan_wait: { label: 'Loan approved, awaiting treasury funds',    description: 'A loan was approved but the treasury is too small to disburse it — top up the treasury', category: 'loan' },
-  interest:  { label: 'Interest distributed',                      description: 'Loan interest was distributed to members',                                      category: 'treasury' },
-  tre_prop:  { label: 'Treasury withdrawal proposed',              description: 'A treasury withdrawal was proposed',                                            category: 'treasury' },
-  tre_vote:  { label: 'Treasury vote cast',                        description: 'A vote was cast on a treasury proposal',                                        category: 'vote'     },
-  tre_exec:  { label: 'Treasury withdrawal executed',              description: 'A treasury withdrawal was executed',                                            category: 'treasury' },
-  tre_rej:   { label: 'Treasury withdrawal rejected',              description: 'A treasury withdrawal was rejected',                                            category: 'treasury' },
-  tre_wait:  { label: 'Treasury withdrawal approved, awaiting funds',   description: 'A treasury withdrawal was approved but the treasury is too small to execute it — top up the treasury', category: 'treasury' },
-  staked:    { label: 'Member staked',                             description: 'A member staked for voting weight',                                             category: 'treasury' },
-  unstaked:  { label: 'Member unstaked',                           description: 'A member reduced their stake',                                                  category: 'treasury' },
-  name_reg:  { label: 'Name registered',                           description: 'A member registered a name',                                                    category: 'member'   },
-  committed: { label: 'Private vote committed',                    description: 'A commit-reveal vote was committed',                                            category: 'vote'     },
-  revealed:  { label: 'Private vote revealed',                     description: 'A commit-reveal vote was revealed',                                             category: 'vote'     },
-  doc_attn:  { label: 'Document attached',                         description: 'A document was attached to a proposal',                                         category: 'document' },
-  init:      { label: 'DAO initialized',                           description: 'The DAO contract was initialized',                                              category: 'member'   },
-  admin_add: { label: 'Admin added',                               description: 'A new admin was added to the DAO',                                              category: 'member'   },
-  admin_rem: { label: 'Admin removed',                             description: 'An admin was removed from the DAO',                                             category: 'member'   },
-  threshold: { label: 'Consensus threshold updated',               description: 'The voting consensus threshold was updated',                                    category: 'proposal' },
-  policy:    { label: 'Loan policy updated',                       description: 'The loan policy was updated',                                                   category: 'loan'     },
-  paused:    { label: 'DAO paused',                                description: 'The DAO contract was paused by an admin',                                       category: 'member'   },
-  unpaused:  { label: 'DAO unpaused',                              description: 'The DAO contract was unpaused by an admin',                                     category: 'member'   },
+  joined: {
+    label: 'New member joined',
+    description: 'A member joined the DAO',
+    category: 'member',
+  },
+  exited: {
+    label: 'Member exited',
+    description: 'A member withdrew their share',
+    category: 'member',
+  },
+  claimed: {
+    label: 'Yield claimed',
+    description: 'A member claimed rewards',
+    category: 'treasury',
+  },
+  loan_req: {
+    label: 'Loan requested',
+    description: 'A new loan proposal was opened',
+    category: 'loan',
+  },
+  loan_edit: {
+    label: 'Loan proposal edited',
+    description: 'A loan proposal was updated',
+    category: 'loan',
+  },
+  loan_vote: {
+    label: 'Loan vote cast',
+    description: 'A vote was cast on a loan proposal',
+    category: 'vote',
+  },
+  loan_appr: {
+    label: 'Loan approved',
+    description: 'A loan was approved and disbursed',
+    category: 'loan',
+  },
+  loan_rpy: {
+    label: 'Loan repayment',
+    description: 'A loan repayment was received',
+    category: 'loan',
+  },
+  loan_dflt: {
+    label: 'Loan defaulted',
+    description: 'A loan was not repaid by its due date',
+    category: 'loan',
+  },
+  loan_rej: {
+    label: 'Loan proposal rejected',
+    description: 'A loan proposal can no longer reach quorum',
+    category: 'loan',
+  },
+  loan_exp: {
+    label: 'Loan expired',
+    description: 'A loan proposal expired without reaching quorum',
+    category: 'loan',
+  },
+  loan_wait: {
+    label: 'Loan approved, awaiting treasury funds',
+    description:
+      'A loan was approved but the treasury is too small to disburse it — top up the treasury',
+    category: 'loan',
+  },
+  interest: {
+    label: 'Interest distributed',
+    description: 'Loan interest was distributed to members',
+    category: 'treasury',
+  },
+  tre_prop: {
+    label: 'Treasury withdrawal proposed',
+    description: 'A treasury withdrawal was proposed',
+    category: 'treasury',
+  },
+  tre_vote: {
+    label: 'Treasury vote cast',
+    description: 'A vote was cast on a treasury proposal',
+    category: 'vote',
+  },
+  tre_exec: {
+    label: 'Treasury withdrawal executed',
+    description: 'A treasury withdrawal was executed',
+    category: 'treasury',
+  },
+  tre_rej: {
+    label: 'Treasury withdrawal rejected',
+    description: 'A treasury withdrawal was rejected',
+    category: 'treasury',
+  },
+  tre_wait: {
+    label: 'Treasury withdrawal approved, awaiting funds',
+    description:
+      'A treasury withdrawal was approved but the treasury is too small to execute it — top up the treasury',
+    category: 'treasury',
+  },
+  staked: {
+    label: 'Member staked',
+    description: 'A member staked for voting weight',
+    category: 'treasury',
+  },
+  unstaked: {
+    label: 'Member unstaked',
+    description: 'A member reduced their stake',
+    category: 'treasury',
+  },
+  name_reg: {
+    label: 'Name registered',
+    description: 'A member registered a name',
+    category: 'member',
+  },
+  committed: {
+    label: 'Private vote committed',
+    description: 'A commit-reveal vote was committed',
+    category: 'vote',
+  },
+  revealed: {
+    label: 'Private vote revealed',
+    description: 'A commit-reveal vote was revealed',
+    category: 'vote',
+  },
+  doc_attn: {
+    label: 'Document attached',
+    description: 'A document was attached to a proposal',
+    category: 'document',
+  },
+  init: {
+    label: 'DAO initialized',
+    description: 'The DAO contract was initialized',
+    category: 'member',
+  },
+  admin_add: {
+    label: 'Admin added',
+    description: 'A new admin was added to the DAO',
+    category: 'member',
+  },
+  admin_rem: {
+    label: 'Admin removed',
+    description: 'An admin was removed from the DAO',
+    category: 'member',
+  },
+  threshold: {
+    label: 'Consensus threshold updated',
+    description: 'The voting consensus threshold was updated',
+    category: 'proposal',
+  },
+  policy: {
+    label: 'Loan policy updated',
+    description: 'The loan policy was updated',
+    category: 'loan',
+  },
+  paused: {
+    label: 'DAO paused',
+    description: 'The DAO contract was paused by an admin',
+    category: 'member',
+  },
+  unpaused: {
+    label: 'DAO unpaused',
+    description: 'The DAO contract was unpaused by an admin',
+    category: 'member',
+  },
 }
 
 /** Human-readable label for a raw contract event topic symbol (e.g. `loan_dflt`
@@ -419,4 +549,32 @@ export interface AdminLogEntry {
 
 export function toAdminLogEntry(ev: BackendEvent): AdminLogEntry {
   return { id: ev.id, symbol: ev.symbol, ledger: ev.ledger, closedAt: ev.closed_at, data: ev.data }
+}
+
+/** Map the raw contract `get_dao_summary` response onto `DaoSummary`. */
+export function mapDaoSummary(raw: Record<string, unknown>): DaoSummary {
+  return {
+    totalMembers: Number(raw['total_members'] ?? raw['totalMembers'] ?? 0),
+    activeMembers: Number(raw['active_members'] ?? raw['activeMembers'] ?? 0),
+    treasuryBalance: asBigInt(raw['treasury_balance'] ?? raw['treasuryBalance']),
+    totalLoansIssued: Number(raw['total_loans_issued'] ?? raw['totalLoansIssued'] ?? 0),
+    consensusThreshold: Number(raw['consensus_threshold'] ?? raw['consensusThreshold'] ?? 0),
+    isPaused: Boolean(raw['is_paused'] ?? raw['isPaused'] ?? false),
+  }
+}
+
+/** Map the raw contract `get_member_overview` response onto `MemberOverview`. */
+export function mapMemberOverview(
+  address: string,
+  raw: Record<string, unknown>,
+): MemberOverview {
+  return {
+    address,
+    status: toMemberStatus(raw['status']),
+    joinDate: Number(raw['join_date'] ?? raw['joinDate'] ?? 0),
+    contributionAmount: asBigInt(raw['contribution_amount'] ?? raw['contributionAmount']),
+    shareBalance: asBigInt(raw['share_balance'] ?? raw['shareBalance']),
+    hasActiveLoan: Boolean(raw['has_active_loan'] ?? raw['hasActiveLoan'] ?? false),
+    pendingYield: asBigInt(raw['pending_yield'] ?? raw['pendingYield']),
+  }
 }

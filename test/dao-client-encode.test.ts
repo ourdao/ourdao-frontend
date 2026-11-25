@@ -11,7 +11,10 @@ const ADDR = Keypair.random().publicKey()
 
 describe('encodeArgs (spec-driven ScVal encoding)', () => {
   it('encodes addresses and i128 amounts in the contract argument order', () => {
-    const [member, amount] = encodeArgs('stake', { member: ADDR, amount: BigInt(1_000_000_000_000) })
+    const [member, amount] = encodeArgs('stake', {
+      member: ADDR,
+      amount: BigInt(1_000_000_000_000),
+    })
     expect(scValToNative(member)).toBe(ADDR)
     expect(scValToNative(amount)).toBe(BigInt(1_000_000_000_000))
     expect(amount.type).toBe('scvI128')
@@ -57,9 +60,17 @@ describe('encodeArgs (spec-driven ScVal encoding)', () => {
   })
 
   it('encodes an absent Option as void and a present one as its value', () => {
-    const none = encodeArgs('request_loan', { borrower: ADDR, amount: BigInt(5), metadata_cid: undefined })
+    const none = encodeArgs('request_loan', {
+      borrower: ADDR,
+      amount: BigInt(5),
+      metadata_cid: undefined,
+    })
     expect(none[2].type).toBe('scvVoid')
-    const some = encodeArgs('request_loan', { borrower: ADDR, amount: BigInt(5), metadata_cid: 'bafy' })
+    const some = encodeArgs('request_loan', {
+      borrower: ADDR,
+      amount: BigInt(5),
+      metadata_cid: 'bafy',
+    })
     expect(scValToNative(some[2])).toBe('bafy')
   })
 

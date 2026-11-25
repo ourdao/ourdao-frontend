@@ -7,24 +7,24 @@ behaviour — not the comments beside individual files.
 
 ## Axes
 
-| Axis | Values |
-|---|---|
-| Contract | `NEXT_PUBLIC_CONTRACT_ID` set (starts with `C`) or empty |
-| Backend | `NEXT_PUBLIC_BACKEND_URL` set and reachable, or absent/down |
-| Wallet | Freighter connected with matching network, or disconnected |
+| Axis     | Values                                                      |
+| -------- | ----------------------------------------------------------- |
+| Contract | `NEXT_PUBLIC_CONTRACT_ID` set (starts with `C`) or empty    |
+| Backend  | `NEXT_PUBLIC_BACKEND_URL` set and reachable, or absent/down |
+| Wallet   | Freighter connected with matching network, or disconnected  |
 
 ## Matrix
 
-| Contract | Backend | Wallet | Dashboard stats | Loan list | Loan detail | Proposals | Notifications | Activity feed | Write actions |
-|---|---|---|---|---|---|---|---|---|---|
-| ✅ | ✅ | ✅ | Contract + backend stats | Backend loans (full history) | Contract loan + backend history | Contract proposals | Backend notifications | Backend events | Enabled |
-| ✅ | ✅ | ❌ | Contract + backend stats | Backend loans (full history) | Contract loan + backend history | Contract proposals | — | Backend events | Disabled (no wallet) |
-| ✅ | ❌ | ✅ | Contract on-chain stats | Empty list | Contract loan only | Contract proposals | — | — | Enabled |
-| ✅ | ❌ | ❌ | Contract on-chain stats | Empty list | Contract loan only | Contract proposals | — | — | Disabled (no wallet) |
-| ❌ | ✅ | ✅ | Backend stats only | Backend loans | Backend loan | — | Backend notifications | Backend events | Disabled (no contract) |
-| ❌ | ✅ | ❌ | Backend stats only | Backend loans | Backend loan | — | — | Backend events | Disabled (no contract) |
-| ❌ | ❌ | ✅ | Empty / zero | Empty list | Empty | — | — | — | Disabled (no contract) |
-| ❌ | ❌ | ❌ | Empty / zero | Empty list | Empty | — | — | — | Disabled (no contract) |
+| Contract | Backend | Wallet | Dashboard stats          | Loan list                    | Loan detail                     | Proposals          | Notifications         | Activity feed  | Write actions          |
+| -------- | ------- | ------ | ------------------------ | ---------------------------- | ------------------------------- | ------------------ | --------------------- | -------------- | ---------------------- |
+| ✅       | ✅      | ✅     | Contract + backend stats | Backend loans (full history) | Contract loan + backend history | Contract proposals | Backend notifications | Backend events | Enabled                |
+| ✅       | ✅      | ❌     | Contract + backend stats | Backend loans (full history) | Contract loan + backend history | Contract proposals | —                     | Backend events | Disabled (no wallet)   |
+| ✅       | ❌      | ✅     | Contract on-chain stats  | Empty list                   | Contract loan only              | Contract proposals | —                     | —              | Enabled                |
+| ✅       | ❌      | ❌     | Contract on-chain stats  | Empty list                   | Contract loan only              | Contract proposals | —                     | —              | Disabled (no wallet)   |
+| ❌       | ✅      | ✅     | Backend stats only       | Backend loans                | Backend loan                    | —                  | Backend notifications | Backend events | Disabled (no contract) |
+| ❌       | ✅      | ❌     | Backend stats only       | Backend loans                | Backend loan                    | —                  | —                     | Backend events | Disabled (no contract) |
+| ❌       | ❌      | ✅     | Empty / zero             | Empty list                   | Empty                           | —                  | —                     | —              | Disabled (no contract) |
+| ❌       | ❌      | ❌     | Empty / zero             | Empty list                   | Empty                           | —                  | —                     | —              | Disabled (no contract) |
 
 ### Notes
 
@@ -41,11 +41,11 @@ behaviour — not the comments beside individual files.
 
 ## Distinguishable vs. indistinguishable degraded states
 
-| Degraded state | Looks identical to | Distinguishable? |
-|---|---|---|
-| Contract ✅ / Backend ❌ / Wallet ✅ — empty loan list | Wallet ✅ / no loans yet | **No.** Both show an empty list. The backend-only view currently provides no badge or label indicating "backend offline". |
-| Contract ❌ / Backend ❌ — everything empty | Fresh install with no data | **No.** All counters show zero, all lists empty. The "not configured" banner only appears when the contract is missing; without the backend there is no separate indicator. |
-| Contract ✅ / Backend ❌ — loan detail shows contract data only | Contract ✅ / Backend ✅ / wallet has no loans | Partially — the backend-specific fields (interest charge, repaid amount) are absent, but there's no label saying "backend offline". |
+| Degraded state                                                  | Looks identical to                             | Distinguishable?                                                                                                                                                            |
+| --------------------------------------------------------------- | ---------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Contract ✅ / Backend ❌ / Wallet ✅ — empty loan list          | Wallet ✅ / no loans yet                       | **No.** Both show an empty list. The backend-only view currently provides no badge or label indicating "backend offline".                                                   |
+| Contract ❌ / Backend ❌ — everything empty                     | Fresh install with no data                     | **No.** All counters show zero, all lists empty. The "not configured" banner only appears when the contract is missing; without the backend there is no separate indicator. |
+| Contract ✅ / Backend ❌ — loan detail shows contract data only | Contract ✅ / Backend ✅ / wallet has no loans | Partially — the backend-specific fields (interest charge, repaid amount) are absent, but there's no label saying "backend offline".                                         |
 
 **Follow-up gaps:** The "empty loan list" case (#1 above) should surface a
 distinct "backend unavailable" state rather than silently showing nothing. The

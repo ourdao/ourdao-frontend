@@ -72,7 +72,8 @@ export function useProposalFilters<T extends FilterableProposal>(
     if (search.trim()) {
       const q = search.toLowerCase()
       result = result.filter((item) => {
-        const text = `${item.purpose ?? ''} ${item.title ?? ''} ${item.description ?? ''} ${item.borrower ?? ''} ${item.recipient ?? ''} #${item.id}`.toLowerCase()
+        const text =
+          `${item.purpose ?? ''} ${item.title ?? ''} ${item.description ?? ''} ${item.borrower ?? ''} ${item.recipient ?? ''} #${item.id}`.toLowerCase()
         return text.includes(q)
       })
     }

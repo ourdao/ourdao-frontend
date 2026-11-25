@@ -57,9 +57,8 @@ export function VirtualizedList<T>({
     updateHeight()
     container.addEventListener('scroll', handleScroll, { passive: true })
 
-    const resizeObserver = typeof ResizeObserver !== 'undefined'
-      ? new ResizeObserver(updateHeight)
-      : null
+    const resizeObserver =
+      typeof ResizeObserver !== 'undefined' ? new ResizeObserver(updateHeight) : null
 
     if (resizeObserver) {
       resizeObserver.observe(container)
@@ -94,12 +93,7 @@ export function VirtualizedList<T>({
   // Below threshold: render clean DOM list directly without windowing container
   if (!isVirtualized) {
     return (
-      <div
-        role={role}
-        aria-label={listAriaLabel}
-        className={className}
-        data-virtualized="false"
-      >
+      <div role={role} aria-label={listAriaLabel} className={className} data-virtualized="false">
         {items.map((item, idx) => (
           <div
             key={keyExtractor(item, idx)}

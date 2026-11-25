@@ -5,9 +5,7 @@ import { canAccessDocument, type DocumentMetadata } from '@/lib/ipfs'
 const ALICE = 'GAHJJJKMOKYE4RVPZEWZTKH5FVI4PA3VL7GK2LFNUBSGBV3MQAXRWUD'
 const BOB = 'GBFZFQQ2XGKEH6EIT3KXBZPXJM7JMBQGQDLN4OTZU5GGQTQCWP3V3QY'
 
-function makeDoc(
-  overrides: Partial<DocumentMetadata['permissions']> = {}
-): DocumentMetadata {
+function makeDoc(overrides: Partial<DocumentMetadata['permissions']> = {}): DocumentMetadata {
   return {
     name: 'test.pdf',
     type: 'application/pdf',

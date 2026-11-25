@@ -34,9 +34,8 @@ vi.mock('@/lib/stellar', () => ({
 }))
 
 // Imported after the mock so `invoke` picks up the mocked `server`.
-const { invoke, InvokeError, TransactionPendingError, watchTransaction } = await import(
-  '@/lib/dao-client'
-)
+const { invoke, InvokeError, TransactionPendingError, watchTransaction } =
+  await import('@/lib/dao-client')
 
 const WALLET = Keypair.random().publicKey()
 // A no-op "signer" — invoke() never inspects the signature itself, only

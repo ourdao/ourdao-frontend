@@ -16,7 +16,8 @@ import { computeIPFSCIDs } from '@/lib/ipfs-cid'
 
 function bytesToBase64(bytes: Uint8Array): string {
   let bin = ''
-  for (let i = 0; i < bytes.length; i += 8192) bin += String.fromCharCode(...bytes.subarray(i, i + 8192))
+  for (let i = 0; i < bytes.length; i += 8192)
+    bin += String.fromCharCode(...bytes.subarray(i, i + 8192))
   return btoa(bin)
 }
 
@@ -29,17 +30,28 @@ async function legacyEncrypt(
   const salt = opts.salt ?? crypto.getRandomValues(new Uint8Array(16))
   const iv = crypto.getRandomValues(new Uint8Array(12))
   const keyMaterial = await crypto.subtle.importKey(
-    'raw', new TextEncoder().encode(password) as unknown as BufferSource, 'PBKDF2', false, ['deriveKey']
+    'raw',
+    new TextEncoder().encode(password) as unknown as BufferSource,
+    'PBKDF2',
+    false,
+    ['deriveKey']
   )
   const key = await crypto.subtle.deriveKey(
-    { name: 'PBKDF2', salt: salt as unknown as BufferSource, iterations: opts.iterations, hash: 'SHA-256' },
+    {
+      name: 'PBKDF2',
+      salt: salt as unknown as BufferSource,
+      iterations: opts.iterations,
+      hash: 'SHA-256',
+    },
     keyMaterial,
     { name: 'AES-GCM', length: 256 },
     false,
     ['encrypt']
   )
   const data = typeof plaintext === 'string' ? new TextEncoder().encode(plaintext) : plaintext
-  const encrypted = new Uint8Array(await crypto.subtle.encrypt({ name: 'AES-GCM', iv }, key, data as unknown as BufferSource))
+  const encrypted = new Uint8Array(
+    await crypto.subtle.encrypt({ name: 'AES-GCM', iv }, key, data as unknown as BufferSource)
+  )
   const prefix = opts.marker ? [1] : []
   const combined = new Uint8Array(prefix.length + 16 + 12 + encrypted.length)
   combined.set(prefix, 0)
@@ -50,7 +62,12 @@ async function legacyEncrypt(
 }
 
 function jsonResponse(body: unknown, ok = true, status = ok ? 200 : 500) {
-  return { ok, status, json: () => Promise.resolve(body), text: () => Promise.resolve('') } as Response
+  return {
+    ok,
+    status,
+    json: () => Promise.resolve(body),
+    text: () => Promise.resolve(''),
+  } as Response
 }
 
 function bytesResponse(bytes: Uint8Array, ok = true, status = ok ? 200 : 500) {
@@ -72,7 +89,7 @@ describe('encryptData / decryptData', () => {
 
   it('produces the base64 of a binary envelope with a magic, version and iteration header', async () => {
     const encrypted = await encryptData('versioned document', 'password')
-    const decoded = Uint8Array.from(atob(encrypted), c => c.charCodeAt(0))
+    const decoded = Uint8Array.from(atob(encrypted), (c) => c.charCodeAt(0))
     expect(Array.from(decoded.subarray(0, 4))).toEqual([0x89, 0x4f, 0x44, 0x45])
     expect(decoded[4]).toBe(2)
     expect(new DataView(decoded.buffer).getUint32(5)).toBe(PBKDF2_ITERATIONS)
@@ -149,7 +166,10 @@ describe('uploadToIPFS', () => {
 
     const result = await uploadToIPFS(file, false)
 
-    expect(fetch).toHaveBeenCalledWith('/api/documents', expect.objectContaining({ method: 'POST' }))
+    expect(fetch).toHaveBeenCalledWith(
+      '/api/documents',
+      expect.objectContaining({ method: 'POST' })
+    )
     expect(result.hash).toBe('QmTestHash')
     expect(result.encrypted).toBe(false)
   })
@@ -173,13 +193,19 @@ describe('uploadToIPFS', () => {
     const wallet = { address: 'GTEST', signMessage: vi.fn().mockResolvedValue('sig') }
 
     await expect(uploadToIPFS(file, true, '', wallet)).rejects.toThrow(/password is required/)
-    await expect(uploadToIPFS(file, true, undefined, wallet)).rejects.toThrow(/password is required/)
+    await expect(uploadToIPFS(file, true, undefined, wallet)).rejects.toThrow(
+      /password is required/
+    )
     expect(fetch).not.toHaveBeenCalled()
   })
 
   it('throws with the server-provided error message on a non-2xx response, not a silent fallback', async () => {
     vi.mocked(fetch).mockResolvedValueOnce(
-      jsonResponse({ error: 'Document uploads are not configured on the server (PINATA_JWT is unset).' }, false, 503)
+      jsonResponse(
+        { error: 'Document uploads are not configured on the server (PINATA_JWT is unset).' },
+        false,
+        503
+      )
     )
     const file = new File(['hello'], 'doc.txt', { type: 'text/plain' })
 
@@ -231,10 +257,16 @@ describe('uploadMultipleDocuments', () => {
       .mockResolvedValueOnce(jsonResponse({ hash: 'QmTwo' }))
     const permissions = { public: false, allowedUsers: ['GALICE'], allowedRoles: ['admin'] }
 
-    const docs = await uploadMultipleDocuments(makeFiles(), false, undefined, undefined, permissions)
+    const docs = await uploadMultipleDocuments(
+      makeFiles(),
+      false,
+      undefined,
+      undefined,
+      permissions
+    )
 
-    expect(docs.map(d => d.hash)).toEqual(['QmOne', 'QmTwo'])
-    expect(docs.map(d => d.permissions)).toEqual([permissions, permissions])
+    expect(docs.map((d) => d.hash)).toEqual(['QmOne', 'QmTwo'])
+    expect(docs.map((d) => d.permissions)).toEqual([permissions, permissions])
   })
 
   it('defaults every document to closed when no permissions are given', async () => {
@@ -244,7 +276,7 @@ describe('uploadMultipleDocuments', () => {
 
     const docs = await uploadMultipleDocuments(makeFiles())
 
-    expect(docs.map(d => d.permissions)).toEqual([{ public: false }, { public: false }])
+    expect(docs.map((d) => d.permissions)).toEqual([{ public: false }, { public: false }])
   })
 
   it('reports progress as a percentage after each file', async () => {
@@ -255,7 +287,7 @@ describe('uploadMultipleDocuments', () => {
 
     await uploadMultipleDocuments(makeFiles(), false, undefined, onProgress)
 
-    expect(onProgress.mock.calls.map(c => c[0])).toEqual([50, 100])
+    expect(onProgress.mock.calls.map((c) => c[0])).toEqual([50, 100])
   })
 })
 
@@ -274,7 +306,10 @@ describe('downloadFromIPFS', () => {
 
     const result = await downloadFromIPFS(cid, false)
 
-    expect(fetch).toHaveBeenCalledWith(expect.stringContaining(cid), expect.objectContaining({ signal: expect.any(AbortSignal) }))
+    expect(fetch).toHaveBeenCalledWith(
+      expect.stringContaining(cid),
+      expect.objectContaining({ signal: expect.any(AbortSignal) })
+    )
     expect(new TextDecoder().decode(result.content)).toBe('plain content')
     expect(result.decrypted).toBe(false)
   })
@@ -355,4 +390,3 @@ describe('IPFS end-to-end binary round-trip', () => {
     expect(downloadResult.content).toEqual(originalBytes)
   })
 })
-

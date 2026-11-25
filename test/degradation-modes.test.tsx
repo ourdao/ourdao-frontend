@@ -116,7 +116,9 @@ describe('degradation mode: no wallet connected', () => {
     renderWithProviders(<DashboardPage />)
 
     expect(screen.getByText(/Access Dashboard/)).toBeInTheDocument()
-    expect(screen.getByText(/Connect your wallet to access the member dashboard/)).toBeInTheDocument()
+    expect(
+      screen.getByText(/Connect your wallet to access the member dashboard/)
+    ).toBeInTheDocument()
     // The populated-dashboard content must not be present at all.
     expect(screen.queryByText(/DAO Overview/)).not.toBeInTheDocument()
     expect(screen.queryByText(/Quick Actions/)).not.toBeInTheDocument()

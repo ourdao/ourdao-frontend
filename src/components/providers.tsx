@@ -19,34 +19,38 @@ export function Providers({ children, nonce }: { children: React.ReactNode; nonc
     <ThemeProvider attribute="class" defaultTheme="system" enableSystem nonce={nonce}>
       <QueryClientProvider client={queryClient}>
         <WalletProvider>
-          <LiveEventsProvider>
-            <SkipLink />
-            <LiveAnnouncer />
-            <Toaster
-              position="top-right"
-              toastOptions={{
-                duration: 4000,
-                // Styled from the same semantic CSS custom properties as the
-                // rest of the app (globals.css), not hardcoded hex — these
-                // resolve correctly in both themes via the inherited `.dark`
-                // override, with no JS-side theme check and no hydration
-                // mismatch (#67).
-                style: {
-                  background: 'var(--color-card)',
-                  color: 'var(--color-card-foreground)',
-                  border: '1px solid var(--color-border)',
-                  borderRadius: '8px',
+          <SkipLink />
+          <LiveAnnouncer />
+          <Toaster
+            position="top-right"
+            toastOptions={{
+              duration: 4000,
+              // Styled from the same semantic CSS custom properties as the
+              // rest of the app (globals.css), not hardcoded hex — these
+              // resolve correctly in both themes via the inherited `.dark`
+              // override, with no JS-side theme check and no hydration
+              // mismatch (#67).
+              style: {
+                background: 'var(--color-card)',
+                color: 'var(--color-card-foreground)',
+                border: '1px solid var(--color-border)',
+                borderRadius: '8px',
+              },
+              success: {
+                iconTheme: {
+                  primary: 'var(--color-success)',
+                  secondary: 'var(--color-success-foreground)',
                 },
-                success: {
-                  iconTheme: { primary: 'var(--color-success)', secondary: 'var(--color-success-foreground)' },
+              },
+              error: {
+                iconTheme: {
+                  primary: 'var(--color-destructive)',
+                  secondary: 'var(--color-destructive-foreground)',
                 },
-                error: {
-                  iconTheme: { primary: 'var(--color-destructive)', secondary: 'var(--color-destructive-foreground)' },
-                },
-              }}
-            />
-            {children}
-          </LiveEventsProvider>
+              },
+            }}
+          />
+          {children}
         </WalletProvider>
       </QueryClientProvider>
     </ThemeProvider>

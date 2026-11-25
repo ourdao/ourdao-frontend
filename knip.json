@@ -14,16 +14,8 @@
     "test/**/*.test.{ts,tsx}",
     "src/lib/__tests__/*.test.ts"
   ],
-  "project": [
-    "src/**/*.{ts,tsx}"
-  ],
-  "ignoreDependencies": [
-    "knip",
-    "tailwindcss"
-  ],
-  "ignore": [
-    "src/lib/generated/**",
-    "**/*.dev.tsx"
-  ],
+  "project": ["src/**/*.{ts,tsx}"],
+  "ignoreDependencies": ["knip", "tailwindcss"],
+  "ignore": ["src/lib/generated/**", "**/*.dev.tsx"],
   "ignoreExportsUsedInFile": true
 }

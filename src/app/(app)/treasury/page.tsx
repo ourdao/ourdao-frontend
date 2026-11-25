@@ -61,7 +61,10 @@ function TreasuryProposalRow({
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="min-w-0">
           <div className="flex items-center gap-2">
-            <Link href={`/treasury/${p.id}`} className="font-medium text-foreground hover:underline">
+            <Link
+              href={`/treasury/${p.id}`}
+              className="text-foreground font-medium hover:underline"
+            >
               {p.title}
             </Link>
             {p.isPrivate && (
@@ -70,10 +73,10 @@ function TreasuryProposalRow({
               </Badge>
             )}
           </div>
-          <p className="mt-0.5 text-sm text-muted-foreground">
+          <p className="text-muted-foreground mt-0.5 text-sm">
             {token.format(p.amount)} → <AddressLink address={p.recipient} />
           </p>
-          <p className="mt-1 text-xs text-muted-foreground">
+          <p className="text-muted-foreground mt-1 text-xs">
             For {p.votesFor} · Against {p.votesAgainst}
           </p>
         </div>
@@ -120,7 +123,7 @@ function TreasuryProposalRow({
             </div>
           )}
           {canVote && p.status === 2 && !p.isPrivate && hasVoted && (
-            <div className="flex items-center gap-1 text-sm text-muted-foreground">
+            <div className="text-muted-foreground flex items-center gap-1 text-sm">
               <Check className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
               You&apos;ve voted
             </div>
@@ -131,7 +134,6 @@ function TreasuryProposalRow({
   )
 }
 
-
 export default function TreasuryPage() {
   const userData = useUserData()
   const stats = useDAOStats()
@@ -140,7 +142,8 @@ export default function TreasuryPage() {
   const { stake: myStake } = useStake()
   const stakeKnown = myStake !== null
   const { stake, unstake, isPending: staking } = useStaking()
-  const { proposals, isLoading, hasMore, loadMore, isLoadingMore, hasErrors, isError, refetch } = useTreasuryProposals()
+  const { proposals, isLoading, hasMore, loadMore, isLoadingMore, hasErrors, isError, refetch } =
+    useTreasuryProposals()
   const proposalFilters = useProposalFilters(proposals)
 
   const [amount, setAmount] = useState('')
@@ -167,10 +170,8 @@ export default function TreasuryPage() {
       <div className="flex min-h-[60vh] items-center justify-center">
         <Card className="w-full max-w-md">
           <CardContent className="p-6 text-center">
-            <Banknote className="mx-auto mb-4 h-12 w-12 text-muted-foreground" />
-            <h3 className="mb-2 text-lg font-medium text-foreground">
-              Connect Your Wallet
-            </h3>
+            <Banknote className="text-muted-foreground mx-auto mb-4 h-12 w-12" />
+            <h3 className="text-foreground mb-2 text-lg font-medium">Connect Your Wallet</h3>
             <p className="text-muted-foreground">
               Please connect your wallet to access the treasury.
             </p>
@@ -286,16 +287,16 @@ export default function TreasuryPage() {
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
-            <p className="text-sm text-muted-foreground">
-              Stake tokens to boost your voting weight. Staked funds are held
-              separately from the treasury and can be withdrawn at any time.
+            <p className="text-muted-foreground text-sm">
+              Stake tokens to boost your voting weight. Staked funds are held separately from the
+              treasury and can be withdrawn at any time.
             </p>
             <div>
-              <div className="flex justify-between items-center mb-1">
-                <label htmlFor="stake-amount" className="block text-sm font-medium text-foreground">
+              <div className="mb-1 flex items-center justify-between">
+                <label htmlFor="stake-amount" className="text-foreground block text-sm font-medium">
                   Amount ({token.symbol})
                 </label>
-                <span className="text-xs text-muted-foreground">
+                <span className="text-muted-foreground text-xs">
                   Balance: {token.isError ? 'Unavailable' : token.format(token.balance)}
                 </span>
               </div>
@@ -309,10 +310,10 @@ export default function TreasuryPage() {
                 onChange={(e) => setAmount(e.target.value)}
                 placeholder="0.00"
                 disabled={!userData.isMember || staking}
-                className="w-full rounded-lg border border-input px-3 py-2.5 text-sm transition-colors focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-500/20 disabled:bg-muted"
+                className="border-input focus:border-primary-500 focus:ring-primary-500/20 disabled:bg-muted w-full rounded-lg border px-3 py-2.5 text-sm transition-colors focus:ring-2 focus:outline-none"
               />
               {token.isError && (
-                <p role="alert" className="text-xs text-amber-600 dark:text-amber-400 mt-1">
+                <p role="alert" className="mt-1 text-xs text-amber-600 dark:text-amber-400">
                   <span>Balance unavailable.</span>{' '}
                   <button type="button" className="underline" onClick={() => token.refetch()}>
                     Retry
@@ -320,17 +321,17 @@ export default function TreasuryPage() {
                 </p>
               )}
               {hasInsufficientStakeBalance && (
-                <p className="text-xs text-red-500 dark:text-red-400 mt-1">
+                <p className="mt-1 text-xs text-red-500 dark:text-red-400">
                   Insufficient {token.symbol} balance ({token.format(token.balance)}).
                 </p>
               )}
             </div>
 
             {/* Voting Weight Preview (Issue #405) */}
-            <div className="rounded-lg border border-border bg-muted/40 p-3 space-y-1">
+            <div className="border-border bg-muted/40 space-y-1 rounded-lg border p-3">
               <div className="flex justify-between text-xs">
                 <span className="text-muted-foreground">Current Voting Weight</span>
-                <span className="font-semibold text-foreground">
+                <span className="text-foreground font-semibold">
                   {currentWeight === null
                     ? 'Unavailable'
                     : `${currentWeight} vote${currentWeight > 1 ? 's' : ''}`}
@@ -342,11 +343,13 @@ export default function TreasuryPage() {
                   {projectedWeight === null || currentWeight === null
                     ? 'Unavailable'
                     : `${projectedWeight} vote${projectedWeight > 1 ? 's' : ''}${
-                        projectedWeight > currentWeight ? ` (+${projectedWeight - currentWeight})` : ''
+                        projectedWeight > currentWeight
+                          ? ` (+${projectedWeight - currentWeight})`
+                          : ''
                       }`}
                 </span>
               </div>
-              <p className="text-[11px] text-muted-foreground pt-1">
+              <p className="text-muted-foreground pt-1 text-[11px]">
                 1 base vote + 1 bonus per 100 tokens staked (max 6 votes).
               </p>
             </div>
@@ -354,7 +357,14 @@ export default function TreasuryPage() {
             <div className="flex gap-2">
               <Button
                 onClick={handleStake}
-                disabled={!userData.isMember || !stakeKnown || staking || !amount || hasInsufficientStakeBalance || stats.isPaused}
+                disabled={
+                  !userData.isMember ||
+                  !stakeKnown ||
+                  staking ||
+                  !amount ||
+                  hasInsufficientStakeBalance ||
+                  stats.isPaused
+                }
                 className="flex-1"
               >
                 <Upload className="mr-2 h-4 w-4" />
@@ -382,21 +392,21 @@ export default function TreasuryPage() {
         <Card className="lg:col-span-2">
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
-              <Banknote className="h-5 w-5 text-primary-600 dark:text-primary-400" />
+              <Banknote className="text-primary-600 dark:text-primary-400 h-5 w-5" />
               Treasury Withdrawals
             </CardTitle>
           </CardHeader>
           {/* Filter and Search Controls (Issue #404) */}
-          <div className="px-6 pb-2 grid grid-cols-1 gap-3 sm:grid-cols-3">
+          <div className="grid grid-cols-1 gap-3 px-6 pb-2 sm:grid-cols-3">
             <div className="relative">
-              <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+              <Search className="text-muted-foreground absolute top-2.5 left-2.5 h-4 w-4" />
               <input
                 type="text"
                 aria-label="Search treasury proposals"
                 placeholder="Search proposals..."
                 value={proposalFilters.filters.search}
                 onChange={(e) => proposalFilters.setSearch(e.target.value)}
-                className="w-full rounded-lg border border-input pl-8 pr-2.5 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-primary-500/20"
+                className="border-input focus:ring-primary-500/20 w-full rounded-lg border py-1.5 pr-2.5 pl-8 text-xs focus:ring-2 focus:outline-none"
               />
             </div>
             <div>
@@ -404,7 +414,7 @@ export default function TreasuryPage() {
                 aria-label="Filter by Status"
                 value={proposalFilters.filters.status}
                 onChange={(e) => proposalFilters.setStatus(e.target.value)}
-                className="w-full rounded-lg border border-input px-2.5 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-primary-500/20"
+                className="border-input focus:ring-primary-500/20 w-full rounded-lg border px-2.5 py-1.5 text-xs focus:ring-2 focus:outline-none"
               >
                 <option value="all">All Statuses</option>
                 <option value="2">In Voting</option>
@@ -418,7 +428,7 @@ export default function TreasuryPage() {
                 aria-label="Sort proposals"
                 value={proposalFilters.filters.sort}
                 onChange={(e) => proposalFilters.setSort(e.target.value as ProposalSortOrder)}
-                className="w-full rounded-lg border border-input px-2.5 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-primary-500/20"
+                className="border-input focus:ring-primary-500/20 w-full rounded-lg border px-2.5 py-1.5 text-xs focus:ring-2 focus:outline-none"
               >
                 <option value="newest">Newest First</option>
                 <option value="oldest">Oldest First</option>
@@ -430,7 +440,8 @@ export default function TreasuryPage() {
           <CardContent>
             {hasErrors && (
               <div className="mb-4 rounded-lg border border-yellow-200 bg-yellow-50 p-4 text-sm text-yellow-800 dark:border-yellow-900 dark:bg-yellow-950/30 dark:text-yellow-300">
-                Some treasury proposals couldn&apos;t be loaded and are missing from this list. Try again shortly.
+                Some treasury proposals couldn&apos;t be loaded and are missing from this list. Try
+                again shortly.
               </div>
             )}
             {isLoading ? (
@@ -443,7 +454,7 @@ export default function TreasuryPage() {
               <LoadError what="treasury proposals" onRetry={refetch} />
             ) : proposalFilters.filteredItems.length === 0 ? (
               <div className="py-10 text-center">
-                <Banknote className="mx-auto mb-3 h-10 w-10 text-muted-foreground" />
+                <Banknote className="text-muted-foreground mx-auto mb-3 h-10 w-10" />
                 <p className="text-muted-foreground">No treasury withdrawals yet.</p>
               </div>
             ) : (
@@ -451,7 +462,7 @@ export default function TreasuryPage() {
                 items={proposalFilters.filteredItems}
                 threshold={50}
                 itemHeight={120}
-                className="divide-y divide-border"
+                className="divide-border divide-y"
                 listAriaLabel="Treasury withdrawals"
                 keyExtractor={(p) => p.id}
                 renderItem={(p) => (

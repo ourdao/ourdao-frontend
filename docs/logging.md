@@ -24,10 +24,10 @@ if a direct `console.*` call appears, so the convention cannot quietly lapse.
 
 `silent` < `error` < `warn` < `info` < `debug`.
 
-| Environment | Default |
-| --- | --- |
+| Environment                        | Default                       |
+| ---------------------------------- | ----------------------------- |
 | production (`NODE_ENV=production`) | `silent` — nothing is written |
-| anywhere else | `debug` |
+| anywhere else                      | `debug`                       |
 
 Production being silent is the point: a member's browser console is not the
 place for this app's diagnostics unless someone has deliberately asked for
@@ -83,13 +83,13 @@ is exported for the cases that want a readable address deliberately.
 ## How this differs from error reporting
 
 `docs/error-reporting.md` covers `src/lib/error-reporting.ts`, and the two
-intentionally disagree about addresses. Error reporting *removes* them
+intentionally disagree about addresses. Error reporting _removes_ them
 (`[redacted-address]`) because a report is written to be pasted into a public
 bug tracker. Logging truncates them, because a log line stays on the member's
 own machine where the surrounding context is the point.
 
 `error-reporting.ts` also keeps its direct `console.error`. That call is the
-opt-in reporting *sink*, not a log line: routing it through the logger would
+opt-in reporting _sink_, not a log line: routing it through the logger would
 silence a report the member explicitly agreed to send, since production
 defaults to `silent`. It is the one documented exemption in the
 no-bare-console test.

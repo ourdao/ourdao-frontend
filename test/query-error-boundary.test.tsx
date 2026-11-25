@@ -65,7 +65,13 @@ describe('central throwOnError policy', () => {
     vi.stubEnv('NODE_ENV', 'production')
     try {
       renderWithClient(
-        <Primary fn={() => Promise.reject(new Error('Simulation failed against https://soroban-testnet.stellar.org: tx 123'))} />
+        <Primary
+          fn={() =>
+            Promise.reject(
+              new Error('Simulation failed against https://soroban-testnet.stellar.org: tx 123')
+            )
+          }
+        />
       )
       expect(await screen.findByRole('alert')).toHaveTextContent("This page couldn't load")
       expect(screen.getByTestId('error-reference-id')).toHaveTextContent(/Reference: ERR_/)
@@ -132,7 +138,10 @@ describe('boundary recovery without a reload', () => {
   it('offers a way back to the dashboard from the boundary', async () => {
     renderWithClient(<Primary fn={() => Promise.reject(new Error('nope'))} />)
     await screen.findByRole('alert')
-    expect(screen.getByRole('link', { name: 'Back to Dashboard' })).toHaveAttribute('href', '/dashboard')
+    expect(screen.getByRole('link', { name: 'Back to Dashboard' })).toHaveAttribute(
+      'href',
+      '/dashboard'
+    )
   })
 })
 

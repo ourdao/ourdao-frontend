@@ -36,7 +36,11 @@ vi.mock('next/navigation', () => ({
 }))
 
 vi.mock('react-hot-toast', () => ({
-  default: { success: vi.fn(), error: (...a: unknown[]) => mockToastError(...a), loading: vi.fn(() => 'id') },
+  default: {
+    success: vi.fn(),
+    error: (...a: unknown[]) => mockToastError(...a),
+    loading: vi.fn(() => 'id'),
+  },
 }))
 
 vi.mock('@/lib/wallet', () => ({
@@ -79,7 +83,13 @@ vi.mock('@/lib/dao-client', () => ({
     voteOnLoanProposal: vi.fn().mockResolvedValue({ hash: 'tx-vote', returnValue: null }),
     attachDocument: vi.fn().mockResolvedValue({ hash: 'tx-attach', returnValue: null }),
   }),
-  InvokeError: class InvokeError extends Error { retryable = false; constructor(m: string) { super(m); this.name = 'InvokeError' } },
+  InvokeError: class InvokeError extends Error {
+    retryable = false
+    constructor(m: string) {
+      super(m)
+      this.name = 'InvokeError'
+    }
+  },
   // useWriteAction's catch block does `instanceof TransactionPendingError`.
   TransactionPendingError: class TransactionPendingError extends Error {},
   watchTransaction: vi.fn(),
@@ -346,7 +356,11 @@ describe('LoanDetailsPage', () => {
       const hugeTotal = hugePrincipal + BigInt(100_0000000)
       mockGetLoanProposal.mockResolvedValue(approvedProposal())
       mockGetLoan.mockResolvedValue(
-        activeLoan({ principal: hugePrincipal, total_repayment: hugeTotal, amount_repaid: BigInt(0) })
+        activeLoan({
+          principal: hugePrincipal,
+          total_repayment: hugeTotal,
+          amount_repaid: BigInt(0),
+        })
       )
 
       renderWithProviders(<LoanDetailsPage />)
@@ -420,15 +434,15 @@ describe('LoanDetailsPage', () => {
 
       await userEvent.click(button)
 
-      await waitFor(() =>
-        expect(mockGetLoanProposal.mock.calls.length).toBeGreaterThan(before),
-      )
+      await waitFor(() => expect(mockGetLoanProposal.mock.calls.length).toBeGreaterThan(before))
     })
 
     it('shows the contract error and keeps the action available when funding fails', async () => {
       mockGetLoanProposal.mockResolvedValue(awaitingProposal)
       mockDisburseApprovedLoan.mockRejectedValue(
-        new Error('The treasury balance is too low to cover this payout. Top up the treasury, then try again.'),
+        new Error(
+          'The treasury balance is too low to cover this payout. Top up the treasury, then try again.'
+        )
       )
       renderWithProviders(<LoanDetailsPage />)
 
@@ -437,8 +451,8 @@ describe('LoanDetailsPage', () => {
       await waitFor(() =>
         expect(mockToastError).toHaveBeenCalledWith(
           expect.stringContaining('treasury balance is too low'),
-          expect.anything(),
-        ),
+          expect.anything()
+        )
       )
       expect(screen.getByRole('button', { name: /Fund now/i })).toBeEnabled()
     })

@@ -99,7 +99,7 @@ if (process.env.NODE_ENV !== 'production') {
     if (!isDeclaredFlag(name)) {
       logger.warn(
         `[FeatureFlags] "${name}" is enabled in ${FEATURE_FLAGS_ENV_VAR} but not declared ` +
-          'in FEATURE_FLAGS (src/lib/feature-flags.ts) — no code will act on it.',
+          'in FEATURE_FLAGS (src/lib/feature-flags.ts) — no code will act on it.'
       )
     }
   }

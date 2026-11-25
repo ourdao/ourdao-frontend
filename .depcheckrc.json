@@ -1,9 +1,4 @@
 {
   "//": "prettier-plugin-tailwindcss is loaded from .prettierrc (\"plugins\"), which depcheck does not read, so it is ignored here.",
-  "ignores": [
-    "@tailwindcss/postcss",
-    "tailwindcss",
-    "depcheck",
-    "prettier-plugin-tailwindcss"
-  ]
+  "ignores": ["@tailwindcss/postcss", "tailwindcss", "depcheck", "prettier-plugin-tailwindcss"]
 }

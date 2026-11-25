@@ -132,16 +132,22 @@ describe('CreateProposalPage', () => {
 
   it('renders the treasury proposal form for a connected member', async () => {
     renderWithProviders(<CreateProposalPage />)
-    await waitFor(() => expect(screen.getByRole('heading', { name: 'Create Proposal' })).toBeInTheDocument())
+    await waitFor(() =>
+      expect(screen.getByRole('heading', { name: 'Create Proposal' })).toBeInTheDocument()
+    )
     expect(screen.getByRole('button', { name: /Create Proposal/ })).toBeInTheDocument()
   })
 
   it('rejects a submission with an invalid destination address instead of calling the contract', async () => {
     renderWithProviders(<CreateProposalPage />)
-    await waitFor(() => expect(screen.getByRole('heading', { name: 'Create Proposal' })).toBeInTheDocument())
+    await waitFor(() =>
+      expect(screen.getByRole('heading', { name: 'Create Proposal' })).toBeInTheDocument()
+    )
 
     fireEvent.change(screen.getByPlaceholderText('0.00'), { target: { value: '100' } })
-    fireEvent.change(screen.getByPlaceholderText('G… or C…'), { target: { value: 'not-a-valid-address' } })
+    fireEvent.change(screen.getByPlaceholderText('G… or C…'), {
+      target: { value: 'not-a-valid-address' },
+    })
     fireEvent.change(screen.getByPlaceholderText(/Explain what this withdrawal is for/), {
       target: { value: 'Pay a contractor' },
     })

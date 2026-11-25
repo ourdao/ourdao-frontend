@@ -17,6 +17,7 @@ service worker, a web app manifest, and offline caching strategy.
 ## Consequences
 
 To be determined. Key considerations:
+
 - PWA installability requires offline support, which conflicts with the app's
   reliance on live contract reads and backend API calls.
 - The Freighter wallet extension may not work reliably in a PWA context.

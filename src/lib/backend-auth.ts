@@ -52,10 +52,7 @@ export interface AuthSigner {
 
 /** Why a handshake could not produce a usable header. */
 export type AuthFailureReason =
-  | 'unsupported-address'
-  | 'challenge-unavailable'
-  | 'challenge-rejected'
-  | 'rejected'
+  'unsupported-address' | 'challenge-unavailable' | 'challenge-rejected' | 'rejected'
 
 /** A handshake that never produced a header, with a member-facing reason. */
 export class AuthError extends Error {

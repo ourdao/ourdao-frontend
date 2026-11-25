@@ -61,7 +61,10 @@ describe('error-reporting — scrubbing when opted in', () => {
 
   it('scrubs a Stellar address out of nested context', () => {
     const spy = vi.spyOn(console, 'error').mockImplementation(() => {})
-    reportError(new Error('failed'), { borrower: STELLAR_ADDRESS, nested: { addr: STELLAR_ADDRESS } })
+    reportError(new Error('failed'), {
+      borrower: STELLAR_ADDRESS,
+      nested: { addr: STELLAR_ADDRESS },
+    })
 
     const [, payload] = spy.mock.calls[0]
     expect(JSON.stringify(payload)).not.toContain(STELLAR_ADDRESS)

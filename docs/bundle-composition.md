@@ -1,6 +1,6 @@
 # Bundle composition
 
-`scripts/bundle-size.mjs` already answers *how much* ships: it sums the client
+`scripts/bundle-size.mjs` already answers _how much_ ships: it sums the client
 JS and CSS in `.next/static` and fails a build that grows the gzip total by more
 than 5% and 10 KB against the latest `main` baseline.
 
@@ -76,32 +76,32 @@ build-tool duplicates that never ship and listing them all buries the signal.
 
 Recorded from a production build on 2026-09-27.
 
-| Metric | Value |
-| --- | --- |
-| Static assets measured | 38 |
-| Total shipped | 1549.1 KB raw / 450.5 KB gzip |
-| Attributed via source maps | 1543.0 KB across 63 buckets |
+| Metric                     | Value                         |
+| -------------------------- | ----------------------------- |
+| Static assets measured     | 38                            |
+| Total shipped              | 1549.1 KB raw / 450.5 KB gzip |
+| Attributed via source maps | 1543.0 KB across 63 buckets   |
 
 ### Where the bytes go
 
 > **Update (Issue #387):** `@heroicons/react` (39.1 KB / 2.5% share) was completely removed from the client bundle by migrating all usages to tree-shakeable `lucide-react` icons. This saves 39.1 KB raw (~10.8 KB gzip) with zero duplicate icon libraries shipped.
 
-| # | Package | Bytes | Share |
-| --- | --- | --- | --- |
-| 1 | `next` | 482.9 KB | 31.3% |
-| 2 | `@stellar/stellar-sdk` | 276.2 KB | 17.9% |
-| 3 | `@tanstack/query-core` | 33.6 KB | 2.2% |
-| 4 | `tailwind-merge` | 26.2 KB | 1.7% |
-| 5 | `buffer` | 23.9 KB | 1.6% |
-| 6 | `bignumber.js` | 19.8 KB | 1.3% |
-| 7 | `@stellar/js-xdr` | 18.1 KB | 1.2% |
-| 8 | `lucide-react` | 11.8 KB | 0.8% |
-| 9 | `@noble/hashes` | 10.4 KB | 0.7% |
-| 10 | `@radix-ui/react-slot` | 9.3 KB | 0.6% |
-| 11 | `react-hot-toast` | 9.2 KB | 0.6% |
-| 12 | `@noble/ed25519` | 7.8 KB | 0.5% |
-| 13 | `@floating-ui/core` | 7.5 KB | 0.5% |
-| 14 | `@radix-ui/react-collection` | 7.0 KB | 0.5% |
+| #   | Package                      | Bytes    | Share |
+| --- | ---------------------------- | -------- | ----- |
+| 1   | `next`                       | 482.9 KB | 31.3% |
+| 2   | `@stellar/stellar-sdk`       | 276.2 KB | 17.9% |
+| 3   | `@tanstack/query-core`       | 33.6 KB  | 2.2%  |
+| 4   | `tailwind-merge`             | 26.2 KB  | 1.7%  |
+| 5   | `buffer`                     | 23.9 KB  | 1.6%  |
+| 6   | `bignumber.js`               | 19.8 KB  | 1.3%  |
+| 7   | `@stellar/js-xdr`            | 18.1 KB  | 1.2%  |
+| 8   | `lucide-react`               | 11.8 KB  | 0.8%  |
+| 9   | `@noble/hashes`              | 10.4 KB  | 0.7%  |
+| 10  | `@radix-ui/react-slot`       | 9.3 KB   | 0.6%  |
+| 11  | `react-hot-toast`            | 9.2 KB   | 0.6%  |
+| 12  | `@noble/ed25519`             | 7.8 KB   | 0.5%  |
+| 13  | `@floating-ui/core`          | 7.5 KB   | 0.5%  |
+| 14  | `@radix-ui/react-collection` | 7.0 KB   | 0.5%  |
 
 On top of those, 247.1 KB is first-party app code and 196.2 KB sits in files Turbopack does not map (listed at the bottom).
 
@@ -109,14 +109,14 @@ On top of those, 247.1 KB is first-party app code and 196.2 KB sits in files Tur
 
 `@stellar/stellar-sdk` is the largest dependency at **276.2 KB (17.9%)**, so it is worth knowing which parts of it actually ship:
 
-| SDK module | Bytes |
-| --- | --- |
-| `src/base/generated/curr_generated.js` | 99.1 KB |
-| `src/contract/spec.ts` | 18.9 KB |
-| `src/base/transaction_builder.ts` | 14.0 KB |
-| `src/rpc/server.ts` | 12.4 KB |
+| SDK module                              | Bytes   |
+| --------------------------------------- | ------- |
+| `src/base/generated/curr_generated.js`  | 99.1 KB |
+| `src/contract/spec.ts`                  | 18.9 KB |
+| `src/base/transaction_builder.ts`       | 14.0 KB |
+| `src/rpc/server.ts`                     | 12.4 KB |
 | `src/contract/assembled_transaction.ts` | 10.0 KB |
-| `src/bindings/sac-spec.ts` | 9.6 KB |
+| `src/bindings/sac-spec.ts`              | 9.6 KB  |
 
 `src/base/generated/curr_generated.js` is the bulk of it: the XDR currency table, which anything touching XDR types pulls in wholesale. Treat it as a floor rather than a regression — the rest of the SDK's footprint tracks which contract and RPC helpers get imported, and a new import of a helper that reaches an XDR type will show up here as a jump in this file.
 

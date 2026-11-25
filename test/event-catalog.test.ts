@@ -62,16 +62,13 @@ const CONTRACT_EVENT_SYMBOLS = [
 // 1. Coverage: every contract symbol has an entry in EVENT_CATALOG
 // ---------------------------------------------------------------------------
 describe('EVENT_CATALOG – completeness (#324)', () => {
-  it.each(CONTRACT_EVENT_SYMBOLS)(
-    'has a catalog entry for contract event "%s"',
-    (symbol) => {
-      expect(EVENT_CATALOG).toHaveProperty(symbol)
-      const entry = EVENT_CATALOG[symbol]
-      expect(entry.label).toBeTruthy()
-      expect(entry.description).toBeTruthy()
-      expect(['loan', 'vote', 'proposal', 'member', 'treasury', 'document']).toContain(entry.category)
-    }
-  )
+  it.each(CONTRACT_EVENT_SYMBOLS)('has a catalog entry for contract event "%s"', (symbol) => {
+    expect(EVENT_CATALOG).toHaveProperty(symbol)
+    const entry = EVENT_CATALOG[symbol]
+    expect(entry.label).toBeTruthy()
+    expect(entry.description).toBeTruthy()
+    expect(['loan', 'vote', 'proposal', 'member', 'treasury', 'document']).toContain(entry.category)
+  })
 
   it('covers all symbols that previously fell back to raw symbol in ACTIVITY_META', () => {
     // These are the specific symbols called out in the issue as broken.
@@ -141,12 +138,9 @@ describe('EVENT_CATALOG – human labels for previously-broken events', () => {
 // 3. eventLabel() is still consistent with EVENT_CATALOG entries
 // ---------------------------------------------------------------------------
 describe('eventLabel() derives from EVENT_CATALOG', () => {
-  it.each(Object.keys(EVENT_CATALOG))(
-    'eventLabel("%s") returns the catalog label',
-    (symbol) => {
-      expect(eventLabel(symbol)).toBe(EVENT_CATALOG[symbol].label)
-    }
-  )
+  it.each(Object.keys(EVENT_CATALOG))('eventLabel("%s") returns the catalog label', (symbol) => {
+    expect(eventLabel(symbol)).toBe(EVENT_CATALOG[symbol].label)
+  })
 
   it('falls back to the raw symbol for unknown events', () => {
     expect(eventLabel('some_new_contract_event')).toBe('some_new_contract_event')
@@ -163,18 +157,12 @@ describe('eventLabel() derives from EVENT_CATALOG', () => {
 // ---------------------------------------------------------------------------
 describe('source audit – no surviving ACTIVITY_META (#324)', () => {
   it('useNotifications.ts does not define ACTIVITY_META', () => {
-    const source = readFileSync(
-      resolve(__dirname, '../src/hooks/useNotifications.ts'),
-      'utf8'
-    )
+    const source = readFileSync(resolve(__dirname, '../src/hooks/useNotifications.ts'), 'utf8')
     expect(source).not.toMatch(/const ACTIVITY_META/)
   })
 
   it('useNotifications.ts imports EVENT_CATALOG from dao-mappers', () => {
-    const source = readFileSync(
-      resolve(__dirname, '../src/hooks/useNotifications.ts'),
-      'utf8'
-    )
+    const source = readFileSync(resolve(__dirname, '../src/hooks/useNotifications.ts'), 'utf8')
     expect(source).toMatch(/EVENT_CATALOG.*from.*dao-mappers/)
   })
 })

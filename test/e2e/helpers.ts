@@ -1,11 +1,9 @@
 import { type Page } from '@playwright/test'
 import { Keypair, nativeToScVal, SorobanDataBuilder, Transaction, TransactionBuilder, xdr } from '@stellar/stellar-sdk'
 
-export const MOCK_WALLET_ADDRESS =
-  'GBBD47IF6LWK7P7MDEVSCWR7DPUWV3NY3DTQEVFL4NAT4AQH3ZLLFLA5'
+export const MOCK_WALLET_ADDRESS = 'GBBD47IF6LWK7P7MDEVSCWR7DPUWV3NY3DTQEVFL4NAT4AQH3ZLLFLA5'
 
-export const MOCK_CONTRACT_ID =
-  'CAAQCAIBAEAQCAIBAEAQCAIBAEAQCAIBAEAQCAIBAEAQCAIBAEAQC526'
+export const MOCK_CONTRACT_ID = 'CAAQCAIBAEAQCAIBAEAQCAIBAEAQCAIBAEAQCAIBAEAQCAIBAEAQC526'
 
 export const MOCK_NETWORK_PASSPHRASE = 'Test SDF Network ; September 2015'
 export const MOCK_NETWORK = 'TESTNET'
@@ -31,6 +29,28 @@ export async function injectFreighter(
   const autoConnect = options.autoConnect ?? false
 
   await page.addInitScript(
+    ({ address, network, networkPassphrase, version, autoConnect }) => {
+      const freighterStub = {
+        isConnected: () => Promise.resolve(true),
+        getFreighterVersion: () => Promise.resolve(version),
+        isAllowed: () => Promise.resolve(autoConnect),
+        setAllowed: () => Promise.resolve(true),
+        requestAccess: () => Promise.resolve({ address }),
+        getAddress: () => Promise.resolve({ address }),
+        getNetwork: () => Promise.resolve({ network, networkPassphrase }),
+        getNetworkDetails: () =>
+          Promise.resolve({
+            network,
+            networkPassphrase,
+            networkUrl: 'https://horizon-testnet.stellar.org',
+            sorobanRpcUrl: 'https://soroban-testnet.stellar.org',
+          }),
+        signTransaction: (xdr: string) => Promise.resolve(xdr),
+        signMessage: () => Promise.resolve('bW9jay1zaWduYXR1cmU='),
+      }
+
+      ;(window as unknown as { freighter?: typeof freighterStub }).freighter = freighterStub
+      ;(window as unknown as { freighterApi?: typeof freighterStub }).freighterApi = freighterStub
     ({ address, network, networkPassphrase, autoConnect }) => {
       let allowed = autoConnect
 
@@ -182,6 +202,7 @@ export async function setupMockRpcAndBackend(
       case 'get_pending_yield':
       case 'calculate_exit_share':
       case 'get_stake':
+      case 'get_voting_weight':
         return BigInt(0)
       case 'get_loan_proposal':
         return {
@@ -327,10 +348,7 @@ export async function setupMockRpcAndBackend(
  * - Injected Freighter mock
  * - Injected RPC and backend route mocks
  */
-export async function setupE2ETest(
-  page: Page,
-  options: SetupMockOptions = {}
-): Promise<void> {
+export async function setupE2ETest(page: Page, options: SetupMockOptions = {}): Promise<void> {
   await page.emulateMedia({ colorScheme: 'light', reducedMotion: 'reduce' })
   await page.addInitScript(() => {
     window.localStorage.setItem('theme', 'light')

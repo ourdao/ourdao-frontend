@@ -10,14 +10,14 @@ accessible-name assertions in the tests that already render these components.
 
 ## Violations found and disposition
 
-| # | Surface | Violation | Disposition |
-|---|---------|-----------|-------------|
-| 1 | `NotificationCenter` bell trigger (`PopoverTrigger`) | Icon-only `<button>` had `title="Notifications"` but no `aria-label` — fails `button-name` for AT that ignores `title` | **Fixed:** `aria-label="Open notifications"` added; asserted in `test/a11y.test.tsx` |
-| 2 | `NotificationCenter` duplicate bell inside `PopoverContent` | Same `title`-only pattern, plus a second bell inside the open panel is confusing | **Fixed:** `aria-label="Toggle notifications"` added; panel structure left intact to avoid a visual refactor in this PR |
-| 3 | `NotificationCenter` per-notification remove button | Icon-only `<button title="Remove">` with no programmatic name | **Fixed:** `aria-label="Remove notification"` added |
-| 4 | `AppShell` | No skip link; `<main>` had no `id` — keyboard / SR users must tab through the full header and sidebar on every page | **Fixed:** `Skip to main content` link (visually hidden until focused) targeting `<main id="main-content">`; asserted by role/name |
-| 5 | Mobile drawer (`SheetContent`) | Already had `role="dialog"` + `SheetTitle="Navigation menu"` (issue #68); verified no regression | **Kept:** `dialog` role + accessible name asserted; focus trap / Escape / restoration already covered in `test/AppShell-drawer.test.tsx` |
-| 6 | Mismatch + version banners (`WalletProvider`) | `role="alert"` present; verified they stay announced | **Kept:** asserted in `test/a11y.test.tsx` via the mismatch banner test in `test/network-mismatch.test.tsx` |
+| #   | Surface                                                     | Violation                                                                                                              | Disposition                                                                                                                              |
+| --- | ----------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------- |
+| 1   | `NotificationCenter` bell trigger (`PopoverTrigger`)        | Icon-only `<button>` had `title="Notifications"` but no `aria-label` — fails `button-name` for AT that ignores `title` | **Fixed:** `aria-label="Open notifications"` added; asserted in `test/a11y.test.tsx`                                                     |
+| 2   | `NotificationCenter` duplicate bell inside `PopoverContent` | Same `title`-only pattern, plus a second bell inside the open panel is confusing                                       | **Fixed:** `aria-label="Toggle notifications"` added; panel structure left intact to avoid a visual refactor in this PR                  |
+| 3   | `NotificationCenter` per-notification remove button         | Icon-only `<button title="Remove">` with no programmatic name                                                          | **Fixed:** `aria-label="Remove notification"` added                                                                                      |
+| 4   | `AppShell`                                                  | No skip link; `<main>` had no `id` — keyboard / SR users must tab through the full header and sidebar on every page    | **Fixed:** `Skip to main content` link (visually hidden until focused) targeting `<main id="main-content">`; asserted by role/name       |
+| 5   | Mobile drawer (`SheetContent`)                              | Already had `role="dialog"` + `SheetTitle="Navigation menu"` (issue #68); verified no regression                       | **Kept:** `dialog` role + accessible name asserted; focus trap / Escape / restoration already covered in `test/AppShell-drawer.test.tsx` |
+| 6   | Mismatch + version banners (`WalletProvider`)               | `role="alert"` present; verified they stay announced                                                                   | **Kept:** asserted in `test/a11y.test.tsx` via the mismatch banner test in `test/network-mismatch.test.tsx`                              |
 
 Suppression policy: no `axe` rule is disabled without a reason in code.
 The helper `test/a11y.ts` documents each `disabledRules` entry inline when

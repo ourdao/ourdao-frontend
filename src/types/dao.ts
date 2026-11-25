@@ -3,7 +3,7 @@ export interface Member {
   status: MemberStatus
   joinDate: number
   contributionAmount: bigint
-  shareBalance: bigint
+  shareBalance: bigint | null
   hasActiveLoan: boolean
   lastLoanDate: number
 }
@@ -35,6 +35,25 @@ export interface DAOStats {
   treasuryBalance: bigint
   totalYieldGenerated: bigint
   totalRestaked: bigint
+}
+
+export interface DaoSummary {
+  totalMembers: number
+  activeMembers: number
+  treasuryBalance: bigint
+  totalLoansIssued: number
+  consensusThreshold: number
+  isPaused: boolean
+}
+
+export interface MemberOverview {
+  address: string
+  status: MemberStatus
+  joinDate: number
+  contributionAmount: bigint
+  shareBalance: bigint
+  hasActiveLoan: boolean
+  pendingYield: bigint
 }
 
 export interface UserData {

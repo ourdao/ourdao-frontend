@@ -24,6 +24,7 @@ vi.mock('@/hooks/useDAO', () => ({
     isLoading: false,
   }),
   eventLabel: (s: string) => s,
+  useVotingWeight: () => ({ votingWeight: 4, isLoading: false, isError: false, refetch: vi.fn() }),
 }))
 
 describe('MemberProfilePage (#562)', () => {
@@ -47,7 +48,7 @@ describe('MemberProfilePage (#562)', () => {
 
     const link = screen.getByRole('link', { name: /view on explorer/i })
     expect(link.getAttribute('href')).toBe(
-      `https://stellar.expert/explorer/testnet/account/${TEST_ADDRESS}`,
+      `https://stellar.expert/explorer/testnet/account/${TEST_ADDRESS}`
     )
   }, 30_000)
 
@@ -60,7 +61,7 @@ describe('MemberProfilePage (#562)', () => {
 
     const link = screen.getByRole('link', { name: /view on explorer/i })
     expect(link.getAttribute('href')).toBe(
-      `https://stellar.expert/explorer/public/account/${TEST_ADDRESS}`,
+      `https://stellar.expert/explorer/public/account/${TEST_ADDRESS}`
     )
   })
 })

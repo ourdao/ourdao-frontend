@@ -22,10 +22,22 @@ export function LiveAnnouncer() {
 
   return (
     <>
-      <div role="status" aria-live="polite" aria-atomic="true" className="sr-only" data-testid="live-polite">
+      <div
+        role="status"
+        aria-live="polite"
+        aria-atomic="true"
+        className="sr-only"
+        data-testid="live-polite"
+      >
         {polite && <span key={polite.id}>{polite.message}</span>}
       </div>
-      <div role="alert" aria-live="assertive" aria-atomic="true" className="sr-only" data-testid="live-assertive">
+      <div
+        role="alert"
+        aria-live="assertive"
+        aria-atomic="true"
+        className="sr-only"
+        data-testid="live-assertive"
+      >
         {assertive && <span key={assertive.id}>{assertive.message}</span>}
       </div>
     </>

@@ -19,14 +19,14 @@ export function DocumentHistory({ kind, proposalId }: DocumentHistoryProps) {
     return (
       <Card>
         <CardHeader>
-          <CardTitle className="text-lg flex items-center gap-2">
+          <CardTitle className="flex items-center gap-2 text-lg">
             <FileText className="h-5 w-5" />
             Document History
           </CardTitle>
           <CardDescription>Attachment history for this proposal</CardDescription>
         </CardHeader>
         <CardContent>
-          <p className="text-sm text-muted-foreground">Loading document history...</p>
+          <p className="text-muted-foreground text-sm">Loading document history...</p>
         </CardContent>
       </Card>
     )
@@ -39,7 +39,7 @@ export function DocumentHistory({ kind, proposalId }: DocumentHistoryProps) {
   return (
     <Card>
       <CardHeader>
-        <CardTitle className="text-lg flex items-center gap-2">
+        <CardTitle className="flex items-center gap-2 text-lg">
           <FileText className="h-5 w-5" />
           Document Attachment History
         </CardTitle>
@@ -51,27 +51,25 @@ export function DocumentHistory({ kind, proposalId }: DocumentHistoryProps) {
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead>
-              <tr className="border-b text-left text-muted-foreground">
+              <tr className="text-muted-foreground border-b text-left">
                 <th className="pb-2 font-medium">Attached By</th>
                 <th className="pb-2 font-medium">Content Hash (CID)</th>
                 <th className="pb-2 font-medium">Ledger</th>
                 <th className="pb-2 font-medium">Date</th>
-                <th className="pb-2 font-medium text-right">View</th>
+                <th className="pb-2 text-right font-medium">View</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-border">
+            <tbody className="divide-border divide-y">
               {history.map((item, idx) => (
                 <tr key={`${item.cid}-${item.ledger}-${idx}`} className="hover:bg-muted/50">
                   <td className="py-2.5 text-xs">
                     <AddressLink address={item.attached_by} />
                   </td>
-                  <td className="py-2.5 font-mono text-xs truncate max-w-[200px]" title={item.cid}>
+                  <td className="max-w-[200px] truncate py-2.5 font-mono text-xs" title={item.cid}>
                     {item.cid}
                   </td>
-                  <td className="py-2.5 text-xs text-muted-foreground">
-                    #{item.ledger}
-                  </td>
-                  <td className="py-2.5 text-xs text-muted-foreground">
+                  <td className="text-muted-foreground py-2.5 text-xs">#{item.ledger}</td>
+                  <td className="text-muted-foreground py-2.5 text-xs">
                     {formatDate(item.created_at)}
                   </td>
                   <td className="py-2.5 text-right">
@@ -80,12 +78,12 @@ export function DocumentHistory({ kind, proposalId }: DocumentHistoryProps) {
                         href={`${IPFS_GATEWAY}${item.cid}`}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="inline-flex items-center text-xs text-blue-600 dark:text-blue-400 hover:underline"
+                        className="inline-flex items-center text-xs text-blue-600 hover:underline dark:text-blue-400"
                       >
                         Open <ExternalLink className="ml-1 h-3 w-3" />
                       </a>
                     ) : (
-                      <span className="text-xs text-muted-foreground">—</span>
+                      <span className="text-muted-foreground text-xs">—</span>
                     )}
                   </td>
                 </tr>

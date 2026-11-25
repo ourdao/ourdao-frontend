@@ -45,7 +45,9 @@ describe('StellarSignature auth wire format', () => {
 
   it('treats G… and M… as signable and C… as not', () => {
     expect(canSignForBackend(ADDRESS)).toBe(true)
-    expect(canSignForBackend('MABCDEFGHIJKLMNOPQRSTUVWXYZ234567ABCDEFGHIJKLMNOPQRSTUVWXYZ6789ABC')).toBe(true)
+    expect(
+      canSignForBackend('MABCDEFGHIJKLMNOPQRSTUVWXYZ234567ABCDEFGHIJKLMNOPQRSTUVWXYZ6789ABC')
+    ).toBe(true)
     expect(canSignForBackend('CABCDEFGHIJKLMNOPQRSTUVWXYZ234567ABCDEFGHIJKLMNOPQRSTUV')).toBe(false)
   })
 })
@@ -88,15 +90,17 @@ describe('fetchAuthChallenge', () => {
     })
   })
 
-  it("refuses a C… account up front — it can never produce an ed25519 signature", async () => {
+  it('refuses a C… account up front — it can never produce an ed25519 signature', async () => {
     await expect(fetchAuthChallenge('CABC')).rejects.toMatchObject({
       reason: 'unsupported-address',
     })
     expect(fetch).not.toHaveBeenCalled()
   })
 
-  it('surfaces the backend\'s 400 for an unauthenticable address as unsupported-address', async () => {
-    vi.mocked(fetch).mockResolvedValueOnce(jsonResponse({ error: 'invalid Stellar address' }, false, 400))
+  it("surfaces the backend's 400 for an unauthenticable address as unsupported-address", async () => {
+    vi.mocked(fetch).mockResolvedValueOnce(
+      jsonResponse({ error: 'invalid Stellar address' }, false, 400)
+    )
 
     await expect(fetchAuthChallenge(ADDRESS)).rejects.toMatchObject({
       reason: 'unsupported-address',
@@ -105,7 +109,9 @@ describe('fetchAuthChallenge', () => {
   })
 
   it('treats a 503 (nonce store at capacity) as a transient unavailability', async () => {
-    vi.mocked(fetch).mockResolvedValueOnce(jsonResponse({ error: 'Service temporarily unavailable' }, false, 503))
+    vi.mocked(fetch).mockResolvedValueOnce(
+      jsonResponse({ error: 'Service temporarily unavailable' }, false, 503)
+    )
 
     await expect(fetchAuthChallenge(ADDRESS)).rejects.toMatchObject({
       reason: 'challenge-unavailable',
@@ -186,7 +192,7 @@ describe('serializePerAddress', () => {
     expect(order).toEqual(['a:start', 'a:end', 'b:start', 'b:end'])
   })
 
-  it('does not let one address\'s failure block the next task in its chain', async () => {
+  it("does not let one address's failure block the next task in its chain", async () => {
     const failing = serializePerAddress('GTWO', async () => {
       throw new Error('boom')
     })

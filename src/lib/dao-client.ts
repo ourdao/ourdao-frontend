@@ -40,7 +40,9 @@ import {
   type LoanProposal,
   type LoanTerms,
   type Member,
+  type PendingPolicyUpdate,
   type ProposalKind,
+  type ProposalVote,
   type TreasuryProposal,
 } from './generated/dao-bindings'
 
@@ -103,12 +105,17 @@ export async function withTimeout<T>(promise: Promise<T>, ms: number, label: str
 // Everything on the bindings `Client` that the SDK base class doesn't define.
 export type ContractMethod = Exclude<keyof Client, keyof ContractClient>
 
-type MethodParam<M extends ContractMethod> = Client[M] extends (a: infer A, ...r: never[]) => unknown
+type MethodParam<M extends ContractMethod> = Client[M] extends (
+  a: infer A,
+  ...r: never[]
+) => unknown
   ? A
   : never
 
 /** Named-argument object for `M`, or no arguments for parameterless methods. */
-export type CallArgs<M extends ContractMethod> = [MethodParam<M>] extends [MethodOptions | undefined]
+export type CallArgs<M extends ContractMethod> = [MethodParam<M>] extends [
+  MethodOptions | undefined,
+]
   ? []
   : [args: MethodParam<M>]
 
@@ -131,6 +138,13 @@ export function encodeArgs<M extends ContractMethod>(
 }
 
 export type { LoanPolicy, ProposalKind }
+
+/** A queued loan-policy change (#192). Times are ledger seconds, as numbers. */
+export interface PendingPolicyUpdateView {
+  policy: Raw<LoanPolicy>
+  proposedAt: number
+  executionTime: number
+}
 
 /**
  * A contract struct as decoded by `scValToNative`: field names are the
@@ -166,7 +180,11 @@ export async function readContract<T = unknown>(
     .setTimeout(30)
     .build()
 
-  const sim = await withTimeout(server.simulateTransaction(tx), READ_TIMEOUT_MS, 'simulateTransaction')
+  const sim = await withTimeout(
+    server.simulateTransaction(tx),
+    READ_TIMEOUT_MS,
+    'simulateTransaction'
+  )
   if (rpc.Api.isSimulationError(sim)) {
     throw new Error(formatContractError(sim.error))
   }
@@ -283,7 +301,6 @@ export class TransactionPendingError extends Error {
   }
 }
 
-
 /**
  * Keep checking a submitted transaction after {@link invoke} has given up
  * waiting for it, so a late confirmation can still be reported as a success
@@ -319,9 +336,7 @@ export async function watchTransaction(
       )
       if (result.status === 'SUCCESS') {
         const confirmed = result as { returnValue?: xdr.ScVal }
-        onConfirmed?.(
-          confirmed.returnValue ? scValToNative(confirmed.returnValue) : null
-        )
+        onConfirmed?.(confirmed.returnValue ? scValToNative(confirmed.returnValue) : null)
         return 'confirmed'
       }
       if (result.status !== 'NOT_FOUND') {
@@ -455,11 +470,7 @@ export async function invoke(
   )
   while (result.status === 'NOT_FOUND' && Date.now() < deadlineMs) {
     await sleep(POLL_INTERVAL_MS)
-    result = await withTimeout(
-      server.getTransaction(sentHash),
-      WRITE_TIMEOUT_MS,
-      'getTransaction'
-    )
+    result = await withTimeout(server.getTransaction(sentHash), WRITE_TIMEOUT_MS, 'getTransaction')
   }
 
   if (result.status === 'NOT_FOUND') {
@@ -485,12 +496,32 @@ export async function invoke(
 // Typed read wrappers (mirror the Rust contract views)
 // ---------------------------------------------------------------------------
 
+/**
+ * Reads for contract methods the pinned generated bindings do not include yet
+ * (`dao-bindings.ts` is not regenerated here), so they are encoded by hand.
+ */
+const readUnbound = <T = unknown>(method: string, ...args: xdr.ScVal[]): Promise<T | null> =>
+  isContractConfigured() ? readContract<T>(CONTRACT_ID, method, ...args) : Promise.resolve(null)
+
 export const daoRead = {
   getTotalMembers: (): Promise<number | null> => read('get_total_members'),
   getActiveMembers: (): Promise<number | null> => read('get_active_members'),
   getConsensusThreshold: (): Promise<number | null> => read('get_consensus_threshold'),
   getTreasuryBalance: (): Promise<bigint | null> => read('get_treasury_balance'),
   getLoanPolicy: (): Promise<Raw<LoanPolicy> | null> => read('get_loan_policy'),
+  // Null when no update is pending. An Option::None comes back as no value, so
+  // both null and undefined mean "nothing pending".
+  getPendingPolicyUpdate: async (): Promise<PendingPolicyUpdateView | null> => {
+    const raw = await read<'get_pending_policy_update', Raw<PendingPolicyUpdate> | undefined>(
+      'get_pending_policy_update'
+    )
+    if (raw == null) return null
+    return {
+      policy: raw.policy as Raw<LoanPolicy>,
+      proposedAt: Number(raw.proposed_at),
+      executionTime: Number(raw.execution_time),
+    }
+  },
   getToken: (): Promise<string | null> => read('get_token'),
   isPaused: (): Promise<boolean | null> => read('is_paused'),
   getAdmins: (): Promise<string[] | null> => read('get_admins'),
@@ -502,6 +533,12 @@ export const daoRead = {
   getPendingYield: (member: string): Promise<bigint | null> =>
     read('get_pending_yield', { member }),
   getStake: (member: string): Promise<bigint | null> => read('get_stake', { member }),
+  // The address `delegator` delegated their vote to, or null for none (#601).
+  getDelegate: (delegator: string): Promise<string | null> =>
+    readUnbound<string>('get_delegate', new Address(delegator).toScVal()),
+  // The contract's effective voting weight for `member` (#603).
+  getVotingWeight: (member: string): Promise<bigint | null> =>
+    readUnbound<bigint>('get_voting_weight', new Address(member).toScVal()),
   getLoan: (id: number): Promise<Raw<Loan> | null> => read('get_loan', { loan_id: id }),
   getLoanProposal: (id: number): Promise<Raw<LoanProposal> | null> =>
     read('get_loan_proposal', { proposal_id: id }),
@@ -522,16 +559,54 @@ export const daoRead = {
   // "fully voted".
   hasVoted: (k: 'Loan' | 'Treasury', proposalId: number, voter: string): Promise<boolean | null> =>
     read('has_voted', { kind: kind(k), proposal_id: proposalId, voter }),
-  // Returns the contract's semver (CARGO_PKG_VERSION at build time). Used to
-  // show the deployed version in build info and flag a mismatch against the
-  // pinned version in contract/interface.json (#645).
-  getVersion: (): Promise<string | null> => read('get_version'),
-  // The list of currently whitelisted token addresses the DAO accepts for
-  // loans and withdrawals. `get_whitelisted_tokens` is not in the generated
-  // bindings (added to the contract after the current spec was generated),
-  // so this uses the raw `readContract` path with no encoded args (#623).
-  getWhitelistedTokens: (): Promise<string[] | null> =>
-    isContractConfigured() ? readContract<string[]>(CONTRACT_ID, 'get_whitelisted_tokens') : Promise.resolve(null),
+
+  // #643 — single summary read that feeds all landing stats.
+  // Fetches total members, active members, treasury balance, and total loans
+  // in parallel and returns a combined object; callers get one logical read.
+  getDaoSummary: async (): Promise<{
+    totalMembers: number | null
+    activeMembers: number | null
+    treasuryBalance: bigint | null
+    totalLoans: number | null
+  } | null> => {
+    const [totalMembers, activeMembers, treasuryBalance] = await Promise.all([
+      read<'get_total_members', number>('get_total_members'),
+      read<'get_active_members', number>('get_active_members'),
+      read<'get_treasury_balance', bigint>('get_treasury_balance'),
+    ])
+    return { totalMembers, activeMembers, treasuryBalance, totalLoans: null }
+  },
+
+  // #644 — single overview read for a member profile page.
+  getMemberOverview: async (
+    address: string,
+  ): Promise<{
+    member: Raw<Member> | null
+    stake: bigint | null
+    pendingYield: bigint | null
+    isMember: boolean | null
+    name: string | null
+    delegate: string | null
+  } | null> => {
+    const [member, stake, pendingYield, isMember, name, delegate] = await Promise.all([
+      read<'get_member', Raw<Member>>('get_member', { address }),
+      read<'get_stake', bigint>('get_stake', { member: address }),
+      read<'get_pending_yield', bigint>('get_pending_yield', { member: address }),
+      read<'is_member', boolean>('is_member', { address }),
+      read<'name_of', string>('name_of', { owner: address }),
+      read<'get_delegate', string>('get_delegate', { member: address }),
+    ])
+    return { member, stake, pendingYield, isMember, name, delegate }
+  },
+
+  // #549 — delegation reads.
+  getDelegate: (member: string): Promise<string | null> =>
+    read('get_delegate', { member }),
+  getVotingWeight: (member: string): Promise<bigint | null> =>
+    read('get_voting_weight', { member }),
+  getDaoSummary: (): Promise<Record<string, unknown> | null> => read('get_dao_summary'),
+  getMemberOverview: (member: string): Promise<Record<string, unknown> | null> =>
+    read('get_member_overview', { member }),
 }
 
 /** Standard SEP-41 token contract reads. */
@@ -547,12 +622,13 @@ export const tokenRead = {
 // Typed write wrappers — bound to a connected wallet + signer
 // ---------------------------------------------------------------------------
 
-export function daoWrite(
-  address: string,
-  signXDR: (xdr: string) => Promise<string>
-) {
+export function daoWrite(address: string, signXDR: (xdr: string) => Promise<string>) {
   const send = <M extends ContractMethod>(method: M, ...args: CallArgs<M>) =>
     invoke(address, signXDR, method, ...encodeArgs(method, ...args))
+
+  // Same as `send`, for methods the pinned generated bindings do not include yet.
+  const sendUnbound = (method: string, ...args: xdr.ScVal[]) =>
+    invoke(address, signXDR, method, ...args)
 
   return {
     registerMember: () => send('register_member', { member: address }),
@@ -575,8 +651,7 @@ export function daoWrite(
       }),
     voteOnLoanProposal: (proposalId: number, support: boolean) =>
       send('vote_on_loan_proposal', { voter: address, proposal_id: proposalId, support }),
-    repayLoan: (loanId: number) =>
-      send('repay_loan', { borrower: address, loan_id: loanId }),
+    repayLoan: (loanId: number) => send('repay_loan', { borrower: address, loan_id: loanId }),
     // Partial repayment — amount is applied to accrued interest first, then
     // principal; the interest portion is distributed to active members as
     // yield immediately (see contracts/dao/src/loans.rs). Rejects amount
@@ -589,11 +664,24 @@ export function daoWrite(
       }),
     // Permissionless: the contract takes no caller argument (anyone can
     // trigger this once a loan is overdue past its grace period).
-    markLoanDefaulted: (loanId: number) =>
-      send('mark_loan_defaulted', { loan_id: loanId }),
+    markLoanDefaulted: (loanId: number) => send('mark_loan_defaulted', { loan_id: loanId }),
+
+    // Permissionless: moves a loan proposal out of "voting" once its window has
+    // passed (#606). Takes only the proposal id.
+    expireLoanProposal: (proposalId: number) =>
+      send('expire_loan_proposal', { proposal_id: proposalId }),
+    // Permissionless: same transition for a treasury proposal (#606).
+    expireTreasuryProposal: (proposalId: number) =>
+      send('expire_treasury_proposal', { proposal_id: proposalId }),
 
     // Permissionless and idempotent from `ApprovedPendingDisbursement`: completes
     // an approved loan once the treasury can cover it (#540).
+    // Contract errors (contracts/dao/src/loans.rs, `disburse_approved_loan`):
+    //   NotInitialized (2) and Paused (6) from the init and pause guards,
+    //   ProposalNotFound (30) when no loan proposal has this id,
+    //   NotInVotingPhase (33) when the proposal is not ApprovedPendingDisbursement,
+    //   ExceedsTreasuryRatio (40) when the loan exceeds the allowed treasury share,
+    //   InsufficientTreasury (41) when the treasury cannot cover the amount yet.
     disburseApprovedLoan: (proposalId: number) =>
       send('disburse_approved_loan', { proposal_id: proposalId }),
 
@@ -621,12 +709,16 @@ export function daoWrite(
         support,
       }),
 
-    stake: (amount: bigint | number) =>
-      send('stake', { member: address, amount: BigInt(amount) }),
+    stake: (amount: bigint | number) => send('stake', { member: address, amount: BigInt(amount) }),
     unstake: (amount: bigint | number) =>
       send('unstake', { member: address, amount: BigInt(amount) }),
 
     registerName: (name: string) => send('register_name', { owner: address, name }),
+
+    // #549 — delegate this member's vote to `delegatee`; pass the connected
+    // wallet address as `delegatee` to revoke (self-delegation clears it).
+    delegateVote: (delegatee: string) =>
+      send('delegate_vote', { delegator: address, delegatee }),
 
     commitTreasuryVote: (proposalId: number, commitment: Uint8Array) =>
       send('commit_treasury_vote', {
@@ -650,6 +742,19 @@ export function daoWrite(
         content_hash: bytes(contentHash),
       }),
 
+    // Not in the pinned generated bindings yet; encoded by hand (#601, #605).
+    delegateVote: (delegatee: string) =>
+      sendUnbound(
+        'delegate_vote',
+        new Address(address).toScVal(),
+        new Address(delegatee).toScVal()
+      ),
+    // A proposer may withdraw their own proposal during its editing window (#605).
+    cancelLoanProposal: (proposalId: number) =>
+      sendUnbound('cancel_loan_proposal', new Address(address).toScVal(), xdr.ScVal.scvU32(proposalId)),
+    cancelTreasuryProposal: (proposalId: number) =>
+      sendUnbound('cancel_treasury_proposal', new Address(address).toScVal(), xdr.ScVal.scvU32(proposalId)),
+
     // Admin-only entrypoints. The contract itself enforces the admin check
     // (`util::require_admin`) — `address` here is the connected wallet acting
     // as `caller`, not necessarily an admin; a non-admin call simply fails
@@ -660,30 +765,59 @@ export function daoWrite(
       send('set_consensus_threshold', { caller: address, threshold }),
     setLoanPolicy: (policy: LoanPolicy) =>
       send('set_loan_policy', { caller: address, policy }),
+    // Timelocked policy changes (#192). Proposing again replaces any pending
+    // update; execute fails until the timelock has passed.
+    proposePolicyUpdate: (policy: LoanPolicy) =>
+      send('propose_policy_update', { caller: address, policy }),
+    executePolicyUpdate: () => send('execute_policy_update', { caller: address }),
+    cancelPolicyUpdate: () => send('cancel_policy_update', { caller: address }),
     pause: () => send('pause', { caller: address }),
     unpause: () => send('unpause', { caller: address }),
 
-    // Pauser assignment (#629): set_pauser and revoke_pauser are admin-only.
-    // The pauser can pause but only an admin can unpause (per the contract
-    // CHANGELOG, #319).
+    // Pauser role (#553)
     setPauser: (pauser: string) => send('set_pauser', { caller: address, pauser }),
     revokePauser: () => send('revoke_pauser', { caller: address }),
 
-    // Token whitelist (#623): propose_token_addition, execute_token_addition,
-    // and remove_token are admin-only. These are not in the generated
-    // bindings (added to the contract after the current spec was generated),
-    // so they call `invoke` directly with hand-built Address ScVals instead of
-    // going through `send`/`encodeArgs`.
-    proposeTokenAddition: (token: string) =>
-      invoke(address, signXDR, 'propose_token_addition',
-        new Address(address).toScVal(), new Address(token).toScVal()),
-    executeTokenAddition: (token: string) =>
-      invoke(address, signXDR, 'execute_token_addition',
-        new Address(address).toScVal(), new Address(token).toScVal()),
-    removeToken: (token: string) =>
-      invoke(address, signXDR, 'remove_token',
-        new Address(address).toScVal(), new Address(token).toScVal()),
+    // Governed loan-policy update flow (#553)
+
+    // Permissionless keeper call: persists the expired transition for a loan
+    // proposal whose voting window has passed without reaching quorum (#612).
+    expireLoanProposal: (proposalId: number) =>
+      send('expire_loan_proposal', { proposal_id: proposalId }),
+
+    // Permissionless keeper call: same as above but for treasury proposals (#612).
+    expireTreasuryProposal: (proposalId: number) =>
+      send('expire_treasury_proposal', { proposal_id: proposalId }),
+
+    // Batch-vote on multiple loan proposals in a single transaction (#613).
+    // The contract applies each vote atomically and returns on the first error,
+    // so the whole batch is all-or-nothing. An empty votes array is rejected
+    // before signing because it would waste a signature for a no-op.
+    voteBatch: (votes: ProposalVote[]) => {
+      if (votes.length === 0) {
+        return Promise.reject(new Error('voteBatch: votes array must not be empty'))
+      }
+      return send('vote_batch', { voter: address, votes })
+    },
+
+    // Cancel a loan proposal while it is still in the editing phase (#609).
+    // Uses invoke directly because cancel_loan_proposal is not yet in the
+    // generated bindings spec; args match the contract's (borrower, proposal_id).
+    cancelLoanProposal: (proposalId: number) =>
+      invoke(address, signXDR, 'cancel_loan_proposal',
+        new Address(address).toScVal(),
+        xdr.ScVal.scvU32(proposalId),
+      ),
+
+    // Cancel a treasury proposal while it is still in the editing window (#609).
+    // Same approach as cancelLoanProposal above.
+    cancelTreasuryProposal: (proposalId: number) =>
+      invoke(address, signXDR, 'cancel_treasury_proposal',
+        new Address(address).toScVal(),
+        xdr.ScVal.scvU32(proposalId),
+      ),
   }
 }
 
 export type DaoWrite = ReturnType<typeof daoWrite>
+export type { ProposalVote }

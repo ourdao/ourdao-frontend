@@ -86,7 +86,8 @@ describe('ConnectButton', () => {
       <ConnectButton.Custom>
         {(props) => (
           <span data-testid="custom">
-            {props.authenticationStatus}|{props.account?.displayName}|{String(props.chain.unsupported)}
+            {props.authenticationStatus}|{props.account?.displayName}|
+            {String(props.chain.unsupported)}
           </span>
         )}
       </ConnectButton.Custom>

@@ -1,6 +1,6 @@
 # Unused exports & dependencies (knip)
 
-CI runs [`knip`](https://knip.dev) to detect unused **code** — exports, types, files, and dependencies — complementing `depcheck`, which only detects unused *packages*. A new unused export fails the `knip` CI job.
+CI runs [`knip`](https://knip.dev) to detect unused **code** — exports, types, files, and dependencies — complementing `depcheck`, which only detects unused _packages_. A new unused export fails the `knip` CI job.
 
 This distinction has cost the repository repeatedly: #136 (fifteen unused exports in `responsive.ts`), #140 (eleven of nineteen types in `types/dao.ts`), #152 (`validateIPFSHash` never called), #40 (explorer URL helpers), #49 (900 unused lines in `DocumentUpload`/`DocumentViewer`). Every one was found by a person reading the code; knip makes CI find them instead.
 

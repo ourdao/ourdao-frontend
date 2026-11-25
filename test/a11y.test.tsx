@@ -6,7 +6,13 @@ import { renderWithProviders } from './test-utils'
 import { AppShell } from '@/components/AppShell'
 import { ConnectButton } from '@/components/ConnectButton'
 import { SkipLink } from '@/components/SkipLink'
-import { runAxe, runAxeWithAllowlist, KNOWN_A11Y_ALLOWLIST, formatViolations, assertInteractiveNames } from './a11y'
+import {
+  runAxe,
+  runAxeWithAllowlist,
+  KNOWN_A11Y_ALLOWLIST,
+  formatViolations,
+  assertInteractiveNames,
+} from './a11y'
 
 /**
  * Issue #238 — interactive components must have automated accessibility
@@ -24,6 +30,7 @@ vi.mock('next/navigation', () => ({
 vi.mock('@/hooks/useDAO', () => ({
   useUserData: () => ({ isAdmin: false }),
   useDAOStats: () => ({ indexerStale: false }),
+  useVotingWeight: () => ({ votingWeight: 4, isLoading: false, isError: false, refetch: vi.fn() }),
 }))
 
 vi.mock('@/lib/stellar', async () => {
@@ -196,9 +203,9 @@ describe('issue #238 — automated accessibility assertions', () => {
                 type="number"
                 name="amount"
                 aria-describedby="loan-amount-desc"
-                className="border p-2 rounded"
+                className="rounded border p-2"
               />
-              <p id="loan-amount-desc" className="text-xs text-muted-foreground">
+              <p id="loan-amount-desc" className="text-muted-foreground text-xs">
                 Minimum loan is 10 XLM
               </p>
               <button type="submit" className="btn btn-primary">
@@ -250,4 +257,3 @@ describe('issue #238 — automated accessibility assertions', () => {
     })
   })
 })
-

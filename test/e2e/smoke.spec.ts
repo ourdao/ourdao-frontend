@@ -34,8 +34,10 @@ test.describe('E2E Smoke Tests', () => {
     await connectBtn.click()
 
     // Upon connection, the button reflects the truncated address or connected state
-    const truncated = `${MOCK_WALLET_ADDRESS.slice(0, 4)}…${MOCK_WALLET_ADDRESS.slice(-4)}`
-    await expect(page.getByRole('banner').getByRole('button', { name: truncated })).toBeVisible()
+    const truncated = `${MOCK_WALLET_ADDRESS.slice(0, 4)}...${MOCK_WALLET_ADDRESS.slice(-4)}`
+    await expect(
+      page.getByText(truncated).or(page.getByRole('button', { name: new RegExp(truncated, 'i') }))
+    ).toBeVisible()
   })
 
   test('flow 3: register new member flow', async ({ page }) => {

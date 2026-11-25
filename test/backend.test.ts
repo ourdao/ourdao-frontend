@@ -41,7 +41,10 @@ describe('backend fetch wrappers', () => {
   it('getStats fetches /api/stats and returns the parsed body', async () => {
     vi.mocked(fetch).mockResolvedValueOnce(jsonResponse(statsFixture))
     const result = await backend.getStats()
-    expect(fetch).toHaveBeenCalledWith(`${CONFIGURED_URL}/api/stats`, expect.objectContaining({ cache: 'no-store' }))
+    expect(fetch).toHaveBeenCalledWith(
+      `${CONFIGURED_URL}/api/stats`,
+      expect.objectContaining({ cache: 'no-store' })
+    )
     expect(result).toEqual(statsFixture)
   })
 
@@ -113,7 +116,9 @@ describe('backend fetch wrappers', () => {
       })
     })
 
-    await expect(backend.getStats({ signal: controller.signal })).rejects.toBeInstanceOf(BackendError)
+    await expect(backend.getStats({ signal: controller.signal })).rejects.toBeInstanceOf(
+      BackendError
+    )
   })
 
   it('aborts request when timeout is reached', async () => {
@@ -122,7 +127,9 @@ describe('backend fetch wrappers', () => {
       vi.mocked(fetch).mockImplementationOnce((_url, init) => {
         const signal = init?.signal as AbortSignal | undefined
         return new Promise((_, reject) => {
-          signal?.addEventListener('abort', () => reject(new Error(signal.reason?.message ?? 'aborted')))
+          signal?.addEventListener('abort', () =>
+            reject(new Error(signal.reason?.message ?? 'aborted'))
+          )
         })
       })
 
@@ -161,7 +168,9 @@ describe('backend fetch wrappers', () => {
   })
 
   it('getLoans rejects when any loan row has the wrong shape, rather than showing an empty list', async () => {
-    vi.mocked(fetch).mockResolvedValueOnce(jsonResponse([{ id: 1, borrower: 'G', status: 'pending' }]))
+    vi.mocked(fetch).mockResolvedValueOnce(
+      jsonResponse([{ id: 1, borrower: 'G', status: 'pending' }])
+    )
     await expect(backend.getLoans()).rejects.toBeInstanceOf(BackendError)
   })
 
@@ -182,7 +191,10 @@ describe('backend fetch wrappers', () => {
   it('getAdminLog hits /api/admin/log with the limit', async () => {
     vi.mocked(fetch).mockResolvedValueOnce(jsonResponse([]))
     await backend.getAdminLog(10)
-    expect(fetch).toHaveBeenCalledWith(`${CONFIGURED_URL}/api/admin/log?limit=10`, expect.anything())
+    expect(fetch).toHaveBeenCalledWith(
+      `${CONFIGURED_URL}/api/admin/log?limit=10`,
+      expect.anything()
+    )
   })
 
   describe('authenticated notification mutations (#306)', () => {
@@ -197,7 +209,8 @@ describe('backend fetch wrappers', () => {
 
     /** The handshake is two requests: the challenge, then the PATCH. */
     const mockChallengeThen = (patchResponse: Partial<Response>) =>
-      vi.mocked(fetch)
+      vi
+        .mocked(fetch)
         .mockResolvedValueOnce(jsonResponse({ nonce: NONCE }))
         .mockResolvedValueOnce({ ok: true, status: 200, ...patchResponse } as Response)
 
@@ -215,7 +228,7 @@ describe('backend fetch wrappers', () => {
       )
     })
 
-    it('a 401 is reported as unauthorized with the backend\'s own reason, not as success', async () => {
+    it("a 401 is reported as unauthorized with the backend's own reason, not as success", async () => {
       vi.mocked(fetch)
         .mockResolvedValueOnce(jsonResponse({ nonce: NONCE }))
         .mockResolvedValueOnce({
@@ -232,7 +245,7 @@ describe('backend fetch wrappers', () => {
       })
     })
 
-    it('a 403 (another address\'s notification) is distinguished from a 401', async () => {
+    it("a 403 (another address's notification) is distinguished from a 401", async () => {
       vi.mocked(fetch)
         .mockResolvedValueOnce(jsonResponse({ nonce: NONCE }))
         .mockResolvedValueOnce({

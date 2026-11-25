@@ -6,7 +6,13 @@ import React from 'react'
 import toast from 'react-hot-toast'
 import { useWallet } from '@/lib/wallet'
 import { getTransactionUrl } from '@/lib/stellar'
-import { daoWrite, InvokeError, TransactionPendingError, watchTransaction, type InvokeResult } from '@/lib/dao-client'
+import {
+  daoWrite,
+  InvokeError,
+  TransactionPendingError,
+  watchTransaction,
+  type InvokeResult,
+} from '@/lib/dao-client'
 import { queryKeys } from '@/lib/query-keys'
 import { announce } from '@/lib/announce'
 import { reportError } from '@/lib/error-reporting'
@@ -89,8 +95,12 @@ export function useWriteAction() {
       // before any optimistic update or signer call, so a mismatched member
       // never reaches the Freighter approval prompt.
       if (networkMismatch) {
-        toast.error('Wallet network mismatch: switch Freighter to the expected network before submitting.')
-        throw new Error('Wallet network mismatch: transactions are blocked until the wallet network matches.')
+        toast.error(
+          'Wallet network mismatch: switch Freighter to the expected network before submitting.'
+        )
+        throw new Error(
+          'Wallet network mismatch: transactions are blocked until the wallet network matches.'
+        )
       }
       setPending(true)
       setSuccess(false)
@@ -117,8 +127,7 @@ export function useWriteAction() {
         queryClient.setQueryData(queryKey, update)
       }
 
-      const wrappedSignXDR = (xdr: string) =>
-        signXDR(xdr, { signal: controller.signal })
+      const wrappedSignXDR = (xdr: string) => signXDR(xdr, { signal: controller.signal })
 
       try {
         const res = await fn(daoWrite(address, wrappedSignXDR))
@@ -210,7 +219,11 @@ export function useWriteAction() {
             },
             onFailed: () => {
               const message = `${label} failed on-chain after being submitted.`
-              reportError(new Error(message), { action: label, hash: e.hash, stage: 'on-chain-watch' })
+              reportError(new Error(message), {
+                action: label,
+                hash: e.hash,
+                stage: 'on-chain-watch',
+              })
               toast.error(message, { id: toastId, ...SILENT_TOAST })
               announce(message, 'assertive')
             },
@@ -258,7 +271,17 @@ export function useWriteAction() {
     [address, isConnected, networkMismatch, isPaused, signXDR, queryClient]
   )
 
-  return { run, isPending, isSuccess, error, isRetryable, address, cancelSignature, networkMismatch, isPaused }
+  return {
+    run,
+    isPending,
+    isSuccess,
+    error,
+    isRetryable,
+    address,
+    cancelSignature,
+    networkMismatch,
+    isPaused,
+  }
 }
 
 export function useMemberRegistration() {
@@ -279,9 +302,7 @@ export function useLoanRequest() {
       queryKeys.userLoans(address!),
       queryKeys.userData(address!),
       queryKeys.loanProposalsAll(),
-    ]).then(
-      (res) => Number(res.returnValue)
-    )
+    ]).then((res) => Number(res.returnValue))
   return { requestLoan, isPending, error, isSuccess, cancelSignature }
 }
 
@@ -296,24 +317,40 @@ export function useEditLoanProposal() {
   return { editLoanProposal, isPending, error, isSuccess, cancelSignature }
 }
 
+/** Delegate the connected member's vote to another active member (#601). */
+export function useDelegateVote() {
+  const { run, isPending, isSuccess, error, address, cancelSignature } = useWriteAction()
+  const delegate = (delegatee: string) =>
+    run('Delegating vote', (w) => w.delegateVote(delegatee), [
+      queryKeys.delegate(address!),
+      queryKeys.userData(address!),
+    ])
+  return { delegate, isPending, error, isSuccess, cancelSignature }
+}
+
 export function useVoting() {
   const { run, isPending, isSuccess, error, address, cancelSignature } = useWriteAction()
   const voteOnProposal = (proposalId: number, support: boolean) =>
-    run('Casting vote', (w) => w.voteOnLoanProposal(proposalId, support), [
-      queryKeys.loanProposal(proposalId),
-      queryKeys.loanProposalsAll(),
-      queryKeys.hasVoted('Loan', proposalId, address!),
-      // A vote is recorded against the member, so `userData` moves, and a
-      // reaching quorum can immediately disburse, so both aggregates move.
-      queryKeys.userData(address!),
-      queryKeys.daoStats(),
-      queryKeys.backendStats(),
-    ], [
-      {
-        queryKey: queryKeys.hasVoted('Loan', proposalId, address!),
-        update: () => support,
-      },
-    ])
+    run(
+      'Casting vote',
+      (w) => w.voteOnLoanProposal(proposalId, support),
+      [
+        queryKeys.loanProposal(proposalId),
+        queryKeys.loanProposalsAll(),
+        queryKeys.hasVoted('Loan', proposalId, address!),
+        // A vote is recorded against the member, so `userData` moves, and a
+        // reaching quorum can immediately disburse, so both aggregates move.
+        queryKeys.userData(address!),
+        queryKeys.daoStats(),
+        queryKeys.backendStats(),
+      ],
+      [
+        {
+          queryKey: queryKeys.hasVoted('Loan', proposalId, address!),
+          update: () => support,
+        },
+      ]
+    )
   return { voteOnProposal, isPending, error, isSuccess, cancelSignature }
 }
 
@@ -338,9 +375,21 @@ export function useLoanRepayment() {
   const repayLoan = (loanId: number, amount?: bigint) => {
     if (amount !== undefined) {
       if (amount <= BigInt(0)) throw new Error('Repayment amount must be greater than zero')
-      return run('Repaying loan', (w) => w.repayLoanPartial(loanId, amount), repayInvalidates(loanId), [], REPAY_WHEN_PAUSED)
+      return run(
+        'Repaying loan',
+        (w) => w.repayLoanPartial(loanId, amount),
+        repayInvalidates(loanId),
+        [],
+        REPAY_WHEN_PAUSED
+      )
     }
-    return run('Repaying loan', (w) => w.repayLoan(loanId), repayInvalidates(loanId), [], REPAY_WHEN_PAUSED)
+    return run(
+      'Repaying loan',
+      (w) => w.repayLoan(loanId),
+      repayInvalidates(loanId),
+      [],
+      REPAY_WHEN_PAUSED
+    )
   }
   const repayLoanPartial = (loanId: number, amount: bigint) => {
     if (amount <= BigInt(0)) throw new Error('Repayment amount must be greater than zero')
@@ -349,7 +398,13 @@ export function useLoanRepayment() {
     // visibly broke — but a future edit to the factory would have silently
     // desynced this hook from the reads that use it, and repayment would stop
     // refreshing the loan. The factory is the single source of truth (#308).
-    return run('Repaying loan', (w) => w.repayLoanPartial(loanId, amount), repayInvalidates(loanId), [], REPAY_WHEN_PAUSED)
+    return run(
+      'Repaying loan',
+      (w) => w.repayLoanPartial(loanId, amount),
+      repayInvalidates(loanId),
+      [],
+      REPAY_WHEN_PAUSED
+    )
   }
   return { repayLoan, repayLoanPartial, isPending, error, isSuccess, cancelSignature }
 }
@@ -403,14 +458,18 @@ export function useStaking() {
 export function useCommitVote() {
   const { run, isPending, error, cancelSignature } = useWriteAction()
   const commitVote = (proposalId: number, commitment: Uint8Array) =>
-    run('Committing treasury vote', (w) => w.commitTreasuryVote(proposalId, commitment), [queryKeys.treasuryProposalsAll()])
+    run('Committing treasury vote', (w) => w.commitTreasuryVote(proposalId, commitment), [
+      queryKeys.treasuryProposalsAll(),
+    ])
   return { commitVote, isPending, error, cancelSignature }
 }
 
 export function useRevealVote() {
   const { run, isPending, error, cancelSignature } = useWriteAction()
   const revealVote = (proposalId: number, support: boolean, salt: Uint8Array) =>
-    run('Revealing treasury vote', (w) => w.revealTreasuryVote(proposalId, support, salt), [queryKeys.treasuryProposalsAll()])
+    run('Revealing treasury vote', (w) => w.revealTreasuryVote(proposalId, support, salt), [
+      queryKeys.treasuryProposalsAll(),
+    ])
   return { revealVote, isPending, error, cancelSignature }
 }
 
@@ -450,31 +509,31 @@ export function useExecuteTreasuryProposal() {
 export function useTreasuryVoting() {
   const { run, isPending, isSuccess, error, address, cancelSignature } = useWriteAction()
   const voteOnTreasury = (proposalId: number, support: boolean) =>
-    run('Casting vote', (w) => w.voteOnTreasuryProposal(proposalId, support), [
-      queryKeys.treasuryProposalsAll(),
-      queryKeys.hasVoted('Treasury', proposalId, address!),
-      queryKeys.userData(address!),
-      queryKeys.daoStats(),
-      // The treasury proposal list is fed by the indexer aggregate, so a vote
-      // that moves a proposal toward execution has to invalidate it too (#308).
-      queryKeys.backendStats(),
-    ], [
-      {
-        queryKey: queryKeys.hasVoted('Treasury', proposalId, address!),
-        update: () => support,
-      },
-    ])
+    run(
+      'Casting vote',
+      (w) => w.voteOnTreasuryProposal(proposalId, support),
+      [
+        queryKeys.treasuryProposalsAll(),
+        queryKeys.hasVoted('Treasury', proposalId, address!),
+        queryKeys.userData(address!),
+        queryKeys.daoStats(),
+        // The treasury proposal list is fed by the indexer aggregate, so a vote
+        // that moves a proposal toward execution has to invalidate it too (#308).
+        queryKeys.backendStats(),
+      ],
+      [
+        {
+          queryKey: queryKeys.hasVoted('Treasury', proposalId, address!),
+          update: () => support,
+        },
+      ]
+    )
   return { voteOnTreasury, isPending, isSuccess, error, cancelSignature }
 }
 
 export function useProposeTreasury() {
   const { run, isPending, isSuccess, error, cancelSignature } = useWriteAction()
-  const propose = (
-    amount: bigint,
-    destination: string,
-    reason: string,
-    isPrivate: boolean
-  ) =>
+  const propose = (amount: bigint, destination: string, reason: string, isPrivate: boolean) =>
     run(
       'Proposing withdrawal',
       (w) => w.proposeTreasuryWithdrawal(amount, destination, reason, isPrivate),
@@ -523,18 +582,132 @@ export function useExitDao() {
   return { exitDao, isPending, error, isSuccess, cancelSignature }
 }
 
+/** Persists the expired state for a loan proposal whose voting window has closed (#612). */
+export function useExpireLoanProposal() {
+  const { run, isPending, isSuccess, error, cancelSignature } = useWriteAction()
+  const expireLoanProposal = (proposalId: number) =>
+    run('Finalizing expired loan proposal', (w) => w.expireLoanProposal(proposalId), [
+      queryKeys.loanProposal(proposalId),
+      queryKeys.loanProposalsAll(),
+      queryKeys.backendStats(),
+    ])
+  return { expireLoanProposal, isPending, isSuccess, error, cancelSignature }
+}
+
+/** Persists the expired state for a treasury proposal whose voting window has closed (#612). */
+export function useExpireTreasuryProposal() {
+  const { run, isPending, isSuccess, error, cancelSignature } = useWriteAction()
+  const expireTreasuryProposal = (proposalId: number) =>
+    run('Finalizing expired treasury proposal', (w) => w.expireTreasuryProposal(proposalId), [
+      queryKeys.treasuryProposal(proposalId),
+      queryKeys.treasuryProposalsAll(),
+      queryKeys.backendStats(),
+    ])
+  return { expireTreasuryProposal, isPending, isSuccess, error, cancelSignature }
+}
+
+/** Cancels a loan proposal while it is in the editing phase (#609). */
+export function useCancelLoanProposal() {
+  const { run, isPending, isSuccess, error, address, cancelSignature } = useWriteAction()
+  const cancelLoanProposal = (proposalId: number) =>
+    run('Cancelling loan proposal', (w) => w.cancelLoanProposal(proposalId), [
+      queryKeys.loanProposal(proposalId),
+      queryKeys.loanProposalsAll(),
+      queryKeys.userData(address!),
+      queryKeys.backendStats(),
+    ])
+  return { cancelLoanProposal, isPending, isSuccess, error, cancelSignature }
+}
+
+/** Cancels a treasury proposal while it is in the editing window (#609). */
+export function useCancelTreasuryProposal() {
+  const { run, isPending, isSuccess, error, cancelSignature } = useWriteAction()
+  const cancelTreasuryProposal = (proposalId: number) =>
+    run('Cancelling treasury proposal', (w) => w.cancelTreasuryProposal(proposalId), [
+      queryKeys.treasuryProposal(proposalId),
+      queryKeys.treasuryProposalsAll(),
+      queryKeys.backendStats(),
+    ])
+  return { cancelTreasuryProposal, isPending, isSuccess, error, cancelSignature }
+}
+
+/**
+ * Submits votes on multiple loan proposals in a single transaction (#613).
+ * The batch is all-or-nothing: the contract returns on the first error.
+ * Throws before signing when `votes` is empty.
+ */
+export function useVoteBatch() {
+  const { run, isPending, isSuccess, error, address, cancelSignature } = useWriteAction()
+  const voteBatch = (votes: ProposalVote[]) =>
+    run('Casting batch votes', (w) => w.voteBatch(votes), [
+      queryKeys.loanProposalsAll(),
+      queryKeys.userData(address!),
+      queryKeys.daoStats(),
+      queryKeys.backendStats(),
+    ])
+  return { voteBatch, isPending, isSuccess, error, cancelSignature }
+}
+
 export function useAdminActions() {
   const { run, isPending, isSuccess, error, cancelSignature } = useWriteAction()
   const pause = () => run('Pausing the DAO', (w) => w.pause(), [queryKeys.daoStats()])
   const unpause = () => run('Unpausing the DAO', (w) => w.unpause(), [queryKeys.daoStats()])
-  const addAdmin = (admin: string) => run('Adding admin', (w) => w.addAdmin(admin), [queryKeys.admins()])
+  const addAdmin = (admin: string) =>
+    run('Adding admin', (w) => w.addAdmin(admin), [queryKeys.admins()])
   const removeAdmin = (admin: string) =>
     run('Removing admin', (w) => w.removeAdmin(admin), [queryKeys.admins()])
   const setThreshold = (thresholdBps: number) =>
     run('Updating consensus threshold', (w) => w.setConsensusThreshold(thresholdBps), [
       queryKeys.daoStats(),
     ])
-  return { pause, unpause, addAdmin, removeAdmin, setThreshold, isPending, isSuccess, error, cancelSignature }
+  return {
+    pause,
+    unpause,
+    addAdmin,
+    removeAdmin,
+    setThreshold,
+    isPending,
+    isSuccess,
+    error,
+    cancelSignature,
+  }
+}
+
+// #549 — useDelegateVote: delegate or revoke vote delegation
+export function useDelegateVote() {
+  const { run, isPending, isSuccess, error, cancelSignature } = useWriteAction()
+  const { address } = useWallet()
+  const delegateVote = (delegatee: string) =>
+    run('Delegating vote', (w) => w.delegateVote(delegatee), [
+      queryKeys.delegate(address ?? ''),
+      queryKeys.votingWeight(address ?? ''),
+    ])
+  const revokeVote = () =>
+    address
+      ? run('Revoking vote delegation', (w) => w.delegateVote(address), [
+          queryKeys.delegate(address),
+          queryKeys.votingWeight(address),
+        ])
+      : Promise.resolve()
+  return { delegateVote, revokeVote, isPending, isSuccess, error, cancelSignature }
+export function usePauserActions() {
+  const { run, isPending, isSuccess, error, cancelSignature } = useWriteAction()
+  const setPauser = (pauser: string) =>
+    run('Setting pauser', (w) => w.setPauser(pauser), [queryKeys.daoStats()])
+  const revokePauser = () =>
+    run('Revoking pauser', (w) => w.revokePauser(), [queryKeys.daoStats()])
+  return { setPauser, revokePauser, isPending, isSuccess, error, cancelSignature }
+}
+
+export function usePolicyUpdateActions() {
+  const { run, isPending, isSuccess, error, cancelSignature } = useWriteAction()
+  const proposePolicyUpdate = (policy: DaoWrite['proposePolicyUpdate'] extends (p: infer P) => unknown ? P : never) =>
+    run('Proposing policy update', (w) => w.proposePolicyUpdate(policy), [queryKeys.daoStats()])
+  const executePolicyUpdate = () =>
+    run('Executing policy update', (w) => w.executePolicyUpdate(), [queryKeys.daoStats()])
+  const cancelPolicyUpdate = () =>
+    run('Cancelling policy update', (w) => w.cancelPolicyUpdate(), [queryKeys.daoStats()])
+  return { proposePolicyUpdate, executePolicyUpdate, cancelPolicyUpdate, isPending, isSuccess, error, cancelSignature }
 }
 
 /**

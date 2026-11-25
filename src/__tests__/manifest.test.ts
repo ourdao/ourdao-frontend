@@ -5,9 +5,7 @@ import { join, resolve } from 'path'
 const PUBLIC_DIR = resolve(import.meta.dirname, '../../public')
 
 describe('PWA Manifest', () => {
-  const manifest = JSON.parse(
-    readFileSync(resolve(PUBLIC_DIR, 'manifest.json'), 'utf-8')
-  )
+  const manifest = JSON.parse(readFileSync(resolve(PUBLIC_DIR, 'manifest.json'), 'utf-8'))
 
   it('has required PWA fields', () => {
     expect(manifest.name).toBeDefined()

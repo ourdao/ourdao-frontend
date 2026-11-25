@@ -10,7 +10,11 @@ export function required(value: string, field: string, label: string): FieldErro
   return value.trim() ? null : { field, message: `${label} is required` }
 }
 
-export function positiveTokenAmount(value: string, field: string, label: string): FieldError | null {
+export function positiveTokenAmount(
+  value: string,
+  field: string,
+  label: string
+): FieldError | null {
   try {
     return parseToken(value) > BigInt(0)
       ? null

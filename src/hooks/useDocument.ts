@@ -50,17 +50,14 @@ export function useDocumentContent(
   const content = active.data?.content ?? null
   const decrypted = active.data?.decrypted ?? false
   const loading = doc.encrypted ? decryptMutation.isPending : query.isLoading
-  const error = !hasAccess
-    ? ACCESS_DENIED_MESSAGE
-    : active.error
-      ? errorMessage(active.error)
-      : ''
+  const error = !hasAccess ? ACCESS_DENIED_MESSAGE : active.error ? errorMessage(active.error) : ''
 
   // TS's Uint8Array is generic over its buffer type as of TS 5.7+; BlobPart
   // requires an ArrayBuffer-backed one specifically, so copy into a fresh
   // Uint8Array to satisfy that (no behavior change).
   const previewUrl = useMemo(
-    () => (content ? URL.createObjectURL(new Blob([new Uint8Array(content)], { type: doc.type })) : null),
+    () =>
+      content ? URL.createObjectURL(new Blob([new Uint8Array(content)], { type: doc.type })) : null,
     [content, doc.type]
   )
 

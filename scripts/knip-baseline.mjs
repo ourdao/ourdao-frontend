@@ -25,7 +25,9 @@ if (result.error) {
   process.exit(1)
 }
 if (!result.stdout || result.stdout.length === 0) {
-  console.error(`knip-baseline: knip produced no JSON report (exit ${result.status}) — see stderr above`)
+  console.error(
+    `knip-baseline: knip produced no JSON report (exit ${result.status}) — see stderr above`
+  )
   process.exit(1)
 }
 
@@ -36,7 +38,9 @@ if (check) {
   const committed = JSON.parse(readFileSync('knip-baseline.json', 'utf8'))
   const drift = JSON.stringify(committed) !== JSON.stringify(findings)
   if (drift) {
-    console.error('knip-baseline: committed baseline is stale. Regenerate with: npm run knip:baseline')
+    console.error(
+      'knip-baseline: committed baseline is stale. Regenerate with: npm run knip:baseline'
+    )
     process.exit(1)
   }
   console.log('knip-baseline: baseline is current')

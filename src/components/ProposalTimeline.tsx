@@ -21,7 +21,12 @@ interface ProposalTimelineProps {
 import { useMemo } from 'react'
 import { AddressLink } from '@/components/AddressLink'
 
-export function ProposalTimeline({ kind, id, isPrivate = false, fallbackDates }: ProposalTimelineProps) {
+export function ProposalTimeline({
+  kind,
+  id,
+  isPrivate = false,
+  fallbackDates,
+}: ProposalTimelineProps) {
   const loanTimeline = useLoanTimeline(kind === 'loan' ? id : 0)
   const treasuryTimeline = useTreasuryTimeline(kind === 'treasury' ? id : 0)
 
@@ -32,7 +37,9 @@ export function ProposalTimeline({ kind, id, isPrivate = false, fallbackDates }:
   const votes = useMemo(() => {
     if (!timeline) return []
     return timeline
-      .filter((ev) => ev.symbol === 'loan_vote' || ev.symbol === 'tre_vote' || ev.symbol === 'committed')
+      .filter(
+        (ev) => ev.symbol === 'loan_vote' || ev.symbol === 'tre_vote' || ev.symbol === 'committed'
+      )
       .map((ev) => {
         let voter = ''
         let support: boolean | null = null
@@ -73,12 +80,12 @@ export function ProposalTimeline({ kind, id, isPrivate = false, fallbackDates }:
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center text-lg">
-            <CalendarIcon className="h-5 w-5 mr-2" />
+            <CalendarIcon className="mr-2 h-5 w-5" />
             Proposal Timeline
           </CardTitle>
         </CardHeader>
         <CardContent>
-          <p className="text-sm text-muted-foreground">Loading timeline events...</p>
+          <p className="text-muted-foreground text-sm">Loading timeline events...</p>
         </CardContent>
       </Card>
     )
@@ -88,31 +95,27 @@ export function ProposalTimeline({ kind, id, isPrivate = false, fallbackDates }:
     <Card>
       <CardHeader>
         <CardTitle className="flex items-center text-lg">
-          <CalendarIcon className="h-5 w-5 mr-2" />
+          <CalendarIcon className="mr-2 h-5 w-5" />
           Proposal Timeline
         </CardTitle>
         <CardDescription>Decoded on-chain event sequence</CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
         {timeline && timeline.length > 0 ? (
-          <div className="relative border-l border-border ml-3 pl-4 space-y-4">
+          <div className="border-border relative ml-3 space-y-4 border-l pl-4">
             {timeline.map((ev, idx) => (
               <div key={`${ev.symbol}-${ev.ledger}-${idx}`} className="relative">
-                <span className="absolute -left-[23px] top-1 flex h-4 w-4 items-center justify-center rounded-full bg-primary-100 text-primary-600 dark:bg-primary-900/30">
+                <span className="bg-primary-100 text-primary-600 dark:bg-primary-900/30 absolute top-1 -left-[23px] flex h-4 w-4 items-center justify-center rounded-full">
                   <span className="h-2 w-2 rounded-full bg-blue-600 dark:bg-blue-400" />
                 </span>
                 <div className="flex flex-col">
                   <div className="flex items-center justify-between">
-                    <span className="text-sm font-medium text-foreground">
+                    <span className="text-foreground text-sm font-medium">
                       {eventLabel(ev.symbol)}
                     </span>
-                    <span className="text-xs text-muted-foreground">
-                      Ledger {ev.ledger}
-                    </span>
+                    <span className="text-muted-foreground text-xs">Ledger {ev.ledger}</span>
                   </div>
-                  <span className="text-xs text-muted-foreground">
-                    {formatDate(ev.created_at)}
-                  </span>
+                  <span className="text-muted-foreground text-xs">{formatDate(ev.created_at)}</span>
                   {(() => {
                     const txUrl = ev.tx_hash ? getTransactionUrl(ev.tx_hash) : null
                     return txUrl ? (
@@ -120,7 +123,7 @@ export function ProposalTimeline({ kind, id, isPrivate = false, fallbackDates }:
                         href={txUrl}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="inline-flex items-center text-xs text-blue-600 dark:text-blue-400 hover:underline mt-1"
+                        className="mt-1 inline-flex items-center text-xs text-blue-600 hover:underline dark:text-blue-400"
                       >
                         Tx {ev.tx_hash!.slice(0, 8)}... <ExternalLink className="ml-1 h-3 w-3" />
                       </a>
@@ -133,49 +136,50 @@ export function ProposalTimeline({ kind, id, isPrivate = false, fallbackDates }:
         ) : fallbackDates ? (
           <div className="space-y-3">
             {fallbackDates.created && (
-              <div className="flex justify-between items-center text-sm">
+              <div className="flex items-center justify-between text-sm">
                 <span className="text-muted-foreground">Created</span>
                 <span className="font-medium">{formatDate(fallbackDates.created)}</span>
               </div>
             )}
             {fallbackDates.votingStart && (
-              <div className="flex justify-between items-center text-sm">
+              <div className="flex items-center justify-between text-sm">
                 <span className="text-muted-foreground">Voting Started</span>
                 <span className="font-medium">{formatDate(fallbackDates.votingStart)}</span>
               </div>
             )}
             {fallbackDates.votingEnd && (
-              <div className="flex justify-between items-center text-sm">
+              <div className="flex items-center justify-between text-sm">
                 <span className="text-muted-foreground">Voting Ends</span>
                 <span className="font-medium">{formatDate(fallbackDates.votingEnd)}</span>
               </div>
             )}
             {fallbackDates.disbursed && (
-              <div className="flex justify-between items-center text-sm">
+              <div className="flex items-center justify-between text-sm">
                 <span className="text-muted-foreground">Disbursed</span>
                 <span className="font-medium">{formatDate(fallbackDates.disbursed)}</span>
               </div>
             )}
           </div>
         ) : (
-          <p className="text-sm text-muted-foreground">No timeline events recorded yet.</p>
+          <p className="text-muted-foreground text-sm">No timeline events recorded yet.</p>
         )}
 
         {/* Voter Breakdown (Issue #402) */}
-        <div className="mt-6 border-t border-border pt-4">
-          <h4 className="mb-2 text-sm font-semibold text-foreground">Voter Breakdown</h4>
+        <div className="border-border mt-6 border-t pt-4">
+          <h4 className="text-foreground mb-2 text-sm font-semibold">Voter Breakdown</h4>
           {isPrivate ? (
-            <p className="text-xs text-muted-foreground">
-              Private proposal — individual choices are confidential ({votes.length} commitment{votes.length === 1 ? '' : 's'} recorded).
+            <p className="text-muted-foreground text-xs">
+              Private proposal — individual choices are confidential ({votes.length} commitment
+              {votes.length === 1 ? '' : 's'} recorded).
             </p>
           ) : votes.length === 0 ? (
-            <p className="text-xs text-muted-foreground">No individual voter records available.</p>
+            <p className="text-muted-foreground text-xs">No individual voter records available.</p>
           ) : (
             <div className="space-y-2">
               {votes.map((v, i) => (
                 <div
                   key={`${v.voter}-${i}`}
-                  className="flex items-center justify-between rounded-lg bg-muted/40 p-2 text-xs"
+                  className="bg-muted/40 flex items-center justify-between rounded-lg p-2 text-xs"
                 >
                   <AddressLink address={v.voter} className="text-foreground" />
                   <div className="flex items-center gap-2">
@@ -193,7 +197,7 @@ export function ProposalTimeline({ kind, id, isPrivate = false, fallbackDates }:
                       </span>
                     )}
                     {v.support === null && (
-                      <span className="rounded bg-muted px-1.5 py-0.5 text-muted-foreground">
+                      <span className="bg-muted text-muted-foreground rounded px-1.5 py-0.5">
                         Commitment
                       </span>
                     )}

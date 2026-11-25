@@ -20,7 +20,14 @@
  * optimistic state back rather than leaving the UI claiming a change the backend
  * never made (#306).
  */
-import { AuthError, buildAuthHeader, requestSignedAuth, type AuthFailureReason, type AuthSigner, type SignedAuth } from './backend-auth'
+import {
+  AuthError,
+  buildAuthHeader,
+  requestSignedAuth,
+  type AuthFailureReason,
+  type AuthSigner,
+  type SignedAuth,
+} from './backend-auth'
 import { BACKEND_URL, isBackendConfigured } from './backend-config'
 import type { paths } from './generated/backend-api'
 
@@ -38,7 +45,6 @@ export class BackendError extends Error {
 
 // --- Response shapes (mirror ourdao-backend/src/types.ts as of commit 7620d26; amounts are strings) ---
 
-
 export interface BackendReady {
   ready: boolean
   indexerStale?: boolean
@@ -47,7 +53,8 @@ export interface BackendReady {
 }
 
 type StatsBody = paths['/api/stats']['get']['responses']['200']['content']['application/json']
-type LoanItem = paths['/api/loans']['get']['responses']['200']['content']['application/json'][number]
+type LoanItem =
+  paths['/api/loans']['get']['responses']['200']['content']['application/json'][number]
 
 /**
  * Stats fields the app reads that ourdao-backend's DAOStats type returns but the
@@ -106,7 +113,6 @@ export interface BackendInterestDistribution {
   tx_hash: string | null
   created_at: string
 }
-
 
 export interface BackendFailedEvent {
   id: number | string
@@ -604,7 +610,12 @@ async function patch(
   } catch (err) {
     cleanup()
     if (err instanceof AuthError) {
-      return { ok: false, status: err.status, reason: reasonFromAuth(err.reason), message: err.message }
+      return {
+        ok: false,
+        status: err.status,
+        reason: reasonFromAuth(err.reason),
+        message: err.message,
+      }
     }
     return {
       ok: false,
@@ -753,8 +764,7 @@ export const backend = {
     get<BackendStats | null>(
       '/api/stats',
       null,
-      (value): value is BackendStats | null =>
-        value === null || isBackendStats(value),
+      (value): value is BackendStats | null => value === null || isBackendStats(value),
       options
     ),
 
@@ -770,8 +780,7 @@ export const backend = {
     get<BackendLoan | null>(
       `/api/loans/${id}`,
       null,
-      (value): value is BackendLoan | null =>
-        value === null || isBackendLoan(value),
+      (value): value is BackendLoan | null => value === null || isBackendLoan(value),
       options
     ),
 
@@ -826,11 +835,15 @@ export const backend = {
     address: string,
     signer: AuthSigner,
     options?: BackendRequestOptions | AbortSignal
-  ) =>
-    patch(`/api/notifications/read-all?address=${encodeURIComponent(address)}`, signer, options),
+  ) => patch(`/api/notifications/read-all?address=${encodeURIComponent(address)}`, signer, options),
 
   getFailedEvents: (options?: BackendRequestOptions | AbortSignal) =>
-    get<BackendFailedEvent[]>('/api/admin/failed-events', [], arrayOf(isBackendFailedEvent), options),
+    get<BackendFailedEvent[]>(
+      '/api/admin/failed-events',
+      [],
+      arrayOf(isBackendFailedEvent),
+      options
+    ),
 
   getDocumentHistory: (
     kind: string,
@@ -847,7 +860,12 @@ export const backend = {
   },
 
   getLoanTimeline: (id: number, options?: BackendRequestOptions | AbortSignal) =>
-    get<BackendTimelineEvent[]>(`/api/loans/${id}/timeline`, [], arrayOf(isBackendTimelineEvent), options),
+    get<BackendTimelineEvent[]>(
+      `/api/loans/${id}/timeline`,
+      [],
+      arrayOf(isBackendTimelineEvent),
+      options
+    ),
 
   getTreasuryTimeline: (id: number, options?: BackendRequestOptions | AbortSignal) =>
     get<BackendTimelineEvent[]>(
@@ -860,18 +878,14 @@ export const backend = {
   // The active member directory. The contract keeps no queryable member list,
   // so this is the only way to show who is in the DAO.
   getMembers: (limit = 50, options?: BackendRequestOptions | AbortSignal) =>
-    get<BackendMember[]>(
-      `/api/members?limit=${limit}`,
-      [],
-      arrayOf(isBackendMember),
-      options
-    ),
+    get<BackendMember[]>(`/api/members?limit=${limit}`, [], arrayOf(isBackendMember), options),
 
   getMemberSummary: (address: string, options?: BackendRequestOptions | AbortSignal) =>
     get<BackendMemberSummary | null>(
       `/api/members/${encodeURIComponent(address)}/summary`,
       null,
-      (value): value is BackendMemberSummary | null => value === null || isBackendMemberSummary(value),
+      (value): value is BackendMemberSummary | null =>
+        value === null || isBackendMemberSummary(value),
       options
     ),
 
@@ -919,4 +933,84 @@ export const backend = {
       isBackendStatsHistoryResponse,
       options
     ),
+}
+
+// --- Event stream (SSE, /api/stream) -----------------------------------------
+
+/** Event types the backend's stream writes (ourdao-backend src/api/stream.ts). */
+export type BackendStreamEventType = 'heartbeat' | 'notification' | 'error' | 'resync'
+
+/** Parsed `data:` body of one named stream frame: `{ type, channel?, payload?, timestamp }`. */
+export interface BackendStreamEvent {
+  type: BackendStreamEventType
+  channel?: string
+  payload?: Record<string, unknown>
+  timestamp: number
+}
+
+export type BackendStreamStatus = 'open' | 'error'
+
+export interface OpenEventStreamOptions {
+  onEvent: (event: BackendStreamEvent) => void
+  onStatus?: (status: BackendStreamStatus) => void
+  /** DAO-wide channel subset, sent as `?channels=`. Omit to receive all of them. */
+  channels?: readonly string[]
+}
+
+const STREAM_EVENT_TYPES: readonly BackendStreamEventType[] = ['heartbeat', 'notification', 'error', 'resync']
+
+export const isBackendStreamEvent = (value: unknown): value is BackendStreamEvent => {
+  if (!isRecord(value)) return false
+  if (!STREAM_EVENT_TYPES.includes(value.type as BackendStreamEventType)) return false
+  if (!isNumber(value.timestamp)) return false
+  if (value.channel !== undefined && !isString(value.channel)) return false
+  if (value.payload !== undefined && !isRecord(value.payload)) return false
+  // A resync must say whether a change may have been missed; the caller refetches on it.
+  if (value.type === 'resync' && !(isRecord(value.payload) && isBoolean(value.payload.missed))) return false
+  return true
+}
+
+/**
+ * Subscribe to the live stream. The server sends *named* events
+ * (`event: <type>`), so `onmessage` never fires: a listener is registered for
+ * each type instead. Malformed frames are logged and dropped, never forwarded.
+ *
+ * Returns a close function. When the backend is not configured (preview mode)
+ * nothing is opened and the returned close is a no-op.
+ */
+export function openEventStream({ onEvent, onStatus, channels }: OpenEventStreamOptions): () => void {
+  if (!isBackendConfigured() || typeof EventSource === 'undefined') return () => {}
+
+  const base = process.env.NEXT_PUBLIC_BACKEND_URL || ''
+  const query = channels && channels.length > 0 ? `?channels=${encodeURIComponent(channels.join(','))}` : ''
+  const source = new EventSource(`${base}/api/stream${query}`)
+
+  source.onopen = () => onStatus?.('open')
+
+  const dispatch = (type: BackendStreamEventType, raw: Event) => {
+    const body = (raw as MessageEvent<unknown>).data
+    if (typeof body !== 'string') {
+      // A transport failure carries no server frame; EventSource retries by itself.
+      onStatus?.('error')
+      return
+    }
+    let parsed: unknown
+    try {
+      parsed = JSON.parse(body)
+    } catch (cause) {
+      console.warn(`[backend] dropped ${type} event: body is not JSON`, cause)
+      return
+    }
+    if (!isBackendStreamEvent(parsed) || parsed.type !== type) {
+      console.warn(`[backend] dropped ${type} event: unexpected shape`, parsed)
+      return
+    }
+    onEvent(parsed)
+  }
+
+  for (const type of STREAM_EVENT_TYPES) {
+    source.addEventListener(type, (raw) => dispatch(type, raw))
+  }
+
+  return () => source.close()
 }

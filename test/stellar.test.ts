@@ -98,8 +98,11 @@ describe('stellar explorer URL helpers', () => {
     vi.stubEnv('NEXT_PUBLIC_NETWORK_PASSPHRASE', Networks.PUBLIC)
     vi.resetModules()
 
-    const { getContractUrl: mainnetContractUrl, getTransactionUrl: mainnetTxUrl, getAddressUrl: mainnetAddrUrl } =
-      await import('@/lib/stellar')
+    const {
+      getContractUrl: mainnetContractUrl,
+      getTransactionUrl: mainnetTxUrl,
+      getAddressUrl: mainnetAddrUrl,
+    } = await import('@/lib/stellar')
 
     expect(mainnetContractUrl(testContract)).toContain('/public/')
     expect(mainnetTxUrl(testHash)).toContain('/public/')
@@ -113,8 +116,11 @@ describe('stellar explorer URL helpers', () => {
     vi.stubEnv('NEXT_PUBLIC_NETWORK_PASSPHRASE', Networks.FUTURENET)
     vi.resetModules()
 
-    const { getContractUrl: fnContractUrl, getTransactionUrl: fnTxUrl, getAddressUrl: fnAddrUrl } =
-      await import('@/lib/stellar')
+    const {
+      getContractUrl: fnContractUrl,
+      getTransactionUrl: fnTxUrl,
+      getAddressUrl: fnAddrUrl,
+    } = await import('@/lib/stellar')
 
     expect(fnContractUrl(testContract)).toBeNull()
     expect(fnTxUrl(testHash)).toBeNull()
@@ -128,8 +134,11 @@ describe('stellar explorer URL helpers', () => {
     vi.stubEnv('NEXT_PUBLIC_NETWORK_PASSPHRASE', 'Unknown Network Passphrase')
     vi.resetModules()
 
-    const { getContractUrl: unkContractUrl, getTransactionUrl: unkTxUrl, getAddressUrl: unkAddrUrl } =
-      await import('@/lib/stellar')
+    const {
+      getContractUrl: unkContractUrl,
+      getTransactionUrl: unkTxUrl,
+      getAddressUrl: unkAddrUrl,
+    } = await import('@/lib/stellar')
 
     expect(unkContractUrl(testContract)).toBeNull()
     expect(unkTxUrl(testHash)).toBeNull()
@@ -198,7 +207,7 @@ describe('isStellarAddress', () => {
       const withInvalidDigit = validG.slice(0, 5) + digit + validG.slice(6)
       expect(withInvalidDigit).toHaveLength(validG.length)
       expect(isStellarAddress(withInvalidDigit)).toBe(false)
-    },
+    }
   )
 
   it.each(['0', '1', '8', '9'])(
@@ -207,7 +216,7 @@ describe('isStellarAddress', () => {
       const withInvalidDigit = validM.slice(0, 5) + digit + validM.slice(6)
       expect(withInvalidDigit).toHaveLength(validM.length)
       expect(isStellarAddress(withInvalidDigit)).toBe(false)
-    },
+    }
   )
 })
 

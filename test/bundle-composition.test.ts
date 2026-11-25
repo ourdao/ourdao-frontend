@@ -16,10 +16,7 @@ import {
 
 function writeChunk(dir: string, name: string, sources: string[]) {
   writeFileSync(join(dir, name), `console.log(1);\n//# sourceMappingURL=${name}.map\n`)
-  writeFileSync(
-    join(dir, `${name}.map`),
-    JSON.stringify({ version: 3, sources, mappings: '' })
-  )
+  writeFileSync(join(dir, `${name}.map`), JSON.stringify({ version: 3, sources, mappings: '' }))
 }
 
 // Base64-VLQ vectors from the Source Map v3 spec: a single digit carries the
@@ -103,13 +100,13 @@ describe('attributeBytes', () => {
 describe('packageOfSource', () => {
   it('reads an unscoped package', () => {
     expect(packageOfSource('turbopack:///[project]/node_modules/lucide-react/dist/x.js')).toBe(
-      'lucide-react',
+      'lucide-react'
     )
   })
 
   it('reads a scoped package as one name', () => {
     expect(packageOfSource('node_modules/@stellar/stellar-sdk/src/rpc/server.ts')).toBe(
-      '@stellar/stellar-sdk',
+      '@stellar/stellar-sdk'
     )
   })
 
@@ -125,7 +122,7 @@ describe('rollUp', () => {
         ['node_modules/lucide-react/dist/x.js', 10],
         ['turbopack:///[project]/src/lib/logger.ts', 20],
         ['?', 5],
-      ]),
+      ])
     )
     expect([...rolled.entries()].sort()).toEqual([
       ['(app code)', 20],
@@ -144,7 +141,7 @@ describe('resolveMapPath', () => {
     writeFileSync(join(dir, 'other-name.js.map'), '{}')
     writeFileSync(chunk, 'code\n//# sourceMappingURL=other-name.js.map\n')
     expect(resolveMapPath(chunk, 'code\n//# sourceMappingURL=other-name.js.map\n')).toBe(
-      join(dir, 'other-name.js.map'),
+      join(dir, 'other-name.js.map')
     )
   })
 
@@ -176,9 +173,11 @@ describe('findDuplicateVersions', () => {
           'node_modules/vite/node_modules/debug': { version: '4.4.3' },
           'node_modules/semver': { version: '7.7.1' },
         },
-      }),
+      })
     )
-    expect(findDuplicateVersions(lockfile)).toEqual([{ name: 'debug', versions: ['3.2.7', '4.4.3'] }])
+    expect(findDuplicateVersions(lockfile)).toEqual([
+      { name: 'debug', versions: ['3.2.7', '4.4.3'] },
+    ])
   })
 
   it('ignores the lockfile root, which has no version', () => {

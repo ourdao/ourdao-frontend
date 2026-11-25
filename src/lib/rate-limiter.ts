@@ -82,7 +82,10 @@ export function getClientIp(req: NextRequest): string {
 }
 
 export function getMemberAddress(req: NextRequest): string | null {
-  const address = req.headers.get('x-member-address') || req.headers.get('x-user-address') || req.headers.get('x-stellar-address')
+  const address =
+    req.headers.get('x-member-address') ||
+    req.headers.get('x-user-address') ||
+    req.headers.get('x-stellar-address')
   return address ? address.trim() : null
 }
 

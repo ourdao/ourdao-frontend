@@ -1,6 +1,13 @@
 // @vitest-environment jsdom
 import { describe, expect, it } from 'vitest'
-import { formatFileSize, formatToken, parseToken, formatThreshold, formatDuration } from '@/lib/utils'
+import {
+  formatFileSize,
+  formatToken,
+  parseToken,
+  formatThreshold,
+  formatDuration,
+  parseSaltBackup,
+} from '@/lib/utils'
 
 describe('formatToken', () => {
   it('renders a bare "0" for an exact zero value', () => {
@@ -56,7 +63,10 @@ describe('formatToken / parseToken round trip', () => {
     ['sub-display-precision', BigInt(999)],
     ['exact display-precision boundary', BigInt(1000)],
     ['a whole number', BigInt(5) * BigInt(10) ** BigInt(7)],
-    ['large (above Number.MAX_SAFE_INTEGER)', BigInt(Number.MAX_SAFE_INTEGER) * BigInt(1000) + BigInt(1)],
+    [
+      'large (above Number.MAX_SAFE_INTEGER)',
+      BigInt(Number.MAX_SAFE_INTEGER) * BigInt(1000) + BigInt(1),
+    ],
     ['negative', BigInt(-1234567)],
   ]
 
@@ -135,5 +145,82 @@ describe('formatDuration', () => {
   it('falls back to days for anything else', () => {
     expect(formatDuration(90 * 86400)).toBe('90 days')
     expect(formatDuration(86400)).toBe('1 day')
+  })
+})
+
+describe('parseSaltBackup (#572)', () => {
+  const validHexSalt = 'ab'.repeat(32) // 64 hex characters (32 bytes)
+  const validPayload = JSON.stringify({
+    proposalId: 42,
+    address: 'GALICE',
+    salt: validHexSalt,
+    exportedAt: '2026-01-01T00:00:00.000Z',
+  })
+
+  it('parses a valid salt backup file and returns the 32-byte Uint8Array', () => {
+    const res = parseSaltBackup(validPayload, { proposalId: 42, address: 'GALICE' })
+    expect(res).toBeInstanceOf(Uint8Array)
+    expect(res.length).toBe(32)
+    expect(Array.from(res)).toEqual(new Array(32).fill(0xab))
+  })
+
+  it('rejects a short salt (less than 64 hex characters)', () => {
+    const short = JSON.stringify({
+      proposalId: 42,
+      address: 'GALICE',
+      salt: '00'.repeat(31), // 62 characters
+    })
+    expect(() => parseSaltBackup(short, { proposalId: 42, address: 'GALICE' })).toThrow(
+      'Invalid salt file format'
+    )
+  })
+
+  it('rejects a non-hex salt', () => {
+    const nonHex = JSON.stringify({
+      proposalId: 42,
+      address: 'GALICE',
+      salt: 'zz'.repeat(32), // 64 chars, but non-hex
+    })
+    expect(() => parseSaltBackup(nonHex, { proposalId: 42, address: 'GALICE' })).toThrow(
+      'Invalid salt file format'
+    )
+  })
+
+  it('rejects a backup with a missing salt key without throwing TypeError', () => {
+    const missingSalt = JSON.stringify({
+      proposalId: 42,
+      address: 'GALICE',
+    })
+    expect(() => parseSaltBackup(missingSalt, { proposalId: 42, address: 'GALICE' })).toThrow(
+      'Invalid salt file format'
+    )
+  })
+
+  it('rejects a backup for a different proposal', () => {
+    const wrongProposal = JSON.stringify({
+      proposalId: 99,
+      address: 'GALICE',
+      salt: validHexSalt,
+    })
+    expect(() => parseSaltBackup(wrongProposal, { proposalId: 42, address: 'GALICE' })).toThrow(
+      'Salt file is for a different proposal'
+    )
+  })
+
+  it('rejects a backup for a different address', () => {
+    const wrongAddress = JSON.stringify({
+      proposalId: 42,
+      address: 'GBOB',
+      salt: validHexSalt,
+    })
+    expect(() => parseSaltBackup(wrongAddress, { proposalId: 42, address: 'GALICE' })).toThrow(
+      'Salt file is for a different address'
+    )
+  })
+
+  it('rejects malformed JSON', () => {
+    expect(() => parseSaltBackup('{not-valid-json', { proposalId: 42, address: 'GALICE' })).toThrow(
+      'Invalid salt file format'
+    )
   })
 })

@@ -49,19 +49,22 @@ export default function AppError({
   return (
     <div
       role="alert"
-      className="mx-auto mt-8 w-full max-w-md rounded-xl border border-border bg-card p-6 text-center text-card-foreground shadow-sm"
+      className="border-border bg-card text-card-foreground mx-auto mt-8 w-full max-w-md rounded-xl border p-6 text-center shadow-sm"
     >
-      <TriangleAlert className="mx-auto h-8 w-8 text-destructive" aria-hidden="true" />
-      <h1 className="mt-3 text-lg font-semibold text-foreground">This page couldn&apos;t load</h1>
-      <p className="mt-2 text-sm text-muted-foreground">
-        The data for this page failed to load. That is a loading problem, not
-        an empty result — nothing here has been lost.
+      <TriangleAlert className="text-destructive mx-auto h-8 w-8" aria-hidden="true" />
+      <h1 className="text-foreground mt-3 text-lg font-semibold">This page couldn&apos;t load</h1>
+      <p className="text-muted-foreground mt-2 text-sm">
+        The data for this page failed to load. That is a loading problem, not an empty result —
+        nothing here has been lost.
       </p>
-      <p className="mt-2 text-xs font-mono text-muted-foreground" data-testid="error-reference-id">
+      <p className="text-muted-foreground mt-2 font-mono text-xs" data-testid="error-reference-id">
         Reference: {referenceId}
       </p>
       {process.env.NODE_ENV !== 'production' && error.message && (
-        <p className="mt-3 break-words rounded-lg bg-muted p-2 font-mono text-xs text-muted-foreground" data-testid="dev-error-message">
+        <p
+          className="bg-muted text-muted-foreground mt-3 rounded-lg p-2 font-mono text-xs break-words"
+          data-testid="dev-error-message"
+        >
           {error.message}
         </p>
       )}

@@ -39,7 +39,10 @@ function Harness({
   return null
 }
 
-function renderHook(testDoc: DocumentMetadata, onRender: (hook: ReturnType<typeof useDocumentContent>) => void) {
+function renderHook(
+  testDoc: DocumentMetadata,
+  onRender: (hook: ReturnType<typeof useDocumentContent>) => void
+) {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } })
   return render(
     <QueryClientProvider client={client}>
@@ -68,7 +71,9 @@ describe('useDocumentContent', () => {
     mockDownloadFromIPFS.mockResolvedValue({ content, decrypted: false })
 
     let latest: ReturnType<typeof useDocumentContent> | undefined
-    renderHook(doc(), (hook) => { latest = hook })
+    renderHook(doc(), (hook) => {
+      latest = hook
+    })
 
     await waitFor(() => expect(latest?.content).toBe(content))
     expect(latest?.loading).toBe(false)
@@ -81,7 +86,9 @@ describe('useDocumentContent', () => {
     mockCanAccessDocument.mockReturnValue(false)
 
     let latest: ReturnType<typeof useDocumentContent> | undefined
-    renderHook(doc(), (hook) => { latest = hook })
+    renderHook(doc(), (hook) => {
+      latest = hook
+    })
 
     await waitFor(() => expect(latest?.error).toBe('You do not have permission to view this doc'))
     expect(latest?.content).toBeNull()
@@ -92,7 +99,9 @@ describe('useDocumentContent', () => {
     mockDownloadFromIPFS.mockRejectedValue(new Error('Failed to download document from IPFS'))
 
     let latest: ReturnType<typeof useDocumentContent> | undefined
-    renderHook(doc(), (hook) => { latest = hook })
+    renderHook(doc(), (hook) => {
+      latest = hook
+    })
 
     await waitFor(() => expect(latest?.error).toBe('Failed to download document from IPFS'))
     expect(latest?.content).toBeNull()
@@ -102,7 +111,9 @@ describe('useDocumentContent', () => {
     mockDownloadFromIPFS.mockRejectedValue(new Error('Failed to download document from IPFS'))
 
     let latest: ReturnType<typeof useDocumentContent> | undefined
-    renderHook(doc({ encrypted: true }), (hook) => { latest = hook })
+    renderHook(doc({ encrypted: true }), (hook) => {
+      latest = hook
+    })
 
     // Encrypted docs don't auto-fetch.
     expect(mockDownloadFromIPFS).not.toHaveBeenCalled()
@@ -122,7 +133,9 @@ describe('useDocumentContent', () => {
     mockDownloadFromIPFS.mockResolvedValue({ content, decrypted: true })
 
     let latest: ReturnType<typeof useDocumentContent> | undefined
-    renderHook(doc({ encrypted: true }), (hook) => { latest = hook })
+    renderHook(doc({ encrypted: true }), (hook) => {
+      latest = hook
+    })
 
     await act(async () => {
       latest!.decrypt('correct-password')

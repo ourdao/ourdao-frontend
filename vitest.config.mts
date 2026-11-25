@@ -25,11 +25,9 @@ export default defineConfig({
     // Vitest 5: ensure native config loader compatibility (Issue #385)
     configLoader: 'native',
     // Issue #240: coverage is measured per file with the V8 provider.
-    // The provider itself (@vitest/coverage-v8, pinned to the vitest
-    // version) is installed in CI via `npm install --no-save` (see
-    // .github/workflows/ci.yml) so `npm ci` stays lockfile-clean without a
-    // local install step. Thresholds are intentionally at initial-adoption
-    // levels (ratchet, not gate) — the first CI summary publishes the real
+    // The coverage provider is pinned to the Vitest version in devDependencies.
+    // Thresholds are intentionally at initial-adoption levels (ratchet, not
+    // gate) — the first CI summary publishes the real
     // per-file numbers, and follow-ups raise these and open gaps as issues.
     coverage: {
       provider: 'v8',

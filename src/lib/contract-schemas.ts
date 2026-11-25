@@ -20,44 +20,59 @@ import { LOAN_POLICY_FALLBACKS } from '@/constants'
 
 /** Coerce to a finite number, or `fallback` for anything missing/unparseable. */
 const finiteNumber = (fallback: number) =>
-  z.unknown().optional().transform((value) => {
-    if (value == null) return fallback
-    const n = Number(value)
-    return Number.isFinite(n) ? n : fallback
-  })
+  z
+    .unknown()
+    .optional()
+    .transform((value) => {
+      if (value == null) return fallback
+      const n = Number(value)
+      return Number.isFinite(n) ? n : fallback
+    })
 
 /** Coerce to a bigint, or `fallback` for anything missing/unparseable. */
 const bigintValue = (fallback: bigint) =>
-  z.unknown().optional().transform((value) => {
-    if (value == null) return fallback
-    try {
-      return BigInt(value as number | string)
-    } catch {
-      return fallback
-    }
-  })
+  z
+    .unknown()
+    .optional()
+    .transform((value) => {
+      if (value == null) return fallback
+      try {
+        return BigInt(value as number | string)
+      } catch {
+        return fallback
+      }
+    })
 
 /** Coerce to a string, or `fallback` for anything missing. */
 const stringValue = (fallback: string) =>
-  z.unknown().optional().transform((value) => {
-    if (value == null) return fallback
-    return typeof value === 'string' ? value : String(value)
-  })
+  z
+    .unknown()
+    .optional()
+    .transform((value) => {
+      if (value == null) return fallback
+      return typeof value === 'string' ? value : String(value)
+    })
 
 /** Normalize a Soroban unit-enum — a bare symbol string or a one-element
  *  array of it — to its plain tag, or `''` when it is neither. */
-const enumTag = z.unknown().optional().transform((value) => {
-  const tag = Array.isArray(value) ? value[0] : value
-  return typeof tag === 'string' ? tag : ''
-})
+const enumTag = z
+  .unknown()
+  .optional()
+  .transform((value) => {
+    const tag = Array.isArray(value) ? value[0] : value
+    return typeof tag === 'string' ? tag : ''
+  })
 
 /** Coerce to a boolean, tolerating the contract's `0`/`1` encoding. */
 const booleanValue = (fallback: boolean) =>
-  z.unknown().optional().transform((value) => {
-    if (typeof value === 'boolean') return value
-    if (value === 0 || value === 1) return value === 1
-    return fallback
-  })
+  z
+    .unknown()
+    .optional()
+    .transform((value) => {
+      if (typeof value === 'boolean') return value
+      if (value === 0 || value === 1) return value === 1
+      return fallback
+    })
 
 // --- Contract structs --------------------------------------------------------
 

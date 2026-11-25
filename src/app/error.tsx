@@ -45,18 +45,28 @@ export default function Error({
   }, [error, referenceId])
 
   return (
-    <main id={MAIN_CONTENT_ID} tabIndex={-1} className="flex min-h-screen items-center justify-center bg-background px-4 focus:outline-none">
-      <div className="w-full max-w-md rounded-xl border border-border bg-card text-card-foreground p-6 text-center shadow-sm">
-        <h1 className="text-lg font-semibold text-foreground">This page couldn&apos;t load</h1>
-        <p className="mt-2 text-sm text-muted-foreground">
-          Something went wrong rendering this page. You can try again, or head
-          back to the dashboard.
+    <main
+      id={MAIN_CONTENT_ID}
+      tabIndex={-1}
+      className="bg-background flex min-h-screen items-center justify-center px-4 focus:outline-none"
+    >
+      <div className="border-border bg-card text-card-foreground w-full max-w-md rounded-xl border p-6 text-center shadow-sm">
+        <h1 className="text-foreground text-lg font-semibold">This page couldn&apos;t load</h1>
+        <p className="text-muted-foreground mt-2 text-sm">
+          Something went wrong rendering this page. You can try again, or head back to the
+          dashboard.
         </p>
-        <p className="mt-2 text-xs font-mono text-muted-foreground" data-testid="error-reference-id">
+        <p
+          className="text-muted-foreground mt-2 font-mono text-xs"
+          data-testid="error-reference-id"
+        >
           Reference: {referenceId}
         </p>
         {process.env.NODE_ENV !== 'production' && error.message && (
-          <p className="mt-3 rounded-lg bg-muted p-2 font-mono text-xs text-muted-foreground break-words" data-testid="dev-error-message">
+          <p
+            className="bg-muted text-muted-foreground mt-3 rounded-lg p-2 font-mono text-xs break-words"
+            data-testid="dev-error-message"
+          >
             {error.message}
           </p>
         )}

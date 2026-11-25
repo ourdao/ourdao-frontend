@@ -11,6 +11,8 @@ const mockGetDecimals = vi.fn()
 const mockGetName = vi.fn()
 const mockGetBalance = vi.fn()
 
+let mockWalletAddress: string | null = 'GALICE1234567890'
+
 vi.mock('@/lib/stellar', async () => {
   const actual = await vi.importActual<typeof import('@/lib/stellar')>('@/lib/stellar')
   return { ...actual, isContractConfigured: () => true }
@@ -18,8 +20,8 @@ vi.mock('@/lib/stellar', async () => {
 
 vi.mock('@/lib/wallet', () => ({
   useWallet: () => ({
-    address: 'GALICE1234567890',
-    isConnected: true,
+    address: mockWalletAddress,
+    isConnected: !!mockWalletAddress,
   }),
 }))
 
@@ -49,14 +51,73 @@ function createWrapper() {
   }
 }
 
-describe('useToken (#558, #559, #560)', () => {
+describe('useToken (#558, #559, #560, #592)', () => {
   beforeEach(() => {
     vi.clearAllMocks()
+    mockWalletAddress = 'GALICE1234567890'
     mockGetToken.mockResolvedValue('CTOKEN123')
     mockGetSymbol.mockResolvedValue('USDC')
     mockGetDecimals.mockResolvedValue(6)
     mockGetName.mockResolvedValue('USD Coin')
     mockGetBalance.mockResolvedValue(BigInt(5_000_000))
+  })
+
+  it('the token id, metadata and balance queries resolve and format/parse use the fetched decimals', async () => {
+    const { result } = renderHook(() => useToken(), { wrapper: createWrapper() })
+
+    await waitFor(() => {
+      expect(result.current.isLoading).toBe(false)
+    })
+
+    expect(result.current.tokenId).toBe('CTOKEN123')
+    expect(result.current.symbol).toBe('USDC')
+    expect(result.current.decimals).toBe(6)
+    expect(result.current.name).toBe('USD Coin')
+    expect(result.current.balance).toBe(BigInt(5_000_000))
+    expect(result.current.isError).toBe(false)
+
+    // format uses fetched 6 decimals
+    expect(result.current.format(BigInt(5_000_000), { withSymbol: false })).toBe('5')
+    expect(result.current.format(BigInt(5_000_000), { withSymbol: true })).toBe('5 USDC')
+
+    // parse uses fetched 6 decimals
+    expect(result.current.parse('5')).toBe(BigInt(5_000_000))
+  })
+
+  it('hasSufficientBalance is false when the balance is below the amount and true at equality', async () => {
+    mockGetBalance.mockResolvedValue(BigInt(5_000_000))
+
+    const { result } = renderHook(() => useToken(), { wrapper: createWrapper() })
+
+    await waitFor(() => {
+      expect(result.current.isLoading).toBe(false)
+    })
+
+    // True at equality
+    expect(result.current.hasSufficientBalance(BigInt(5_000_000))).toBe(true)
+    expect(result.current.hasSufficientBalance('5')).toBe(true)
+
+    // True when balance is above amount
+    expect(result.current.hasSufficientBalance(BigInt(4_000_000))).toBe(true)
+    expect(result.current.hasSufficientBalance('4')).toBe(true)
+
+    // False when balance is below amount
+    expect(result.current.hasSufficientBalance(BigInt(5_000_001))).toBe(false)
+    expect(result.current.hasSufficientBalance('6')).toBe(false)
+  })
+
+  it('with no connected address no balance query runs', async () => {
+    mockWalletAddress = null
+
+    const { result } = renderHook(() => useToken(), { wrapper: createWrapper() })
+
+    await waitFor(() => {
+      expect(result.current.tokenId).toBe('CTOKEN123')
+      expect(result.current.symbol).toBe('USDC')
+    })
+
+    expect(mockGetBalance).not.toHaveBeenCalled()
+    expect(result.current.balance).toBe(BigInt(0))
   })
 
   it('#558: surfaces error when getToken rejects and recovers on refetch without reload', async () => {
@@ -126,7 +187,9 @@ describe('useToken (#558, #559, #560)', () => {
   })
 
   it('#560: surfaces error when getBalance rejects, keeps hasSufficientBalance permissive while errored, and recovers on refetch', async () => {
-    mockGetBalance.mockRejectedValueOnce(new Error('Horizon 503')).mockResolvedValue(BigInt(2_000_000))
+    mockGetBalance
+      .mockRejectedValueOnce(new Error('Horizon 503'))
+      .mockResolvedValue(BigInt(2_000_000))
 
     const { result } = renderHook(() => useToken(), { wrapper: createWrapper() })
 

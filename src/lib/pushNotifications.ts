@@ -66,7 +66,11 @@ export const usePushNotifications = () => {
     getPermissionSnapshot,
     getPermissionServerSnapshot
   )
-  const supported = useSyncExternalStore(subscribeNoop, getSupportedSnapshot, getSupportedServerSnapshot)
+  const supported = useSyncExternalStore(
+    subscribeNoop,
+    getSupportedSnapshot,
+    getSupportedServerSnapshot
+  )
 
   const requestPermission = useCallback(async () => {
     if (!supported) return false

@@ -7,7 +7,7 @@ so every member saw US month/day ordering (e.g. "Mar 4, 2026") regardless of
 their own browser locale. This was a bug, not a design choice, and it's now
 fixed: `formatDate` reads `navigator.language` when it's available (client
 side) and otherwise passes `undefined` to `toLocaleDateString`, which falls
-back to the JS runtime's own default locale. Date *formatting* now follows
+back to the JS runtime's own default locale. Date _formatting_ now follows
 the user's locale.
 
 ## What did not change (deliberately, for now)

@@ -67,10 +67,13 @@ export function AddressLink({
         onClick={copy}
         aria-label={copied ? 'Address copied' : 'Copy full address'}
         title={copied ? 'Copied' : 'Copy full address'}
-        className="inline-flex shrink-0 rounded p-0.5 text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+        className="text-muted-foreground hover:text-foreground focus-visible:ring-ring inline-flex shrink-0 rounded p-0.5 transition-colors focus-visible:ring-2 focus-visible:outline-none"
       >
         {copied ? (
-          <Check className="h-3.5 w-3.5 text-emerald-600 dark:text-emerald-400" aria-hidden="true" />
+          <Check
+            className="h-3.5 w-3.5 text-emerald-600 dark:text-emerald-400"
+            aria-hidden="true"
+          />
         ) : (
           <Copy className="h-3.5 w-3.5" aria-hidden="true" />
         )}
@@ -82,7 +85,7 @@ export function AddressLink({
           rel="noopener noreferrer"
           aria-label="View on block explorer"
           title="View on block explorer"
-          className="inline-flex shrink-0 rounded p-0.5 text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          className="text-muted-foreground hover:text-foreground focus-visible:ring-ring inline-flex shrink-0 rounded p-0.5 transition-colors focus-visible:ring-2 focus-visible:outline-none"
         >
           <ExternalLink className="h-3.5 w-3.5" aria-hidden="true" />
         </a>

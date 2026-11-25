@@ -19,9 +19,7 @@ export function LandingHeaderActions() {
         {userData.isConnected && userData.isMember && (
           <>
             <Button asChild variant="outline" size="sm" className="hidden sm:inline-flex">
-              <Link href="/dashboard">
-                Dashboard
-              </Link>
+              <Link href="/dashboard">Dashboard</Link>
             </Button>
             <NotificationCenter />
           </>
@@ -31,47 +29,43 @@ export function LandingHeaderActions() {
 
         {/* Mobile menu button */}
         <button
-          className="md:hidden p-2 rounded-md text-muted-foreground hover:text-foreground"
+          className="text-muted-foreground hover:text-foreground rounded-md p-2 md:hidden"
           onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
           aria-label={mobileMenuOpen ? 'Close menu' : 'Open menu'}
           aria-expanded={mobileMenuOpen}
         >
-          {mobileMenuOpen ? (
-            <X className="h-6 w-6" />
-          ) : (
-            <Menu className="h-6 w-6" />
-          )}
+          {mobileMenuOpen ? <X className="h-6 w-6" /> : <Menu className="h-6 w-6" />}
         </button>
       </div>
 
       {/* Mobile menu dropdown */}
       {mobileMenuOpen && (
-        <div className="absolute top-16 left-0 right-0 bg-background border-b border-border md:hidden">
-          <div className="space-y-1 px-4 pb-3 pt-2">
+        <div className="bg-background border-border absolute top-16 right-0 left-0 border-b md:hidden">
+          <div className="space-y-1 px-4 pt-2 pb-3">
             <Link
               href="/loans"
-              className="block px-3 py-2 text-base font-medium text-muted-foreground hover:text-foreground"
+              className="text-muted-foreground hover:text-foreground block px-3 py-2 text-base font-medium"
               onClick={() => setMobileMenuOpen(false)}
             >
               Loans
             </Link>
             <Link
               href="/governance"
-              className="block px-3 py-2 text-base font-medium text-muted-foreground hover:text-foreground"
+              className="text-muted-foreground hover:text-foreground block px-3 py-2 text-base font-medium"
               onClick={() => setMobileMenuOpen(false)}
             >
               Governance
             </Link>
             <Link
               href="/treasury"
-              className="block px-3 py-2 text-base font-medium text-muted-foreground hover:text-foreground"
+              className="text-muted-foreground hover:text-foreground block px-3 py-2 text-base font-medium"
               onClick={() => setMobileMenuOpen(false)}
             >
               Treasury
             </Link>
             <Link
               href="/privacy"
-              className="block px-3 py-2 text-base font-medium text-muted-foreground hover:text-foreground"
+              className="text-muted-foreground hover:text-foreground block px-3 py-2 text-base font-medium"
               onClick={() => setMobileMenuOpen(false)}
             >
               Privacy

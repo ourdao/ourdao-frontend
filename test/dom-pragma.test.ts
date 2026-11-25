@@ -56,18 +56,18 @@ describe('jsdom pragma guard (#539)', () => {
 
     expect(
       offenders,
-      `Add "// @vitest-environment jsdom" as the first line of: ${offenders.join(', ')}`,
+      `Add "// @vitest-environment jsdom" as the first line of: ${offenders.join(', ')}`
     ).toEqual([])
   })
 
   it('flags a DOM-touching file without the pragma', () => {
-    const src = "afterEach(() => window.localStorage.clear())\n"
+    const src = 'afterEach(() => window.localStorage.clear())\n'
     expect(needsDom(src)).toBe(true)
     expect(hasPragma(src)).toBe(false)
   })
 
   it('accepts a DOM-touching file that declares the pragma', () => {
-    const src = "// @vitest-environment jsdom\nwindow.localStorage.clear()\n"
+    const src = '// @vitest-environment jsdom\nwindow.localStorage.clear()\n'
     expect(needsDom(src)).toBe(true)
     expect(hasPragma(src)).toBe(true)
   })

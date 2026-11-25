@@ -79,7 +79,8 @@ export function useToken(): TokenInfo {
     isError: isBalanceError,
     refetch: refetchBalance,
   } = useQuery({
-    queryKey: address && tokenId ? queryKeys.tokenBalance(tokenId, address) : ['tokenBalance', null, null],
+    queryKey:
+      address && tokenId ? queryKeys.tokenBalance(tokenId, address) : ['tokenBalance', null, null],
     enabled: !!tokenId && !!address,
     queryFn: async () => {
       if (!tokenId || !address) return BigInt(0)

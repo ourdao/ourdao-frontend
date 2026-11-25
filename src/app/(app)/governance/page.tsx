@@ -26,6 +26,8 @@ import {
   useVoting,
   useTreasuryVoting,
   useHasVoted,
+  useExpireLoanProposal,
+  useExpireTreasuryProposal,
   type UILoanProposal,
   type UITreasuryProposal,
 } from '@/hooks/useDAO'
@@ -33,8 +35,9 @@ import { LoadError } from '@/components/LoadError'
 import { useAnnounceLoad } from '@/lib/useAnnounceLoad'
 import { formatToken, formatThreshold } from '@/lib/utils'
 import { AddressLink } from '@/components/AddressLink'
-import { PROPOSAL_STATUS_LABELS, PROPOSAL_STATUS_AWAITING_FUNDS } from '@/constants'
+import { PROPOSAL_STATUS_LABELS, PROPOSAL_STATUS_AWAITING_FUNDS, GOVERNANCE_PERIOD_FALLBACKS } from '@/constants'
 import { VirtualizedList } from '@/components/ui/virtualized-list'
+import { useNow } from '@/hooks/useNow'
 
 function StatusBadge({ status }: { status: number }) {
   const variant =
@@ -61,10 +64,22 @@ function VoteButtons({
 }) {
   return (
     <div className="flex gap-1" role="group" aria-label="Vote">
-      <Button size="sm" variant="outline" disabled={disabled} onClick={() => onVote(true)} aria-label="Vote for">
+      <Button
+        size="sm"
+        variant="outline"
+        disabled={disabled}
+        onClick={() => onVote(true)}
+        aria-label="Vote for"
+      >
         <CheckIcon className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
       </Button>
-      <Button size="sm" variant="outline" disabled={disabled} onClick={() => onVote(false)} aria-label="Vote against">
+      <Button
+        size="sm"
+        variant="outline"
+        disabled={disabled}
+        onClick={() => onVote(false)}
+        aria-label="Vote against"
+      >
         <XMarkIcon className="h-4 w-4 text-red-600 dark:text-red-400" />
       </Button>
     </div>
@@ -74,7 +89,7 @@ function VoteButtons({
 function EmptyState({ label }: { label: string }) {
   return (
     <div className="py-12 text-center">
-      <DocumentTextIcon className="mx-auto mb-3 h-10 w-10 text-muted-foreground" />
+      <DocumentTextIcon className="text-muted-foreground mx-auto mb-3 h-10 w-10" />
       <p className="text-muted-foreground">{label}</p>
     </div>
   )
@@ -82,7 +97,7 @@ function EmptyState({ label }: { label: string }) {
 
 function AlreadyVotedLabel() {
   return (
-    <div className="flex items-center gap-1 text-sm text-muted-foreground">
+    <div className="text-muted-foreground flex items-center gap-1 text-sm">
       <CheckIcon className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
       You&apos;ve voted
     </div>
@@ -93,29 +108,44 @@ function LoanProposalRow({
   proposal: p,
   canVote,
   votingLoan,
+  now,
   onVote,
+  onFinalize,
+  finalizing,
 }: {
   proposal: UILoanProposal
   canVote: boolean
   votingLoan: boolean
+  now: number | null
   onVote: (proposalId: number, support: boolean) => Promise<unknown>
+  onFinalize: (proposalId: number) => Promise<unknown>
+  finalizing: boolean
 }) {
   const { hasVoted, refetch } = useHasVoted('Loan', p.id, p.status === 2)
+
+  // A loan proposal can be finalized when status is still Pending (status=2 or 1)
+  // and the voting window has closed: now > editingPeriodEnd + votingPeriod.
+  // `p.votingEndTime` already encodes editingPeriodEnd + votingPeriod.
+  const canFinalize =
+    now !== null &&
+    p.status === 2 &&
+    p.votingEndTime > 0 &&
+    Math.floor(now / 1000) > p.votingEndTime
 
   return (
     <li className="flex flex-wrap items-start justify-between gap-3 py-4">
       <div className="min-w-0">
         <Link
           href={`/loans/${p.id}`}
-          className="font-medium text-foreground hover:text-primary-700 dark:hover:text-primary-400"
+          className="text-foreground hover:text-primary-700 dark:hover:text-primary-400 font-medium"
         >
           Loan Proposal #{p.id}
         </Link>
-        <p className="mt-0.5 text-sm text-muted-foreground">
+        <p className="text-muted-foreground mt-0.5 text-sm">
           {formatToken(p.amount)} · {(p.interestRate / 100).toFixed(1)}% ·{' '}
           <AddressLink address={p.borrower} />
         </p>
-        <p className="mt-1 text-xs text-muted-foreground">
+        <p className="text-muted-foreground mt-1 text-xs">
           For {p.votesFor} · Against {p.votesAgainst}
         </p>
       </div>
@@ -131,6 +161,11 @@ function LoanProposalRow({
           />
         )}
         {canVote && p.status === 2 && hasVoted && <AlreadyVotedLabel />}
+        {canFinalize && (
+          <Button size="sm" variant="outline" disabled={finalizing} onClick={() => onFinalize(p.id)}>
+            Finalize
+          </Button>
+        )}
       </div>
     </li>
   )
@@ -140,30 +175,47 @@ function TreasuryProposalRow({
   proposal: p,
   canVote,
   votingTreasury,
+  now,
   onVote,
+  onFinalize,
+  finalizing,
 }: {
   proposal: UITreasuryProposal
   canVote: boolean
   votingTreasury: boolean
+  now: number | null
   onVote: (proposalId: number, support: boolean) => Promise<unknown>
+  onFinalize: (proposalId: number) => Promise<unknown>
+  finalizing: boolean
 }) {
   const { hasVoted, refetch } = useHasVoted('Treasury', p.id, p.status === 2 && !p.isPrivate)
+
+  // For private proposals, the commit-reveal window is 2× the voting period,
+  // so only offer Finalize after both windows have elapsed.
+  const finalizeWindowSec = p.isPrivate
+    ? 2 * GOVERNANCE_PERIOD_FALLBACKS.votingPeriod
+    : GOVERNANCE_PERIOD_FALLBACKS.votingPeriod
+  const canFinalize =
+    now !== null &&
+    p.status === 2 &&
+    p.creationTime > 0 &&
+    Math.floor(now / 1000) > p.creationTime + finalizeWindowSec
 
   return (
     <li className="flex flex-wrap items-start justify-between gap-3 py-4">
       <div className="min-w-0">
         <div className="flex items-center gap-2">
-          <p className="font-medium text-foreground">{p.title}</p>
+          <p className="text-foreground font-medium">{p.title}</p>
           {p.isPrivate && (
             <Badge variant="secondary" className="text-xs">
               Private · voting unavailable until commit-reveal
             </Badge>
           )}
         </div>
-        <p className="mt-0.5 text-sm text-muted-foreground">
+        <p className="text-muted-foreground mt-0.5 text-sm">
           {formatToken(p.amount)} → <AddressLink address={p.recipient} />
         </p>
-        <p className="mt-1 text-xs text-muted-foreground">
+        <p className="text-muted-foreground mt-1 text-xs">
           For {p.votesFor} · Against {p.votesAgainst}
         </p>
       </div>
@@ -179,6 +231,11 @@ function TreasuryProposalRow({
           />
         )}
         {canVote && p.status === 2 && !p.isPrivate && hasVoted && <AlreadyVotedLabel />}
+        {canFinalize && (
+          <Button size="sm" variant="outline" disabled={finalizing} onClick={() => onFinalize(p.id)}>
+            Finalize
+          </Button>
+        )}
       </div>
     </li>
   )
@@ -193,7 +250,6 @@ function LoadingRows() {
     </div>
   )
 }
-
 
 export default function GovernancePage() {
   const userData = useUserData()
@@ -222,6 +278,9 @@ export default function GovernancePage() {
   useAnnounceLoad('Treasury proposals', loadingTreasury, treasuryFailed)
   const { voteOnProposal, isPending: votingLoan } = useVoting()
   const { voteOnTreasury, isPending: votingTreasury } = useTreasuryVoting()
+  const { expireLoanProposal, isPending: finalizingLoan } = useExpireLoanProposal()
+  const { expireTreasuryProposal, isPending: finalizingTreasury } = useExpireTreasuryProposal()
+  const now = useNow()
 
   const loanFilters = useProposalFilters(loanProposals)
   const treasuryFilters = useProposalFilters(treasuryProposals)
@@ -231,10 +290,8 @@ export default function GovernancePage() {
       <div className="flex min-h-[60vh] items-center justify-center">
         <Card className="w-full max-w-md">
           <CardContent className="p-6 text-center">
-            <ScaleIcon className="mx-auto mb-4 h-12 w-12 text-muted-foreground" />
-            <h3 className="mb-2 text-lg font-medium text-foreground">
-              Connect Your Wallet
-            </h3>
+            <ScaleIcon className="text-muted-foreground mx-auto mb-4 h-12 w-12" />
+            <h3 className="text-foreground mb-2 text-lg font-medium">Connect Your Wallet</h3>
             <p className="text-muted-foreground">
               Please connect your wallet to access governance.
             </p>
@@ -304,14 +361,15 @@ export default function GovernancePage() {
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
-                <BanknotesIcon className="h-5 w-5 text-primary-600 dark:text-primary-400" />
+                <BanknotesIcon className="text-primary-600 dark:text-primary-400 h-5 w-5" />
                 Loan Proposals
               </CardTitle>
             </CardHeader>
             <CardContent>
               {loanErrors && (
                 <div className="mb-4 rounded-lg border border-yellow-200 bg-yellow-50 p-4 text-sm text-yellow-800 dark:border-yellow-900 dark:bg-yellow-950/30 dark:text-yellow-300">
-                  Some loan proposals couldn&apos;t be loaded and are missing from this list. Try again shortly.
+                  Some loan proposals couldn&apos;t be loaded and are missing from this list. Try
+                  again shortly.
                 </div>
               )}
               {loadingLoans ? (
@@ -325,7 +383,7 @@ export default function GovernancePage() {
                   items={loanFilters.filteredItems}
                   threshold={50}
                   itemHeight={120}
-                  className="divide-y divide-border"
+                  className="divide-border divide-y"
                   listAriaLabel="Loan proposals"
                   keyExtractor={(p) => p.id}
                   renderItem={(p) => (
@@ -333,14 +391,21 @@ export default function GovernancePage() {
                       proposal={p}
                       canVote={userData.isMember}
                       votingLoan={votingLoan || stats.isPaused}
+                      now={now}
                       onVote={voteOnProposal}
+                      onFinalize={expireLoanProposal}
+                      finalizing={finalizingLoan || stats.isPaused}
                     />
                   )}
                 />
               )}
               {!loadingLoans && hasMoreLoans && (
                 <div className="mt-4 flex justify-center">
-                  <Button variant="outline" onClick={() => loadMoreLoans()} disabled={loadingMoreLoans}>
+                  <Button
+                    variant="outline"
+                    onClick={() => loadMoreLoans()}
+                    disabled={loadingMoreLoans}
+                  >
                     {loadingMoreLoans ? 'Loading…' : 'Load more'}
                   </Button>
                 </div>
@@ -354,14 +419,15 @@ export default function GovernancePage() {
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
-                <BanknotesIcon className="h-5 w-5 text-primary-600 dark:text-primary-400" />
+                <BanknotesIcon className="text-primary-600 dark:text-primary-400 h-5 w-5" />
                 Treasury Withdrawals
               </CardTitle>
             </CardHeader>
             <CardContent>
               {treasuryErrors && (
                 <div className="mb-4 rounded-lg border border-yellow-200 bg-yellow-50 p-4 text-sm text-yellow-800 dark:border-yellow-900 dark:bg-yellow-950/30 dark:text-yellow-300">
-                  Some treasury proposals couldn&apos;t be loaded and are missing from this list. Try again shortly.
+                  Some treasury proposals couldn&apos;t be loaded and are missing from this list.
+                  Try again shortly.
                 </div>
               )}
               {loadingTreasury ? (
@@ -375,7 +441,7 @@ export default function GovernancePage() {
                   items={treasuryFilters.filteredItems}
                   threshold={50}
                   itemHeight={120}
-                  className="divide-y divide-border"
+                  className="divide-border divide-y"
                   listAriaLabel="Treasury proposals"
                   keyExtractor={(p) => p.id}
                   renderItem={(p) => (
@@ -383,14 +449,21 @@ export default function GovernancePage() {
                       proposal={p}
                       canVote={userData.isMember}
                       votingTreasury={votingTreasury || stats.isPaused}
+                      now={now}
                       onVote={voteOnTreasury}
+                      onFinalize={expireTreasuryProposal}
+                      finalizing={finalizingTreasury || stats.isPaused}
                     />
                   )}
                 />
               )}
               {!loadingTreasury && hasMoreTreasury && (
                 <div className="mt-4 flex justify-center">
-                  <Button variant="outline" onClick={() => loadMoreTreasury()} disabled={loadingMoreTreasury}>
+                  <Button
+                    variant="outline"
+                    onClick={() => loadMoreTreasury()}
+                    disabled={loadingMoreTreasury}
+                  >
                     {loadingMoreTreasury ? 'Loading…' : 'Load more'}
                   </Button>
                 </div>

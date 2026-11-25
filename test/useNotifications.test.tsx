@@ -17,7 +17,11 @@ const mockToastError = vi.fn()
 let mockAddress: string | null = 'GALICE'
 
 vi.mock('@/lib/wallet', () => ({
-  useWallet: () => ({ address: mockAddress, isConnected: !!mockAddress, signMessage: mockSignMessage }),
+  useWallet: () => ({
+    address: mockAddress,
+    isConnected: !!mockAddress,
+    signMessage: mockSignMessage,
+  }),
 }))
 
 vi.mock('@/lib/backend', () => ({
@@ -33,7 +37,11 @@ vi.mock('react-hot-toast', () => ({
   default: { error: (...args: unknown[]) => mockToastError(...args) },
 }))
 
-function Harness({ onRender }: { onRender: (hook: ReturnType<typeof useAutoNotifications>) => void }) {
+function Harness({
+  onRender,
+}: {
+  onRender: (hook: ReturnType<typeof useAutoNotifications>) => void
+}) {
   const hook = useAutoNotifications()
   onRender(hook)
   return null
@@ -62,7 +70,10 @@ const notif = (over: Partial<BackendNotification> = {}): BackendNotification => 
 })
 
 const ok: MutationResult = { ok: true, status: 200 }
-const fail = (message: string, reason: 'unauthorized' | 'rejected' | 'unavailable' = 'unauthorized'): MutationResult => ({
+const fail = (
+  message: string,
+  reason: 'unauthorized' | 'rejected' | 'unavailable' = 'unauthorized'
+): MutationResult => ({
   ok: false,
   status: 401,
   reason,
@@ -81,9 +92,14 @@ describe('useAutoNotifications', () => {
   afterEach(() => vi.clearAllMocks())
 
   it('maps backend notifications and computes unreadCount', async () => {
-    mockGetNotifications.mockResolvedValue([notif({ id: 1, read: false }), notif({ id: 2, read: true })])
+    mockGetNotifications.mockResolvedValue([
+      notif({ id: 1, read: false }),
+      notif({ id: 2, read: true }),
+    ])
     let latest: ReturnType<typeof useAutoNotifications> | undefined
-    renderWithClient((hook) => { latest = hook })
+    renderWithClient((hook) => {
+      latest = hook
+    })
 
     await waitFor(() => expect(latest?.notifications).toHaveLength(2))
     expect(latest?.unreadCount).toBe(1)
@@ -92,33 +108,49 @@ describe('useAutoNotifications', () => {
   it('markAsRead optimistically flips read locally and persists via the backend', async () => {
     mockGetNotifications.mockResolvedValue([notif({ id: 5, read: false })])
     let latest: ReturnType<typeof useAutoNotifications> | undefined
-    renderWithClient((hook) => { latest = hook })
+    renderWithClient((hook) => {
+      latest = hook
+    })
     await waitFor(() => expect(latest?.notifications).toHaveLength(1))
 
     await act(async () => {
       await latest!.markAsRead('5')
     })
 
-    await waitFor(() => expect(mockMarkNotificationRead).toHaveBeenCalledWith(5, expect.objectContaining({ address: 'GALICE' })))
+    await waitFor(() =>
+      expect(mockMarkNotificationRead).toHaveBeenCalledWith(
+        5,
+        expect.objectContaining({ address: 'GALICE' })
+      )
+    )
   })
 
   it('markAllAsRead calls the backend with the connected address', async () => {
     mockGetNotifications.mockResolvedValue([notif({ id: 1 }), notif({ id: 2 })])
     let latest: ReturnType<typeof useAutoNotifications> | undefined
-    renderWithClient((hook) => { latest = hook })
+    renderWithClient((hook) => {
+      latest = hook
+    })
     await waitFor(() => expect(latest?.notifications).toHaveLength(2))
 
     await act(async () => {
       await latest!.markAllAsRead()
     })
 
-    await waitFor(() => expect(mockMarkAllNotificationsRead).toHaveBeenCalledWith('GALICE', expect.objectContaining({ address: 'GALICE' })))
+    await waitFor(() =>
+      expect(mockMarkAllNotificationsRead).toHaveBeenCalledWith(
+        'GALICE',
+        expect.objectContaining({ address: 'GALICE' })
+      )
+    )
   })
 
   it('removeNotification filters the notification out client-side', async () => {
     mockGetNotifications.mockResolvedValue([notif({ id: 1 }), notif({ id: 2 })])
     let latest: ReturnType<typeof useAutoNotifications> | undefined
-    renderWithClient((hook) => { latest = hook })
+    renderWithClient((hook) => {
+      latest = hook
+    })
     await waitFor(() => expect(latest?.notifications).toHaveLength(2))
 
     act(() => {
@@ -136,7 +168,9 @@ describe('useAutoNotifications', () => {
       mockGetNotifications.mockResolvedValue([notif({ id: 5, read: false })])
       mockMarkNotificationRead.mockResolvedValue(fail('Invalid or expired nonce'))
       let latest: ReturnType<typeof useAutoNotifications> | undefined
-      renderWithClient((hook) => { latest = hook })
+      renderWithClient((hook) => {
+        latest = hook
+      })
       await waitFor(() => expect(latest?.notifications).toHaveLength(1))
 
       await act(async () => {
@@ -152,7 +186,9 @@ describe('useAutoNotifications', () => {
       mockGetNotifications.mockResolvedValue([notif({ id: 7, read: false })])
       mockMarkNotificationRead.mockResolvedValue(fail('Signature rejected', 'rejected'))
       let latest: ReturnType<typeof useAutoNotifications> | undefined
-      renderWithClient((hook) => { latest = hook })
+      renderWithClient((hook) => {
+        latest = hook
+      })
       await waitFor(() => expect(latest?.notifications).toHaveLength(1))
 
       await act(async () => {
@@ -167,7 +203,9 @@ describe('useAutoNotifications', () => {
       mockGetNotifications.mockResolvedValue([notif({ id: 1 }), notif({ id: 2 }), notif({ id: 3 })])
       mockMarkAllNotificationsRead.mockResolvedValue(fail('Unauthorized', 'unauthorized'))
       let latest: ReturnType<typeof useAutoNotifications> | undefined
-      renderWithClient((hook) => { latest = hook })
+      renderWithClient((hook) => {
+        latest = hook
+      })
       await waitFor(() => expect(latest?.unreadCount).toBe(3))
 
       await act(async () => {
@@ -181,7 +219,9 @@ describe('useAutoNotifications', () => {
     it('does not report a failure when the write succeeds', async () => {
       mockGetNotifications.mockResolvedValue([notif({ id: 5, read: false })])
       let latest: ReturnType<typeof useAutoNotifications> | undefined
-      renderWithClient((hook) => { latest = hook })
+      renderWithClient((hook) => {
+        latest = hook
+      })
       await waitFor(() => expect(latest?.notifications).toHaveLength(1))
 
       await act(async () => {
@@ -196,13 +236,19 @@ describe('useAutoNotifications', () => {
   describe('state is scoped to the address that owns it (#306)', () => {
     it('does not carry read state to a different wallet', async () => {
       mockGetNotifications.mockImplementation(async (address: string) =>
-        address === 'GALICE' ? [notif({ id: 1, address: 'GALICE' })] : [notif({ id: 1, address: 'GBOB', read: false })]
+        address === 'GALICE'
+          ? [notif({ id: 1, address: 'GALICE' })]
+          : [notif({ id: 1, address: 'GBOB', read: false })]
       )
       let latest: ReturnType<typeof useAutoNotifications> | undefined
       const client = new QueryClient({ defaultOptions: { queries: { retry: false } } })
       const { rerender } = render(
         <QueryClientProvider client={client}>
-          <Harness onRender={(hook) => { latest = hook }} />
+          <Harness
+            onRender={(hook) => {
+              latest = hook
+            }}
+          />
         </QueryClientProvider>
       )
       await waitFor(() => expect(latest?.unreadCount).toBe(1))
@@ -218,7 +264,11 @@ describe('useAutoNotifications', () => {
         mockAddress = 'GBOB'
         rerender(
           <QueryClientProvider client={client}>
-            <Harness onRender={(hook) => { latest = hook }} />
+            <Harness
+              onRender={(hook) => {
+                latest = hook
+              }}
+            />
           </QueryClientProvider>
         )
       })
@@ -227,13 +277,19 @@ describe('useAutoNotifications', () => {
       expect(latest?.notifications[0].read).toBe(false)
     })
 
-    it('restores the previous wallet\'s own read state when switching back', async () => {
-      mockGetNotifications.mockImplementation(async (address: string) => [notif({ id: 1, address })])
+    it("restores the previous wallet's own read state when switching back", async () => {
+      mockGetNotifications.mockImplementation(async (address: string) => [
+        notif({ id: 1, address }),
+      ])
       let latest: ReturnType<typeof useAutoNotifications> | undefined
       const client = new QueryClient({ defaultOptions: { queries: { retry: false } } })
       const tree = () => (
         <QueryClientProvider client={client}>
-          <Harness onRender={(hook) => { latest = hook }} />
+          <Harness
+            onRender={(hook) => {
+              latest = hook
+            }}
+          />
         </QueryClientProvider>
       )
       mockAddress = 'GALICE'
@@ -261,7 +317,9 @@ describe('useAutoNotifications', () => {
     it('does nothing at all when no wallet is connected', async () => {
       mockAddress = null
       let latest: ReturnType<typeof useAutoNotifications> | undefined
-      renderWithClient((hook) => { latest = hook })
+      renderWithClient((hook) => {
+        latest = hook
+      })
 
       await act(async () => {
         await latest!.markAsRead('1')
@@ -274,7 +332,11 @@ describe('useAutoNotifications', () => {
   })
 })
 
-function ActivityHarness({ onRender }: { onRender: (r: ReturnType<typeof useActivityFeed>) => void }) {
+function ActivityHarness({
+  onRender,
+}: {
+  onRender: (r: ReturnType<typeof useActivityFeed>) => void
+}) {
   const result = useActivityFeed(10)
   onRender(result)
   return null
@@ -304,7 +366,11 @@ describe('useActivityFeed', () => {
     const client = new QueryClient({ defaultOptions: { queries: { retry: false } } })
     render(
       <QueryClientProvider client={client}>
-        <ActivityHarness onRender={(r) => { latest = r }} />
+        <ActivityHarness
+          onRender={(r) => {
+            latest = r
+          }}
+        />
       </QueryClientProvider>
     )
 
@@ -323,7 +389,11 @@ describe('useActivityFeed', () => {
     const client = new QueryClient({ defaultOptions: { queries: { retry: false } } })
     render(
       <QueryClientProvider client={client}>
-        <ActivityHarness onRender={(r) => { latest = r }} />
+        <ActivityHarness
+          onRender={(r) => {
+            latest = r
+          }}
+        />
       </QueryClientProvider>
     )
 
@@ -337,7 +407,11 @@ describe('useActivityFeed', () => {
     const client = new QueryClient({ defaultOptions: { queries: { retry: false } } })
     render(
       <QueryClientProvider client={client}>
-        <ActivityHarness onRender={(r) => { latest = r }} />
+        <ActivityHarness
+          onRender={(r) => {
+            latest = r
+          }}
+        />
       </QueryClientProvider>
     )
 

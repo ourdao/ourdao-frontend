@@ -3,16 +3,17 @@
 ## Supported Browsers
 
 OurDAO Frontend supports the following browsers, based on the intersection of:
+
 - Next.js 16's default browser support
 - wallet provider availability
 - Required APIs (`crypto.subtle` for document encryption)
 
-| Browser | Minimum Version | Notes |
-|---------|-----------------|-------|
-| Chrome | 100+ | Full support |
-| Firefox | 100+ | Full support |
-| Safari | 16+ | Full support (secure context required for document encryption) |
-| Edge | 100+ | Full support (Chromium-based) |
+| Browser | Minimum Version | Notes                                                          |
+| ------- | --------------- | -------------------------------------------------------------- |
+| Chrome  | 100+            | Full support                                                   |
+| Firefox | 100+            | Full support                                                   |
+| Safari  | 16+             | Full support (secure context required for document encryption) |
+| Edge    | 100+            | Full support (Chromium-based)                                  |
 
 ## Wallet Compatibility
 
@@ -29,12 +30,12 @@ Document encryption uses `crypto.subtle` for AES-GCM, which requires a **secure 
 
 ## Required APIs
 
-| API | Purpose | Fallback |
-|-----|---------|----------|
-| `crypto.subtle` | Document encryption (AES-GCM) | Warning shown; uploads disabled |
-| `useSyncExternalStore` | Clock and screen size hooks | React 18+ polyfill |
-| `navigator.clipboard` | Copy wallet address | Manual copy fallback |
-| `window.freighterApi` | Wallet connection | Choose another compatible wallet or install Freighter |
+| API                    | Purpose                       | Fallback                                              |
+| ---------------------- | ----------------------------- | ----------------------------------------------------- |
+| `crypto.subtle`        | Document encryption (AES-GCM) | Warning shown; uploads disabled                       |
+| `useSyncExternalStore` | Clock and screen size hooks   | React 18+ polyfill                                    |
+| `navigator.clipboard`  | Copy wallet address           | Manual copy fallback                                  |
+| `window.freighterApi`  | Wallet connection             | Choose another compatible wallet or install Freighter |
 
 ## Browserslist Configuration
 
@@ -42,18 +43,14 @@ The following `browserslist` configuration is recommended for `package.json`:
 
 ```json
 {
-  "browserslist": [
-    "chrome >= 100",
-    "firefox >= 100",
-    "safari >= 16",
-    "edge >= 100"
-  ]
+  "browserslist": ["chrome >= 100", "firefox >= 100", "safari >= 16", "edge >= 100"]
 }
 ```
 
 ## Unsupported Browsers
 
 The following browsers are explicitly not supported:
+
 - Internet Explorer (all versions)
 - Opera Mini
 - Samsung Internet < 18
@@ -62,6 +59,7 @@ The following browsers are explicitly not supported:
 ## Testing
 
 Browser compatibility is verified through:
+
 - CI browser stack testing (planned)
 - Manual testing on supported browsers before releases
 - `crypto.subtle` availability detection in `src/lib/ipfs.ts`

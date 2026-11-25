@@ -16,11 +16,11 @@ A [Next.js](https://nextjs.org) web app for the **OurDAO** member-owned lending 
 
 This repository is one of three that make up OurDAO:
 
-| Repo | Role |
-|---|---|
+| Repo                                                             | Role                                                                |
+| ---------------------------------------------------------------- | ------------------------------------------------------------------- |
 | [`ourdao-contracts`](https://github.com/ourdao/ourdao-contracts) | The Soroban contract — the single source of truth for all DAO state |
-| [`ourdao-backend`](https://github.com/ourdao/ourdao-backend) | Off-chain indexer + read API |
-| **`ourdao-frontend`** (this repo) | Next.js web app members actually use |
+| [`ourdao-backend`](https://github.com/ourdao/ourdao-backend)     | Off-chain indexer + read API                                        |
+| **`ourdao-frontend`** (this repo)                                | Next.js web app members actually use                                |
 
 ## Table of contents
 
@@ -70,6 +70,10 @@ All config is env-driven with public-testnet defaults (see `.env.example`):
 | `NEXT_PUBLIC_BACKEND_URL` | [`ourdao-backend`](https://github.com/ourdao/ourdao-backend) indexer/API (loan history, notifications, admin log, events) | _(empty → on-chain-only, no backend)_ — set to `http://localhost:4000` for local dev (see `.env.example`)_ |
 | `NEXT_PUBLIC_SITE_URL` | Public site origin, no trailing slash — used as `metadataBase` so Open Graph/Twitter image URLs resolve to an absolute address | `http://localhost:3000` |
 | `NEXT_PUBLIC_FEATURE_FLAGS` | Comma-separated names of the risky changes to **enable** in this build — everything is off unless listed, so a risky change can ship disabled (see [docs/FEATURE_FLAGS.md](docs/FEATURE_FLAGS.md)) | _(empty → all flags off)_ |
+| `RATE_LIMIT_IP_MAX` | **Server-only** Max document upload requests allowed per IP address within the sliding window | `10` |
+| `RATE_LIMIT_IP_WINDOW_MS` | **Server-only** Sliding window duration for IP-based upload rate limiting (in milliseconds) | `60000` |
+| `RATE_LIMIT_MEMBER_MAX` | **Server-only** Max document upload requests allowed per member address within the sliding window | `5` |
+| `RATE_LIMIT_MEMBER_WINDOW_MS` | **Server-only** Sliding window duration for member-based upload rate limiting (in milliseconds) | `60000` |
 
 Without a `NEXT_PUBLIC_CONTRACT_ID` the UI runs and renders, but on-chain reads/writes are disabled until you point it at a deployed contract. Without a reachable backend, everything backend-derived (loan history, notifications, activity/admin logs) degrades to empty rather than erroring — see `src/lib/backend.ts`. Without `PINATA_JWT`, document uploads fail with a clear error rather than uploading nowhere silently.
 
@@ -86,6 +90,10 @@ Without a `NEXT_PUBLIC_CONTRACT_ID` the UI runs and renders, but on-chain reads/
 | `/governance` | Browse and vote on both loan and treasury proposals in one place. |
 | `/governance/create` | Create a treasury withdrawal proposal (optionally private, via commit-reveal). |
 | `/treasury` | Treasury balance, staking (stake/unstake for voting-weight boost), claimable yield. |
+| `/treasury/[id]` | Treasury proposal detail — vote status, timeline, document verification, commit-reveal voting, and execution. |
+| `/members` | Member directory — browse members, statuses, join dates, and active loan indicators. |
+| `/members/[address]` | Member profile — summary snapshot, staking status, and on-chain DAO activity for an address. |
+| `/exit` | Voluntary exit flow — withdraw share balance, return stake, claim pending yield, and leave the DAO. |
 | `/privacy` | What's actually private on-chain (commit-reveal voting, document encryption) and how to use it. |
 | `/admin` | Admin-only: pause/unpause, add/remove admins, set consensus threshold, governance audit log. |
 
@@ -214,15 +222,15 @@ group rather than repeated at each call site.
 
 ## Where the Stellar integration lives
 
-| File | Role |
-|---|---|
-| `src/lib/stellar.ts` | Network config, RPC client, explorer URLs |
-| `src/lib/wallet.tsx` | Freighter connect/disconnect/sign context (`useWallet`) |
-| `src/lib/dao-client.ts` | Soroban read/invoke + typed wrappers for every contract method, compile-checked against the generated bindings |
-| `src/lib/generated/dao-bindings.ts` | Generated from the contract wasm — do not edit; see `npm run gen:contract` |
-| `src/lib/wallet-adapter.ts` | Stellar Wallets Kit adapter for non-Freighter wallets |
-| `src/components/ConnectButton.tsx` | Freighter connect/disconnect UI |
-| `src/hooks/useDAO.ts` | React Query hooks the pages consume |
+| File                                | Role                                                                                                           |
+| ----------------------------------- | -------------------------------------------------------------------------------------------------------------- |
+| `src/lib/stellar.ts`                | Network config, RPC client, explorer URLs                                                                      |
+| `src/lib/wallet.tsx`                | Freighter connect/disconnect/sign context (`useWallet`)                                                        |
+| `src/lib/dao-client.ts`             | Soroban read/invoke + typed wrappers for every contract method, compile-checked against the generated bindings |
+| `src/lib/generated/dao-bindings.ts` | Generated from the contract wasm — do not edit; see `npm run gen:contract`                                     |
+| `src/lib/wallet-adapter.ts`         | Stellar Wallets Kit adapter for non-Freighter wallets                                                          |
+| `src/components/ConnectButton.tsx`  | Freighter connect/disconnect UI                                                                                |
+| `src/hooks/useDAO.ts`               | React Query hooks the pages consume                                                                            |
 
 ## Contract interface artifact
 
@@ -237,6 +245,7 @@ The frontend hard-codes argument shapes, enum variants, and event symbols for a 
 Light/dark is handled by [`next-themes`](https://github.com/pacocoursey/next-themes) (`ThemeProvider` in `src/components/providers.tsx`, toggled via `src/components/ThemeToggle.tsx` in the header), following the system preference by default and persisting a manual choice in `localStorage`. Colors are Tailwind v4 `@theme` tokens defined in `src/app/globals.css` — a `.dark` class override block flips the semantic set (`background`, `foreground`, `card`, `muted`, `border`, etc.) that `src/components/ui/*` is built against.
 
 Two things worth knowing if you're touching styling:
+
 - Those `ui/` primitives referenced this token set from the start, but the tokens themselves were never actually defined until this was fixed — `bg-card`, `text-muted-foreground`, and friends were silently unstyled before.
 - `cn()` (`src/lib/utils.ts`) runs through [`tailwind-merge`](https://github.com/dcastil/tailwind-merge), not just `clsx` — this matters because a component's default variant classes (e.g. `Button`'s default `bg-primary`) and a caller's override classes (e.g. `bg-white`) will otherwise both compile to real CSS rules, and which one wins visually depends on Tailwind's generated stylesheet order rather than which class is written later. `tailwind-merge` resolves that by intent instead.
 
@@ -247,6 +256,7 @@ See [docs/DESIGN_TOKENS.md](docs/DESIGN_TOKENS.md) for the full token reference.
 ## Design Tokens
 
 All colour decisions use semantic tokens defined in `src/app/globals.css`. Raw Tailwind colour utilities are not used. See [docs/DESIGN_TOKENS.md](docs/DESIGN_TOKENS.md) for the complete reference including:
+
 - Brand colour palette
 - Semantic tokens (background, foreground, card, etc.)
 - Status colours (destructive, success)
@@ -260,13 +270,14 @@ The app supports Chrome 100+, Firefox 100+, Safari 16+, and Edge 100+. Freighter
 ## Deployment
 
 OurDAO Frontend requires a Node.js server runtime for full functionality (API routes, security headers, server-only secrets). See [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md) for:
+
 - Runtime requirements and environment variables
 - Security headers configuration
 - Docker and Vercel deployment recipes
 - Build-time vs runtime variable differences
 - A step-by-step [mainnet deployment checklist](docs/DEPLOYMENT.md#mainnet-deployment-checklist) (testnet→mainnet switch, RPC provider choice, backend CORS pairing, version matching, and a post-deploy smoke test)
 
-Two runbooks cover what happens *around* a deploy:
+Two runbooks cover what happens _around_ a deploy:
 
 - **[docs/ROLLBACK.md](docs/ROLLBACK.md)** — what to do when a deploy is wrong: turning a feature flag off, reverting to the last good build, or rolling forward, and what can't be rolled back at all (chain state).
 - **[docs/CONTRACT-REDPLOYMENT.md](docs/CONTRACT-REDPLOYMENT.md)** — the frontend's role when `ourdao-contracts` is redeployed: what has to change here, in what order, and how to verify it.
@@ -295,9 +306,10 @@ Run `gen:contract` whenever the contract is redeployed (the wasm is a release as
 
 **Framework:** Vitest + Testing Library, jsdom by default (pure-logic suites that don't need the DOM, like the Soroban ScVal builders, opt into the Node environment per-file via `// @vitest-environment node`).
 
-**Coverage:** `npm run coverage` prints a per-file table and writes `coverage/coverage-summary.json` and `coverage/index.html` (install the provider first: `npm install --no-save @vitest/coverage-v8@5.0.5`, matching the vitest version). 
+**Coverage:** `npm run coverage` prints a per-file table and writes `coverage/coverage-summary.json` and `coverage/index.html` (install the provider first: `npm install --no-save @vitest/coverage-v8@5.0.5`, matching the vitest version).
 
 **Current coverage state:**
+
 - **Overall baseline:** 40% threshold (lines/functions/branches/statements) enforced in CI
 - **Per-module floors:** `dao-client.ts` (80% statements/branches), `wallet.tsx` (80% statements, 75% branches)
 - **What's covered:** ScVal builders, `backend.ts` fetch wrappers (including fail-soft behavior), `useDAO.ts` mapping helpers, `useNotifications.ts` hooks, `useNow.ts` `useSyncExternalStore` contract
@@ -316,8 +328,8 @@ The application balances Web3 wallet constraints with modern Next.js server-rend
 - **Wallet-Dependent Islands (Client-Side):** Freighter wallet connection (`useWallet()`), transaction signing, member action controls (loan requests, voting buttons, staking, repayments), and wallet-scoped queries (`useHasVoted`, `userLoans`) reside in client components because Freighter operates within the browser's DOM context.
 - **Public Reads & Metrics (SSR Compatible):** Public DAO stats, consensus thresholds, loan policy parameters, and public proposal counts can be resolved during server render or pre-fetched when `NEXT_PUBLIC_BACKEND_URL` is configured, delivering immediate content on First Contentful Paint (FCP) instead of blank skeletons.
 - **Performance Benchmarks:**
-  - *Pure Client-Side SPA:* FCP ~1,100ms, TTI ~1,250ms (initial paint carries only shell and skeletons while client bundles load and query the backend).
-  - *SSR + Client Island Architecture:* FCP ~320ms (~70% improvement in first paint perception), TTI ~980ms.
+  - _Pure Client-Side SPA:_ FCP ~1,100ms, TTI ~1,250ms (initial paint carries only shell and skeletons while client bundles load and query the backend).
+  - _SSR + Client Island Architecture:_ FCP ~320ms (~70% improvement in first paint perception), TTI ~980ms.
 - **Conclusion:** Public read data and layout headers stream during server render, while wallet-dependent interactions hydrate as client islands. This provides immediate visual content without compromising wallet security or re-litigating client vs server boundaries.
 
 ### List Virtualization & Rendering Thresholds (#244)
@@ -328,8 +340,8 @@ Lists in OurDAO (loan proposals, governance proposals, treasury withdrawals, not
   - Lists with **≤ 50 rows** render standard DOM lists directly with zero windowing overhead.
   - Lists with **> 50 rows** (up to the current 200-row backend ceiling and unbounded notification feeds) dynamically window visible rows.
 - **DOM & Performance Impact:**
-  - *200 rows unvirtualized:* ~1,800 DOM nodes, ~85ms render layout cost.
-  - *200 rows with VirtualizedList:* ~240 DOM nodes, ~12ms render layout cost.
+  - _200 rows unvirtualized:_ ~1,800 DOM nodes, ~85ms render layout cost.
+  - _200 rows with VirtualizedList:_ ~240 DOM nodes, ~12ms render layout cost.
 - **Accessibility Guarantee:** Every virtualized list preserves semantic `role="list"`, `role="listitem"`, `aria-setsize={totalCount}`, `aria-posinset={index + 1}`, and full keyboard focus navigation.
 
 ### IPFS Image Optimization & Gateway Configuration (#245)
@@ -353,13 +365,13 @@ Where it stands: **14 of 55** Level A/AA criteria verified, **5 known failures**
 and **16 with no evidence either way**. The untested ones are the honest part —
 automated checks currently cover five components, not every route.
 
-| Issue | Criterion | Gap |
-| --- | --- | --- |
-| [#353](https://github.com/ourdao/ourdao-frontend/issues/353) | 1.3.4 Orientation | Web manifest locks the app to portrait. |
-| [#321](https://github.com/ourdao/ourdao-frontend/issues/321) | 1.4.4 Resize Text | Viewport disables pinch-zoom. |
-| [#352](https://github.com/ourdao/ourdao-frontend/issues/352) | 2.4.2 Page Titled | One tab title for every route. |
+| Issue                                                        | Criterion           | Gap                                                    |
+| ------------------------------------------------------------ | ------------------- | ------------------------------------------------------ |
+| [#353](https://github.com/ourdao/ourdao-frontend/issues/353) | 1.3.4 Orientation   | Web manifest locks the app to portrait.                |
+| [#321](https://github.com/ourdao/ourdao-frontend/issues/321) | 1.4.4 Resize Text   | Viewport disables pinch-zoom.                          |
+| [#352](https://github.com/ourdao/ourdao-frontend/issues/352) | 2.4.2 Page Titled   | One tab title for every route.                         |
 | [#360](https://github.com/ourdao/ourdao-frontend/issues/360) | 1.3.1, 3.3.2, 4.1.2 | Shared form components with correct label association. |
-| [#375](https://github.com/ourdao/ourdao-frontend/issues/375) | several | Automated checks do not cover the whole app yet. |
+| [#375](https://github.com/ourdao/ourdao-frontend/issues/375) | several             | Automated checks do not cover the whole app yet.       |
 
 Fixing those gaps is tracked on the individual issues, not here. What runs in CI
 today: `eslint-plugin-jsx-a11y` (recommended) with `--max-warnings=0` on every
@@ -374,71 +386,65 @@ from [#238](https://github.com/ourdao/ourdao-frontend/issues/238) is in
 
 The table below documents every contract entrypoint the client wraps and its current UI wiring status. This serves as both an accuracy statement and a roadmap.
 
-| Contract Method | UI Status | Used By | Notes |
-|---|---|---|---|
-| **Member Management** ||||
-| `register_member` | ✅ Wired | `/register` | Full registration flow |
-| `exit_dao` | ⚠️ Not wired | — | Wrapper exists, no UI (#TBD) |
-| `is_member` | ✅ Wired | All member-gated pages | Membership check |
-| `get_member` | ✅ Wired | `/dashboard`, user data hook | Member details |
-| **Loans** ||||
-| `request_loan` | ✅ Wired | `/loans/request` | Multi-step loan request form |
-| `edit_loan_proposal` | ⚠️ Partial | — | Wrapper exists, UI in progress (#341) |
-| `vote_on_loan_proposal` | ✅ Wired | `/loans`, `/loans/[id]` | Vote on loan proposals |
-| `get_loan_proposal` | ✅ Wired | `/loans`, `/loans/[id]` | Proposal detail |
-| `get_loan` | ✅ Wired | `/loans/[id]` | Disbursed loan status |
-| `calculate_loan_terms` | ⚠️ Not wired | — | Wrapper exists, no caller |
-| `is_eligible_for_loan` | ⚠️ Not wired | — | Wrapper exists, no caller |
-| `repay_loan` | ✅ Wired | `/loans/[id]` | Full repayment |
-| `repay_loan_partial` | ✅ Wired | `/loans/[id]` | Partial repayment |
-| `mark_loan_defaulted` | ✅ Wired | `/loans/[id]` | Permissionless default marking |
-| **Treasury** ||||
-| `get_treasury_balance` | ✅ Wired | `/treasury`, `/dashboard` | Treasury stats |
-| `propose_treasury_withdrawal` | ✅ Wired | `/governance/create` | Create treasury proposal |
-| `vote_on_treasury_proposal` | ✅ Wired | `/treasury`, `/governance` | Public voting only |
-| `commit_treasury_vote` | ⚠️ Partial | — | Wrapper exists, UI in progress (#339) |
-| `reveal_treasury_vote` | ⚠️ Partial | — | Wrapper exists, UI in progress (#339) |
-| `get_treasury_proposal` | ✅ Wired | `/treasury`, `/governance` | Proposal detail |
-| **Staking & Rewards** ||||
-| `stake` | ✅ Wired | `/treasury` | Stake tokens for voting weight |
-| `unstake` | ✅ Wired | `/treasury` | Unstake tokens |
-| `get_stake` | ✅ Wired | `/dashboard`, `/treasury` | Current stake |
-| `get_pending_yield` | ✅ Wired | `/dashboard`, `/treasury` | Claimable yield |
-| `claim_rewards` | ✅ Wired | `/treasury` | Claim pending yield |
-| **Name Registry** ||||
-| `register_name` | ⚠️ Not wired | — | Wrapper exists, no UI (#TBD) |
-| `resolve_name` | ⚠️ Not wired | — | Wrapper exists, no caller |
-| `name_of` | ⚠️ Not wired | — | Wrapper exists, no caller |
-| **Documents** ||||
-| `attach_document` | ✅ Wired | `/loans/[id]`, document forms | Attach IPFS CID |
-| `get_document` | ✅ Wired | `/loans/[id]`, document views | Read content hash |
-| **Admin** ||||
-| `pause` | ✅ Wired | `/admin` | Pause the DAO |
-| `unpause` | ✅ Wired | `/admin` | Unpause the DAO |
-| `is_paused` | ✅ Wired | All write actions | Paused state check |
-| `add_admin` | ✅ Wired | `/admin` | Add admin |
-| `remove_admin` | ✅ Wired | `/admin` | Remove admin |
-| `get_admins` | ✅ Wired | `/admin` | Admin list |
-| `is_admin` | ✅ Wired | `/admin` | Admin check |
-| `set_consensus_threshold` | ✅ Wired | `/admin` | Update voting threshold |
-| `set_loan_policy` | ⚠️ Not wired | — | Wrapper exists, no UI (#TBD) |
-| `get_consensus_threshold` | ✅ Wired | `/dashboard`, stats | Threshold display |
-| `get_loan_policy` | ✅ Wired | `/loans/request` | Loan policy display |
-| `set_pauser` | ✅ Wired | `/admin` | Set pauser address (#629) |
-| `revoke_pauser` | ✅ Wired | `/admin` | Revoke pauser address (#629) |
-| `get_version` | ✅ Wired | `AppShell` build info | Deployed contract version (#645) |
-| `get_whitelisted_tokens` | ✅ Wired | `/admin` | List whitelisted tokens (#623) |
-| `propose_token_addition` | ✅ Wired | `/admin` | Propose token whitelist addition (#623) |
-| `execute_token_addition` | ✅ Wired | `/admin` | Execute token whitelist addition (#623) |
-| `remove_token` | ✅ Wired | `/admin` | Remove token from whitelist (#623) |
-| **Governance** ||||
-| `has_voted` | ✅ Wired | All proposal pages | Vote status check |
-| `calculate_exit_share` | ⚠️ Not wired | — | Wrapper exists, no caller |
-| `get_active_members` | ✅ Wired | `/dashboard` | Active member count |
-| `get_total_members` | ✅ Wired | `/dashboard` | Total member count |
-| `get_token` | ✅ Wired | Token formatting | DAO token address |
+| Contract Method               | UI Status    | Used By                       | Notes                                 |
+| ----------------------------- | ------------ | ----------------------------- | ------------------------------------- |
+| **Member Management**         |              |                               |                                       |
+| `register_member`             | ✅ Wired     | `/register`                   | Full registration flow                |
+| `exit_dao`                    | ⚠️ Not wired | —                             | Wrapper exists, no UI (#TBD)          |
+| `is_member`                   | ✅ Wired     | All member-gated pages        | Membership check                      |
+| `get_member`                  | ✅ Wired     | `/dashboard`, user data hook  | Member details                        |
+| **Loans**                     |              |                               |                                       |
+| `request_loan`                | ✅ Wired     | `/loans/request`              | Multi-step loan request form          |
+| `edit_loan_proposal`          | ⚠️ Partial   | —                             | Wrapper exists, UI in progress (#341) |
+| `vote_on_loan_proposal`       | ✅ Wired     | `/loans`, `/loans/[id]`       | Vote on loan proposals                |
+| `get_loan_proposal`           | ✅ Wired     | `/loans`, `/loans/[id]`       | Proposal detail                       |
+| `get_loan`                    | ✅ Wired     | `/loans/[id]`                 | Disbursed loan status                 |
+| `calculate_loan_terms`        | ⚠️ Not wired | —                             | Wrapper exists, no caller             |
+| `is_eligible_for_loan`        | ⚠️ Not wired | —                             | Wrapper exists, no caller             |
+| `repay_loan`                  | ✅ Wired     | `/loans/[id]`                 | Full repayment                        |
+| `repay_loan_partial`          | ✅ Wired     | `/loans/[id]`                 | Partial repayment                     |
+| `mark_loan_defaulted`         | ✅ Wired     | `/loans/[id]`                 | Permissionless default marking        |
+| **Treasury**                  |              |                               |                                       |
+| `get_treasury_balance`        | ✅ Wired     | `/treasury`, `/dashboard`     | Treasury stats                        |
+| `propose_treasury_withdrawal` | ✅ Wired     | `/governance/create`          | Create treasury proposal              |
+| `vote_on_treasury_proposal`   | ✅ Wired     | `/treasury`, `/governance`    | Public voting only                    |
+| `commit_treasury_vote`        | ⚠️ Partial   | —                             | Wrapper exists, UI in progress (#339) |
+| `reveal_treasury_vote`        | ⚠️ Partial   | —                             | Wrapper exists, UI in progress (#339) |
+| `get_treasury_proposal`       | ✅ Wired     | `/treasury`, `/governance`    | Proposal detail                       |
+| **Staking & Rewards**         |              |                               |                                       |
+| `stake`                       | ✅ Wired     | `/treasury`                   | Stake tokens for voting weight        |
+| `unstake`                     | ✅ Wired     | `/treasury`                   | Unstake tokens                        |
+| `get_stake`                   | ✅ Wired     | `/dashboard`, `/treasury`     | Current stake                         |
+| `get_pending_yield`           | ✅ Wired     | `/dashboard`, `/treasury`     | Claimable yield                       |
+| `claim_rewards`               | ✅ Wired     | `/treasury`                   | Claim pending yield                   |
+| **Name Registry**             |              |                               |                                       |
+| `register_name`               | ⚠️ Not wired | —                             | Wrapper exists, no UI (#TBD)          |
+| `resolve_name`                | ⚠️ Not wired | —                             | Wrapper exists, no caller             |
+| `name_of`                     | ⚠️ Not wired | —                             | Wrapper exists, no caller             |
+| **Documents**                 |              |                               |                                       |
+| `attach_document`             | ✅ Wired     | `/loans/[id]`, document forms | Attach IPFS CID                       |
+| `get_document`                | ✅ Wired     | `/loans/[id]`, document views | Read content hash                     |
+| **Admin**                     |              |                               |                                       |
+| `pause`                       | ✅ Wired     | `/admin`                      | Pause the DAO                         |
+| `unpause`                     | ✅ Wired     | `/admin`                      | Unpause the DAO                       |
+| `is_paused`                   | ✅ Wired     | All write actions             | Paused state check                    |
+| `add_admin`                   | ✅ Wired     | `/admin`                      | Add admin                             |
+| `remove_admin`                | ✅ Wired     | `/admin`                      | Remove admin                          |
+| `get_admins`                  | ✅ Wired     | `/admin`                      | Admin list                            |
+| `is_admin`                    | ✅ Wired     | `/admin`                      | Admin check                           |
+| `set_consensus_threshold`     | ✅ Wired     | `/admin`                      | Update voting threshold               |
+| `set_loan_policy`             | ⚠️ Not wired | —                             | Wrapper exists, no UI (#TBD)          |
+| `get_consensus_threshold`     | ✅ Wired     | `/dashboard`, stats           | Threshold display                     |
+| `get_loan_policy`             | ✅ Wired     | `/loans/request`              | Loan policy display                   |
+| **Governance**                |              |                               |                                       |
+| `has_voted`                   | ✅ Wired     | All proposal pages            | Vote status check                     |
+| `calculate_exit_share`        | ⚠️ Not wired | —                             | Wrapper exists, no caller             |
+| `get_active_members`          | ✅ Wired     | `/dashboard`                  | Active member count                   |
+| `get_total_members`           | ✅ Wired     | `/dashboard`                  | Total member count                    |
+| `get_token`                   | ✅ Wired     | Token formatting              | DAO token address                     |
 
 **Legend:**
+
 - ✅ **Wired** — Full end-to-end flow from UI to contract
 - ⚠️ **Partial** — Wrapper exists, UI implementation in progress
 - ⚠️ **Not wired** — Wrapper exists, no UI or caller
@@ -471,7 +477,7 @@ This section covers security design decisions and controls currently in place:
   - `X-Frame-Options: DENY` + `frame-ancestors 'none'` (CSP) — no framing, anti-clickjacking for the wallet-connected flow
   - `Permissions-Policy: camera=(), microphone=(), geolocation=(), interest-cohort=(), browsing-topics=()`
   - `Cross-Origin-Opener-Policy: same-origin`
-  Verified via `curl -I` / external header checker (include output in PR). CSP is the layer that limits what an injected script can load and where it can exfiltrate, even though signing itself stays inside Freighter.
+    Verified via `curl -I` / external header checker (include output in PR). CSP is the layer that limits what an injected script can load and where it can exfiltrate, even though signing itself stays inside Freighter.
 - **Dependency hygiene.** A critical Next.js RCE and several other npm audit findings were patched. `ipfs-http-client` — previously the only dependency with an allowlisted finding — has been removed entirely along with its tree, so its `audit-ci.jsonc` entries are gone too. The rest is enforced automatically rather than tracked by hand: a separate `audit` job in CI (`.github/workflows/ci.yml`) runs `audit-ci` (config: `audit-ci.jsonc`) on every PR at the moderate-and-above threshold, so a new advisory is caught the day it lands instead of at the next manual review. It's a non-blocking job (visible as a warning, doesn't fail the run) since a fresh advisory affects every open PR at once, not just the one that happens to trigger it. Any future allowlist entry is scoped by exact GHSA id with an expiry date, after which it starts failing again until someone deliberately re-reviews and extends it or the dependency is fixed/replaced — see the comments in `audit-ci.jsonc`. One unrelated, unallowlisted finding remains in `nanoid` via `postcss` (pulled in by `next`/`@tailwindcss/postcss`). [Dependabot](.github/dependabot.yml) opens security-update PRs automatically as advisories get patched upstream, and batches routine (non-security) version bumps into a weekly grouped PR so they don't flood the queue — see [CONTRIBUTING.md](./CONTRIBUTING.md)'s note on unrelated dependency bumps.
 - **Server-only credentials.** `PINATA_JWT` (document pinning) is read only in `src/app/api/documents/route.ts`, a server-side route handler — never in a `NEXT_PUBLIC_`-prefixed variable, which Next.js would otherwise inline into the client bundle.
 - **Authenticated backend writes (`StellarSignature`).** The indexer is read-only, but two notification endpoints mutate state, so it will not trust an address asserted by the client. Every write performs a challenge–response handshake in `src/lib/backend-auth.ts`:
@@ -483,6 +489,7 @@ This section covers security design decisions and controls currently in place:
   - **Only `G…` and `M…` accounts can authenticate.** A `C…` contract account has no key to sign with, so the backend rejects it with a 400. `canSignForBackend()` screens for this up front so the member gets "this account can't sign" instead of a bare HTTP error.
   - **A write costs a signature prompt.** Marking notifications as read is no longer free, which is why the hook in `src/hooks/useNotifications.ts` applies the change optimistically and **rolls it back** if the request doesn't land (rejected prompt, 401, expired nonce, unreachable backend). Mutations return a typed `MutationResult` rather than a boolean precisely so the caller can tell those cases apart instead of assuming success.
   - **Nonces are single-use and per address**, and challenge issuance is idempotent while a nonce is live. Two overlapping writes for one wallet would sign the same nonce and the second would be rejected, so `serializePerAddress()` queues mutations per address. Different addresses are unaffected and still run in parallel.
+
 - **Privacy claims are audited.** `/privacy` separates what's enforced today from what's designed but not yet delivered (commit-reveal phase separation and commit/reveal UI are still pending in `ourdao-contracts` and this repo; private proposals are currently unvotable and the create form disables that option rather than offering an uncompletable flow). See that page and its tracking links. Once the contract/client fixes land, the page will be updated — noted in the PR so it isn't forgotten.
 
 ## Roadmap

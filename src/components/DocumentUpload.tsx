@@ -2,13 +2,7 @@
 
 import { useState, useCallback, useRef } from 'react'
 import { useOptionalWallet } from '@/lib/wallet'
-import { 
-  CloudArrowUpIcon, 
-  EyeIcon, 
-  EyeSlashIcon,
-  LockClosedIcon,
-  XMarkIcon
-} from '@/lib/icons'
+import { CloudArrowUpIcon, EyeIcon, EyeSlashIcon, LockClosedIcon, XMarkIcon } from '@/lib/icons'
 import { uploadMultipleDocuments, DocumentMetadata } from '@/lib/ipfs'
 import { formatFileSize } from '@/lib/utils'
 
@@ -33,7 +27,7 @@ export default function DocumentUpload({
   className = '',
   allowEncryption = true,
   requireEncryption = false,
-  showPermissions = true
+  showPermissions = true,
 }: DocumentUploadProps) {
   const { address, signMessage } = useOptionalWallet()
   const [files, setFiles] = useState<File[]>([])
@@ -45,23 +39,26 @@ export default function DocumentUpload({
   const [permissions, setPermissions] = useState({
     public: false,
     allowedUsers: [] as string[],
-    allowedRoles: [] as string[]
+    allowedRoles: [] as string[],
   })
   const [newUser, setNewUser] = useState('')
   const [newRole, setNewRole] = useState('')
-  
+
   const fileInputRef = useRef<HTMLInputElement>(null)
 
-  const handleDrop = useCallback((e: React.DragEvent) => {
-    e.preventDefault()
-    const droppedFiles = Array.from(e.dataTransfer.files)
-    
-    if (!multiple) {
-      setFiles([droppedFiles[0]].filter(Boolean))
-    } else {
-      setFiles(prev => [...prev, ...droppedFiles])
-    }
-  }, [multiple])
+  const handleDrop = useCallback(
+    (e: React.DragEvent) => {
+      e.preventDefault()
+      const droppedFiles = Array.from(e.dataTransfer.files)
+
+      if (!multiple) {
+        setFiles([droppedFiles[0]].filter(Boolean))
+      } else {
+        setFiles((prev) => [...prev, ...droppedFiles])
+      }
+    },
+    [multiple]
+  )
 
   const handleDragOver = useCallback((e: React.DragEvent) => {
     e.preventDefault()
@@ -69,25 +66,25 @@ export default function DocumentUpload({
 
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const selectedFiles = Array.from(e.target.files || [])
-    
+
     // Validate file sizes
-    const oversizedFiles = selectedFiles.filter(file => file.size > maxSize * 1024 * 1024)
+    const oversizedFiles = selectedFiles.filter((file) => file.size > maxSize * 1024 * 1024)
     if (oversizedFiles.length > 0) {
       onError?.(
-        `Some files exceed the ${maxSize}MB limit: ${oversizedFiles.map(f => f.name).join(', ')}`
+        `Some files exceed the ${maxSize}MB limit: ${oversizedFiles.map((f) => f.name).join(', ')}`
       )
       return
     }
-    
+
     if (!multiple) {
       setFiles([selectedFiles[0]].filter(Boolean))
     } else {
-      setFiles(prev => [...prev, ...selectedFiles])
+      setFiles((prev) => [...prev, ...selectedFiles])
     }
   }
 
   const removeFile = (index: number) => {
-    setFiles(prev => prev.filter((_, i) => i !== index))
+    setFiles((prev) => prev.filter((_, i) => i !== index))
   }
 
   const handleUpload = async () => {
@@ -95,7 +92,7 @@ export default function DocumentUpload({
       onError?.('Please select files to upload')
       return
     }
-    
+
     if (encrypt && !password.trim()) {
       onError?.('Password is required for encrypted uploads')
       return
@@ -139,9 +136,9 @@ export default function DocumentUpload({
 
   const addAllowedUser = () => {
     if (newUser.trim() && !permissions.allowedUsers.includes(newUser.trim())) {
-      setPermissions(prev => ({
+      setPermissions((prev) => ({
         ...prev,
-        allowedUsers: [...prev.allowedUsers, newUser.trim()]
+        allowedUsers: [...prev.allowedUsers, newUser.trim()],
       }))
       setNewUser('')
     }
@@ -149,25 +146,25 @@ export default function DocumentUpload({
 
   const addAllowedRole = () => {
     if (newRole.trim() && !permissions.allowedRoles.includes(newRole.trim())) {
-      setPermissions(prev => ({
+      setPermissions((prev) => ({
         ...prev,
-        allowedRoles: [...prev.allowedRoles, newRole.trim()]
+        allowedRoles: [...prev.allowedRoles, newRole.trim()],
       }))
       setNewRole('')
     }
   }
 
   const removeAllowedUser = (user: string) => {
-    setPermissions(prev => ({
+    setPermissions((prev) => ({
       ...prev,
-      allowedUsers: prev.allowedUsers.filter(u => u !== user)
+      allowedUsers: prev.allowedUsers.filter((u) => u !== user),
     }))
   }
 
   const removeAllowedRole = (role: string) => {
-    setPermissions(prev => ({
+    setPermissions((prev) => ({
       ...prev,
-      allowedRoles: prev.allowedRoles.filter(r => r !== role)
+      allowedRoles: prev.allowedRoles.filter((r) => r !== role),
     }))
   }
 
@@ -190,54 +187,53 @@ export default function DocumentUpload({
         onDrop={handleDrop}
         onDragOver={handleDragOver}
         onClick={() => fileInputRef.current?.click()}
-        onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); fileInputRef.current?.click() } }}
-        className="relative border-2 border-dashed border-input rounded-lg p-6 hover:border-blue-500 dark:hover:border-blue-400 transition-colors cursor-pointer"
+        onKeyDown={(e) => {
+          if (e.key === 'Enter' || e.key === ' ') {
+            e.preventDefault()
+            fileInputRef.current?.click()
+          }
+        }}
+        className="border-input relative cursor-pointer rounded-lg border-2 border-dashed p-6 transition-colors hover:border-blue-500 dark:hover:border-blue-400"
       >
         <div className="text-center">
-          <CloudArrowUpIcon className="mx-auto h-12 w-12 text-muted-foreground" />
+          <CloudArrowUpIcon className="text-muted-foreground mx-auto h-12 w-12" />
           <div className="mt-4">
-            <p className="text-sm text-muted-foreground">
-              <span className="font-medium text-blue-600 dark:text-blue-400">
-                Click to upload
-              </span>{' '}
+            <p className="text-muted-foreground text-sm">
+              <span className="font-medium text-blue-600 dark:text-blue-400">Click to upload</span>{' '}
               or drag and drop
             </p>
-            <p className="text-xs text-muted-foreground">
-              {accept ? `Supported: ${accept}` : 'All file types supported'} 
-              {' '}• Max {maxSize}MB {multiple ? 'per file' : ''}
+            <p className="text-muted-foreground text-xs">
+              {accept ? `Supported: ${accept}` : 'All file types supported'} • Max {maxSize}MB{' '}
+              {multiple ? 'per file' : ''}
             </p>
           </div>
         </div>
         <input
           ref={fileInputRef}
           type="file"
-          aria-label={multiple ? "Choose files to upload" : "Choose a file to upload"}
+          aria-label={multiple ? 'Choose files to upload' : 'Choose a file to upload'}
           multiple={multiple}
           accept={accept}
           onChange={handleFileSelect}
-          className="absolute inset-0 opacity-0 cursor-pointer"
+          className="absolute inset-0 cursor-pointer opacity-0"
         />
       </div>
 
       {/* File List */}
       {files.length > 0 && (
         <div className="space-y-2">
-          <h4 className="font-medium text-foreground">
-            Selected Files ({files.length})
-          </h4>
+          <h4 className="text-foreground font-medium">Selected Files ({files.length})</h4>
           <div className="space-y-2">
             {files.map((file, index) => (
               <div
                 key={`${file.name}-${index}`}
-                className="flex items-center justify-between p-3 bg-muted rounded-lg"
+                className="bg-muted flex items-center justify-between rounded-lg p-3"
               >
                 <div className="flex items-center space-x-3">
                   <span className="text-xl">{getFileIcon(file.type)}</span>
                   <div>
-                    <p className="text-sm font-medium text-foreground">
-                      {file.name}
-                    </p>
-                    <p className="text-xs text-muted-foreground">
+                    <p className="text-foreground text-sm font-medium">{file.name}</p>
+                    <p className="text-muted-foreground text-xs">
                       {formatFileSize(file.size)} • {file.type || 'Unknown'}
                     </p>
                   </div>
@@ -246,7 +242,7 @@ export default function DocumentUpload({
                   type="button"
                   onClick={() => removeFile(index)}
                   aria-label={`Remove ${file.name}`}
-                  className="p-1 text-muted-foreground hover:text-foreground"
+                  className="text-muted-foreground hover:text-foreground p-1"
                 >
                   <XMarkIcon className="h-4 w-4" aria-hidden="true" />
                 </button>
@@ -258,7 +254,7 @@ export default function DocumentUpload({
 
       {/* Encryption Settings */}
       {allowEncryption && (
-        <div className="space-y-4 p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
+        <div className="space-y-4 rounded-lg bg-blue-50 p-4 dark:bg-blue-900/20">
           <div className="flex items-center space-x-3">
             <input
               type="checkbox"
@@ -266,12 +262,17 @@ export default function DocumentUpload({
               checked={encrypt}
               onChange={(e) => setEncrypt(e.target.checked)}
               disabled={requireEncryption}
-              className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-input rounded disabled:opacity-50"
+              className="border-input h-4 w-4 rounded text-blue-600 focus:ring-blue-500 disabled:opacity-50"
             />
-            <label htmlFor="encrypt" className="flex items-center space-x-2 text-sm font-medium text-foreground">
+            <label
+              htmlFor="encrypt"
+              className="text-foreground flex items-center space-x-2 text-sm font-medium"
+            >
               <LockClosedIcon className="h-4 w-4" />
               <span>Encrypt files</span>
-              {requireEncryption && <span className="text-xs text-blue-600 dark:text-blue-400">(Required)</span>}
+              {requireEncryption && (
+                <span className="text-xs text-blue-600 dark:text-blue-400">(Required)</span>
+              )}
             </label>
           </div>
 
@@ -280,26 +281,27 @@ export default function DocumentUpload({
               <div className="relative">
                 <input
                   type={showPassword ? 'text' : 'password'}
+                  aria-label="Enter encryption password"
                   placeholder="Enter encryption password"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  className="w-full px-3 py-2 border border-input rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-muted dark:text-foreground pr-10"
+                  className="border-input dark:bg-muted dark:text-foreground w-full rounded-md border px-3 py-2 pr-10 focus:ring-2 focus:ring-blue-500 focus:outline-none"
                 />
                 <button
                   type="button"
                   onClick={() => setShowPassword(!showPassword)}
-                  className="absolute inset-y-0 right-0 pr-3 flex items-center"
+                  className="absolute inset-y-0 right-0 flex items-center pr-3"
                   aria-label={showPassword ? 'Hide password' : 'Show password'}
                   aria-pressed={showPassword}
                 >
                   {showPassword ? (
-                    <EyeSlashIcon className="h-4 w-4 text-muted-foreground" />
+                    <EyeSlashIcon className="text-muted-foreground h-4 w-4" />
                   ) : (
-                    <EyeIcon className="h-4 w-4 text-muted-foreground" />
+                    <EyeIcon className="text-muted-foreground h-4 w-4" />
                   )}
                 </button>
               </div>
-              <p className="text-xs text-muted-foreground">
+              <p className="text-muted-foreground text-xs">
                 Choose a strong password. This will be required to decrypt and view the files.
               </p>
             </div>
@@ -309,24 +311,24 @@ export default function DocumentUpload({
 
       {/* Permissions */}
       {showPermissions && (
-        <div className="space-y-4 p-4 bg-muted rounded-lg">
-          <h4 className="font-medium text-foreground">Access Permissions</h4>
-          
+        <div className="bg-muted space-y-4 rounded-lg p-4">
+          <h4 className="text-foreground font-medium">Access Permissions</h4>
+
           <div className="flex items-center space-x-3">
             <input
               type="checkbox"
               id="public"
               checked={permissions.public}
-              onChange={(e) => setPermissions(prev => ({ ...prev, public: e.target.checked }))}
-              className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-input rounded"
+              onChange={(e) => setPermissions((prev) => ({ ...prev, public: e.target.checked }))}
+              className="border-input h-4 w-4 rounded text-blue-600 focus:ring-blue-500"
             />
-            <label htmlFor="public" className="text-sm text-foreground">
+            <label htmlFor="public" className="text-foreground text-sm">
               Allow public access{encrypt ? ' (with password)' : ''}
             </label>
           </div>
 
           <div className="space-y-2">
-            <label htmlFor="allowed-user" className="block text-sm font-medium text-foreground">
+            <label htmlFor="allowed-user" className="text-foreground block text-sm font-medium">
               Allowed Users (Addresses)
             </label>
             <div className="flex space-x-2">
@@ -336,12 +338,12 @@ export default function DocumentUpload({
                 placeholder="0x..."
                 value={newUser}
                 onChange={(e) => setNewUser(e.target.value)}
-                className="flex-1 px-3 py-2 border border-input rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-muted dark:text-foreground"
+                className="border-input dark:bg-muted dark:text-foreground flex-1 rounded-md border px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:outline-none"
               />
               <button
                 type="button"
                 onClick={addAllowedUser}
-                className="px-3 py-2 bg-blue-600 text-white text-sm rounded-md hover:bg-blue-700"
+                className="rounded-md bg-blue-600 px-3 py-2 text-sm text-white hover:bg-blue-700"
               >
                 Add
               </button>
@@ -351,7 +353,7 @@ export default function DocumentUpload({
                 {permissions.allowedUsers.map((user, index) => (
                   <span
                     key={index}
-                    className="inline-flex items-center px-2 py-1 text-xs bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-200 rounded"
+                    className="inline-flex items-center rounded bg-blue-100 px-2 py-1 text-xs text-blue-800 dark:bg-blue-900 dark:text-blue-200"
                   >
                     {user.slice(0, 8)}...
                     <button
@@ -368,7 +370,7 @@ export default function DocumentUpload({
           </div>
 
           <div className="space-y-2">
-            <label htmlFor="allowed-role" className="block text-sm font-medium text-foreground">
+            <label htmlFor="allowed-role" className="text-foreground block text-sm font-medium">
               Allowed Roles
             </label>
             <div className="flex space-x-2">
@@ -376,7 +378,7 @@ export default function DocumentUpload({
                 id="allowed-role"
                 value={newRole}
                 onChange={(e) => setNewRole(e.target.value)}
-                className="flex-1 px-3 py-2 border border-input rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-muted dark:text-foreground"
+                className="border-input dark:bg-muted dark:text-foreground flex-1 rounded-md border px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:outline-none"
               >
                 <option value="">Select role...</option>
                 <option value="admin">Admin</option>
@@ -388,7 +390,7 @@ export default function DocumentUpload({
               <button
                 type="button"
                 onClick={addAllowedRole}
-                className="px-3 py-2 bg-blue-600 text-white text-sm rounded-md hover:bg-blue-700"
+                className="rounded-md bg-blue-600 px-3 py-2 text-sm text-white hover:bg-blue-700"
               >
                 Add
               </button>
@@ -398,7 +400,7 @@ export default function DocumentUpload({
                 {permissions.allowedRoles.map((role, index) => (
                   <span
                     key={index}
-                    className="inline-flex items-center px-2 py-1 text-xs bg-green-100 dark:bg-green-900 text-green-800 dark:text-green-200 rounded"
+                    className="inline-flex items-center rounded bg-green-100 px-2 py-1 text-xs text-green-800 dark:bg-green-900 dark:text-green-200"
                   >
                     {role}
                     <button
@@ -419,13 +421,13 @@ export default function DocumentUpload({
       {/* Upload Progress */}
       {uploading && (
         <div className="space-y-2">
-          <div className="flex items-center justify-between text-sm text-muted-foreground">
+          <div className="text-muted-foreground flex items-center justify-between text-sm">
             <span>Uploading...</span>
             <span>{Math.round(uploadProgress)}%</span>
           </div>
-          <div className="w-full bg-muted rounded-full h-2">
+          <div className="bg-muted h-2 w-full rounded-full">
             <div
-              className="bg-blue-600 h-2 rounded-full transition-all duration-300"
+              className="h-2 rounded-full bg-blue-600 transition-all duration-300"
               style={{ width: `${uploadProgress}%` }}
             />
           </div>
@@ -436,17 +438,20 @@ export default function DocumentUpload({
       <button
         onClick={handleUpload}
         disabled={files.length === 0 || uploading || (encrypt && !password.trim())}
-        className="w-full flex items-center justify-center space-x-2 px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
+        className="flex w-full items-center justify-center space-x-2 rounded-md bg-blue-600 px-4 py-2 text-white hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-50"
       >
         {uploading ? (
           <>
-            <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white" />
+            <div className="h-4 w-4 animate-spin rounded-full border-b-2 border-white" />
             <span>Uploading...</span>
           </>
         ) : (
           <>
             <CloudArrowUpIcon className="h-4 w-4" />
-            <span>Upload {files.length > 0 ? `${files.length} file${files.length > 1 ? 's' : ''}` : 'Files'}</span>
+            <span>
+              Upload{' '}
+              {files.length > 0 ? `${files.length} file${files.length > 1 ? 's' : ''}` : 'Files'}
+            </span>
           </>
         )}
       </button>

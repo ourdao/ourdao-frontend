@@ -20,23 +20,30 @@ OurDAO Frontend is a **Next.js 16 application** that requires a **Node.js server
 
 These are inlined at build time and cannot be changed at runtime:
 
-| Variable | Purpose | Default |
-|----------|---------|---------|
-| `NEXT_PUBLIC_CONTRACT_ID` | Deployed OurDAO contract ID | _(empty)_ |
-| `NEXT_PUBLIC_SOROBAN_RPC_URL` | Soroban RPC endpoint | `https://soroban-testnet.stellar.org` |
-| `NEXT_PUBLIC_NETWORK_PASSPHRASE` | Network passphrase | testnet |
-| `NEXT_PUBLIC_IPFS_GATEWAY` | IPFS gateway URL(s) | Pinata gateway |
-| `NEXT_PUBLIC_BACKEND_URL` | OurDAO backend URL | `http://localhost:4000` |
-| `NEXT_PUBLIC_SITE_URL` | Public site origin | `http://localhost:3000` |
-| `NEXT_PUBLIC_FEATURE_FLAGS` | Comma-separated names of the risky changes to enable in this build | _(empty → all flags off)_ |
+| Variable                         | Purpose                                                            | Default                               |
+| -------------------------------- | ------------------------------------------------------------------ | ------------------------------------- |
+| `NEXT_PUBLIC_CONTRACT_ID`        | Deployed OurDAO contract ID                                        | _(empty)_                             |
+| `NEXT_PUBLIC_SOROBAN_RPC_URL`    | Soroban RPC endpoint                                               | `https://soroban-testnet.stellar.org` |
+| `NEXT_PUBLIC_NETWORK_PASSPHRASE` | Network passphrase                                                 | testnet                               |
+| `NEXT_PUBLIC_IPFS_GATEWAY`       | IPFS gateway URL(s)                                                | Pinata gateway                        |
+| `NEXT_PUBLIC_BACKEND_URL`        | OurDAO backend URL                                                 | `http://localhost:4000`               |
+| `NEXT_PUBLIC_SITE_URL`           | Public site origin                                                 | `http://localhost:3000`               |
+| `NEXT_PUBLIC_FEATURE_FLAGS`      | Comma-separated names of the risky changes to enable in this build | _(empty → all flags off)_             |
 
 ### Runtime Variables (Server-only)
 
 These are read at runtime and never exposed to the client:
 
-| Variable | Purpose | Required |
-|----------|---------|----------|
+| Variable     | Purpose                                | Required          |
+| ------------ | -------------------------------------- | ----------------- |
 | `PINATA_JWT` | Pinata credential for document pinning | Yes (for uploads) |
+| `RATE_LIMIT_IP_MAX` | Max document upload requests per IP address per window | No (default `10`) |
+| `RATE_LIMIT_IP_WINDOW_MS` | Sliding window duration for IP rate limiting in ms | No (default `60000`) |
+| `RATE_LIMIT_MEMBER_MAX` | Max document upload requests per member address per window | No (default `5`) |
+| `RATE_LIMIT_MEMBER_WINDOW_MS` | Sliding window duration for member rate limiting in ms | No (default `60000`) |
+
+> [!NOTE]
+> **Rate Limiting Architecture**: The document upload route (`src/app/api/documents/route.ts`) enforces rate limits using in-memory sliding-window maps in `src/lib/rate-limiter.ts`. This limiter is instance-local (per-process). For multi-instance, containerized, or distributed serverless environments (such as Vercel Functions), rate limits apply per instance rather than globally. If global distributed rate limiting is required, an edge-level limiter (e.g. Vercel Firewall / Edge Rate Limiting or Upstash Redis) should be used.
 
 ## Security Headers
 
@@ -108,10 +115,10 @@ The app will be available at `http://localhost:3000` by default.
 
 ## Build-time vs Runtime Variables
 
-| Type | Examples | When Set | Changeable at Runtime |
-|------|----------|----------|----------------------|
-| Build-time | `NEXT_PUBLIC_*` | During `npm run build` | No |
-| Runtime | `PINATA_JWT` | When server starts | Yes |
+| Type       | Examples        | When Set               | Changeable at Runtime |
+| ---------- | --------------- | ---------------------- | --------------------- |
+| Build-time | `NEXT_PUBLIC_*` | During `npm run build` | No                    |
+| Runtime    | `PINATA_JWT`    | When server starts     | Yes                   |
 
 **Important**: Changing `NEXT_PUBLIC_*` values requires a full rebuild and redeployment.
 
@@ -127,11 +134,11 @@ All three values change together — a mainnet contract id with a testnet passph
 signs against the wrong network. Because these are `NEXT_PUBLIC_*`, each change
 requires a **full rebuild** (see "Build-time vs Runtime Variables" above).
 
-| Variable | Testnet (default) | Mainnet |
-|----------|-------------------|---------|
-| `NEXT_PUBLIC_CONTRACT_ID` | _(empty / testnet `C…`)_ | the **mainnet** contract id (`C…`) |
-| `NEXT_PUBLIC_NETWORK_PASSPHRASE` | `Test SDF Network ; September 2015` | `Public Global Stellar Network ; September 2015` |
-| `NEXT_PUBLIC_SOROBAN_RPC_URL` | `https://soroban-testnet.stellar.org` | your mainnet RPC (see below) |
+| Variable                         | Testnet (default)                     | Mainnet                                          |
+| -------------------------------- | ------------------------------------- | ------------------------------------------------ |
+| `NEXT_PUBLIC_CONTRACT_ID`        | _(empty / testnet `C…`)_              | the **mainnet** contract id (`C…`)               |
+| `NEXT_PUBLIC_NETWORK_PASSPHRASE` | `Test SDF Network ; September 2015`   | `Public Global Stellar Network ; September 2015` |
+| `NEXT_PUBLIC_SOROBAN_RPC_URL`    | `https://soroban-testnet.stellar.org` | your mainnet RPC (see below)                     |
 
 ### 2. Choose a mainnet RPC provider
 

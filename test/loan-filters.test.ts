@@ -3,9 +3,27 @@ import { filterLoanProposals } from '@/lib/loan-filters'
 import { mapLoanProposal } from '@/hooks/useDAO'
 
 const proposals = [
-  mapLoanProposal({ id: 1, borrower: 'GABCDEF', amount: '100', phase: ['Editing'], status: ['Pending'] }),
-  mapLoanProposal({ id: 12, borrower: 'GXYZKLM', amount: '200', phase: ['Voting'], status: ['Pending'] }),
-  mapLoanProposal({ id: 3, borrower: 'GABDEFG', amount: '300', phase: ['Voting'], status: ['Rejected'] }),
+  mapLoanProposal({
+    id: 1,
+    borrower: 'GABCDEF',
+    amount: '100',
+    phase: ['Editing'],
+    status: ['Pending'],
+  }),
+  mapLoanProposal({
+    id: 12,
+    borrower: 'GXYZKLM',
+    amount: '200',
+    phase: ['Voting'],
+    status: ['Pending'],
+  }),
+  mapLoanProposal({
+    id: 3,
+    borrower: 'GABDEFG',
+    amount: '300',
+    phase: ['Voting'],
+    status: ['Rejected'],
+  }),
 ]
 
 const ids = (list: { id: number }[]) => list.map((p) => p.id)

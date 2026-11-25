@@ -7,7 +7,10 @@ import { describe, expect, it } from 'vitest'
  * through `env:` (not the bare `steps` identifier, which is undefined inside
  * actions/github-script) and must await the comment call so failures surface.
  */
-const preview = readFileSync(resolve(__dirname, '../.github/workflows/preview.yml'), 'utf8').replace(/\r\n/g, '\n')
+const preview = readFileSync(
+  resolve(__dirname, '../.github/workflows/preview.yml'),
+  'utf8'
+).replace(/\r\n/g, '\n')
 
 const commentStep = preview.slice(preview.indexOf('- name: Add preview comment'))
 const scriptBody = commentStep.slice(commentStep.indexOf('script: |'))

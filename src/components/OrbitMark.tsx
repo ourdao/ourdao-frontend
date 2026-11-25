@@ -11,16 +11,38 @@ export function OrbitMark({ className }: { className?: string }) {
   return (
     <svg viewBox="0 0 512 512" className={className} aria-hidden="true">
       <defs>
-        <linearGradient id={ringGradId} x1="86" y1="86" x2="426" y2="426" gradientUnits="userSpaceOnUse">
+        <linearGradient
+          id={ringGradId}
+          x1="86"
+          y1="86"
+          x2="426"
+          y2="426"
+          gradientUnits="userSpaceOnUse"
+        >
           <stop offset="0" stopColor="#a5b4fc" />
           <stop offset="1" stopColor="#4338ca" />
         </linearGradient>
-        <linearGradient id={starGradId} x1="178" y1="178" x2="334" y2="334" gradientUnits="userSpaceOnUse">
+        <linearGradient
+          id={starGradId}
+          x1="178"
+          y1="178"
+          x2="334"
+          y2="334"
+          gradientUnits="userSpaceOnUse"
+        >
           <stop offset="0" stopColor="#c7d2fe" />
           <stop offset="1" stopColor="#4f46e5" />
         </linearGradient>
       </defs>
-      <circle cx="256" cy="256" r="170" fill="none" stroke={`url(#${ringGradId})`} strokeWidth="4" opacity="0.55" />
+      <circle
+        cx="256"
+        cy="256"
+        r="170"
+        fill="none"
+        stroke={`url(#${ringGradId})`}
+        strokeWidth="4"
+        opacity="0.55"
+      />
       <polygon
         points="256,86 376.21,135.79 426,256 376.21,376.21 256,426 135.79,376.21 86,256 135.79,135.79"
         fill="none"

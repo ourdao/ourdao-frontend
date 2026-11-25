@@ -7,8 +7,14 @@ import { isContractConfigured } from '@/lib/stellar'
 import { daoRead } from '@/lib/dao-client'
 import { backend } from '@/lib/backend'
 import { isBackendConfigured } from '@/lib/backend-config'
-import { serializePerAddress } from '@/lib/backend-auth'
-import { asBigInt, mapLoanProposal, mapLoan, mapTreasuryProposal, toAdminLogEntry, type UILoan } from '@/lib/dao-mappers'
+import {
+  asBigInt,
+  mapLoanProposal,
+  mapLoan,
+  mapTreasuryProposal,
+  toAdminLogEntry,
+  type UILoan,
+} from '@/lib/dao-mappers'
 import { fetchProposalPage } from './enumeration'
 import { queryKeys } from '@/lib/query-keys'
 import { QUERY_REFRESH_INTERVAL_MS } from '@/constants'
@@ -17,6 +23,11 @@ import { useStreamPolling } from '@/hooks/useLiveEvents'
 /** All loan proposals (newest first), read live from the contract, paginated. */
 export function useLoanProposals() {
   const backendConfigured = isBackendConfigured()
+  const {
+    data: stats,
+    isError: countError,
+    refetch: refetchCount,
+  } = useQuery({
   const refetchInterval = useStreamPolling(backendConfigured)
   const { data: stats, isError: countError, refetch: refetchCount } = useQuery({
     queryKey: queryKeys.backendStats(),
@@ -27,17 +38,24 @@ export function useLoanProposals() {
   })
   const count = stats?.totalLoanProposals ?? 0
 
-  const { data, isLoading, isError: listError, refetch: refetchList, fetchNextPage, hasNextPage, isFetchingNextPage } =
-    useInfiniteQuery({
-      queryKey: queryKeys.loanProposals(count),
-      // The page's primary data: a failed read goes to the error boundary.
-      meta: { boundary: true },
-      enabled: isContractConfigured() && count > 0,
-      initialPageParam: 0,
-      queryFn: ({ pageParam }) =>
-        fetchProposalPage(count, pageParam, (id) => daoRead.getLoanProposal(id), mapLoanProposal),
-      getNextPageParam: (lastPage) => lastPage.nextOffset,
-    })
+  const {
+    data,
+    isLoading,
+    isError: listError,
+    refetch: refetchList,
+    fetchNextPage,
+    hasNextPage,
+    isFetchingNextPage,
+  } = useInfiniteQuery({
+    queryKey: queryKeys.loanProposals(count),
+    // The page's primary data: a failed read goes to the error boundary.
+    meta: { boundary: true },
+    enabled: isContractConfigured() && count > 0,
+    initialPageParam: 0,
+    queryFn: ({ pageParam }) =>
+      fetchProposalPage(count, pageParam, (id) => daoRead.getLoanProposal(id), mapLoanProposal),
+    getNextPageParam: (lastPage) => lastPage.nextOffset,
+  })
 
   // Memoize so the array keeps a stable identity across renders; consumers use
   // it as an effect/memo dependency and a fresh array each render would loop.
@@ -67,7 +85,9 @@ export function useLoanProposals() {
 export function useHasVoted(kind: 'Loan' | 'Treasury', proposalId: number, enabled = true) {
   const { address } = useWallet()
   const { data, refetch } = useQuery({
-    queryKey: address ? queryKeys.hasVoted(kind, proposalId, address) : queryKeys.hasVotedDisabled(kind, proposalId),
+    queryKey: address
+      ? queryKeys.hasVoted(kind, proposalId, address)
+      : queryKeys.hasVotedDisabled(kind, proposalId),
     enabled:
       enabled &&
       isContractConfigured() &&
@@ -82,7 +102,11 @@ export function useHasVoted(kind: 'Loan' | 'Treasury', proposalId: number, enabl
 /** A single loan proposal by id, including the connected wallet's real
  *  hasVoted state. */
 export function useLoanProposal(id: number) {
-  const { data, isLoading, refetch: refetchProposal } = useQuery({
+  const {
+    data,
+    isLoading,
+    refetch: refetchProposal,
+  } = useQuery({
     queryKey: queryKeys.loanProposal(id),
     // The subject of the loan detail page: a failed read must not fall
     // through to "proposal not found".
@@ -92,10 +116,7 @@ export function useLoanProposal(id: number) {
   })
   const { hasVoted, refetch: refetchHasVoted } = useHasVoted('Loan', id)
 
-  const proposal = useMemo(
-    () => (data ? mapLoanProposal(data, hasVoted) : null),
-    [data, hasVoted]
-  )
+  const proposal = useMemo(() => (data ? mapLoanProposal(data, hasVoted) : null), [data, hasVoted])
 
   const refetch = useCallback(async () => {
     await Promise.all([refetchProposal(), refetchHasVoted()])
@@ -126,6 +147,11 @@ export function useLoan(id: number, enabled: boolean) {
 /** All treasury withdrawal proposals (newest first), read live from the contract, paginated. */
 export function useTreasuryProposals() {
   const backendConfigured = isBackendConfigured()
+  const {
+    data: stats,
+    isError: countError,
+    refetch: refetchCount,
+  } = useQuery({
   const refetchInterval = useStreamPolling(backendConfigured)
   const { data: stats, isError: countError, refetch: refetchCount } = useQuery({
     queryKey: queryKeys.backendStats(),
@@ -136,17 +162,29 @@ export function useTreasuryProposals() {
   })
   const count = stats?.totalTreasuryProposals ?? 0
 
-  const { data, isLoading, isError: listError, refetch: refetchList, fetchNextPage, hasNextPage, isFetchingNextPage } =
-    useInfiniteQuery({
-      queryKey: queryKeys.treasuryProposals(count),
-      // The page's primary data: a failed read goes to the error boundary.
-      meta: { boundary: true },
-      enabled: isContractConfigured() && count > 0,
-      initialPageParam: 0,
-      queryFn: ({ pageParam }) =>
-        fetchProposalPage(count, pageParam, (id) => daoRead.getTreasuryProposal(id), mapTreasuryProposal),
-      getNextPageParam: (lastPage) => lastPage.nextOffset,
-    })
+  const {
+    data,
+    isLoading,
+    isError: listError,
+    refetch: refetchList,
+    fetchNextPage,
+    hasNextPage,
+    isFetchingNextPage,
+  } = useInfiniteQuery({
+    queryKey: queryKeys.treasuryProposals(count),
+    // The page's primary data: a failed read goes to the error boundary.
+    meta: { boundary: true },
+    enabled: isContractConfigured() && count > 0,
+    initialPageParam: 0,
+    queryFn: ({ pageParam }) =>
+      fetchProposalPage(
+        count,
+        pageParam,
+        (id) => daoRead.getTreasuryProposal(id),
+        mapTreasuryProposal
+      ),
+    getNextPageParam: (lastPage) => lastPage.nextOffset,
+  })
 
   const proposals = useMemo(() => (data?.pages ?? []).flatMap((p) => p.items), [data])
   const hasErrors = useMemo(() => (data?.pages ?? []).some((p) => p.hasErrors), [data])
@@ -169,7 +207,12 @@ export function useTreasuryProposals() {
 
 /** A single treasury proposal by id. */
 export function useTreasuryProposal(id: number) {
-  const { data, isLoading, isError, refetch: refetchProposal } = useQuery({
+  const {
+    data,
+    isLoading,
+    isError,
+    refetch: refetchProposal,
+  } = useQuery({
     queryKey: queryKeys.treasuryProposal(id),
     meta: { boundary: true },
     enabled: isContractConfigured() && Number.isFinite(id) && id >= 0,
@@ -177,10 +220,7 @@ export function useTreasuryProposal(id: number) {
   })
   const { hasVoted, refetch: refetchHasVoted } = useHasVoted('Treasury', id)
 
-  const proposal = useMemo(
-    () => (data ? mapTreasuryProposal(data) : null),
-    [data]
-  )
+  const proposal = useMemo(() => (data ? mapTreasuryProposal(data) : null), [data])
 
   const refetch = useCallback(async () => {
     await Promise.all([refetchProposal(), refetchHasVoted()])

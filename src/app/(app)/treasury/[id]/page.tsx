@@ -33,27 +33,38 @@ import {
   useToken,
   useDAOStats,
 } from '@/hooks/useDAO'
-import { generateCommitment, storeCommitSalt, loadCommitSalt } from '@/lib/utils'
-import { PROPOSAL_STATUS_LABELS, PROPOSAL_STATUS_AWAITING_FUNDS } from '@/constants'
+import { generateCommitment, storeCommitSalt, loadCommitSalt, parseSaltBackup } from '@/lib/utils'
+import { PROPOSAL_STATUS_LABELS, PROPOSAL_STATUS_AWAITING_FUNDS, IPFS_GATEWAY } from '@/constants'
 import toast from 'react-hot-toast'
 
 /** File picker for a salt backup. Shared by both places a salt can be imported. */
-function SaltImportButton({ onFile, className }: { onFile: (file: File) => void; className?: string }) {
+function SaltImportButton({
+  onFile,
+  className,
+}: {
+  onFile: (file: File) => void
+  className?: string
+}) {
   return (
-    <label className={`cursor-pointer ${className ?? ''}`}>
+    <label
+      className={cn(
+        'relative block cursor-pointer rounded focus-within:ring-2 focus-within:ring-ring focus-within:ring-offset-2 focus-within:ring-offset-background',
+        className
+      )}
+    >
       <input
         type="file"
         accept=".json"
-        className="hidden"
+        className="sr-only"
         onChange={(e) => {
           const file = e.target.files?.[0]
           if (file) onFile(file)
         }}
       />
-      <div className="flex items-center gap-2 rounded bg-amber-200 px-3 py-2 text-amber-900 hover:bg-amber-300 dark:bg-amber-900 dark:text-amber-100 dark:hover:bg-amber-800">
-        <Upload className="h-4 w-4" />
+      <span className="flex items-center gap-2 rounded bg-amber-200 px-3 py-2 text-amber-900 hover:bg-amber-300 dark:bg-amber-900 dark:text-amber-100 dark:hover:bg-amber-800">
+        <Upload className="h-4 w-4" aria-hidden="true" />
         <span className="text-sm font-medium">Import Salt Backup</span>
-      </div>
+      </span>
     </label>
   )
 }
@@ -70,7 +81,7 @@ export default function TreasuryProposalDetailPage() {
   const { executeTreasuryProposal, isPending: isExecuting } = useExecuteTreasuryProposal()
   const { commitVote, isPending: isCommitting } = useCommitVote()
   const { revealVote, isPending: isRevealing } = useRevealVote()
-  const { isPaused } = useDAOStats()
+  const { isPaused, treasuryBalance, refetch: refetchStats } = useDAOStats()
   const { cid: documentCid } = useProposalDocument('Treasury', proposalId)
 
   const [showCommitDialog, setShowCommitDialog] = useState(false)
@@ -80,7 +91,10 @@ export default function TreasuryProposalDetailPage() {
   const [importedSalt, setImportedSalt] = useState<Uint8Array | null>(null)
   // The commitment and salt for the vote being committed. Held only until the
   // commit is sent or the dialog is cancelled (#519).
-  const [pendingCommit, setPendingCommit] = useState<{ commitment: Uint8Array; salt: Uint8Array } | null>(null)
+  const [pendingCommit, setPendingCommit] = useState<{
+    commitment: Uint8Array
+    salt: Uint8Array
+  } | null>(null)
   // The commit transaction is not sent until the salt backup has been downloaded (#519).
   const [saltBackedUp, setSaltBackedUp] = useState(false)
 
@@ -132,22 +146,18 @@ export default function TreasuryProposalDetailPage() {
     const reader = new FileReader()
     reader.onload = (e) => {
       try {
-        const data = JSON.parse(e.target?.result as string)
-        if (data.proposalId !== proposalId) {
-          toast.error('Salt file is for a different proposal')
-          return
-        }
-        if (data.address !== address) {
-          toast.error('Salt file is for a different address')
-          return
-        }
-        const saltArray = new Uint8Array(
-          (data.salt.match(/.{1,2}/g) || []).map((byte: string) => parseInt(byte, 16))
-        )
+        const saltArray = parseSaltBackup(e.target?.result as string, {
+          proposalId,
+          address,
+        })
         setImportedSalt(saltArray)
         toast.success('Salt imported successfully')
-      } catch {
-        toast.error('Invalid salt file format')
+      } catch (err) {
+        if (err instanceof Error) {
+          toast.error(err.message)
+        } else {
+          toast.error('Invalid salt file format')
+        }
       }
     }
     reader.readAsText(file)
@@ -162,10 +172,9 @@ export default function TreasuryProposalDetailPage() {
       // same `pendingCommit`.
       await commitVote(proposalId, pendingCommit.commitment)
       storeCommitSalt(proposalId, pendingCommit.salt)
-      toast.success(
-        "Vote committed! Keep your salt backup — you'll need it to reveal your vote.",
-        { duration: 6000 }
-      )
+      toast.success("Vote committed! Keep your salt backup — you'll need it to reveal your vote.", {
+        duration: 6000,
+      })
       setShowCommitDialog(false)
       setCommitSupport(null)
       setPendingCommit(null)
@@ -219,9 +228,9 @@ export default function TreasuryProposalDetailPage() {
         </Button>
         <Card>
           <CardContent className="flex flex-col items-center justify-center p-8 text-center">
-            <AlertCircle className="h-12 w-12 text-destructive mb-3" />
-            <h3 className="text-lg font-semibold text-foreground">Treasury Proposal Not Found</h3>
-            <p className="text-sm text-muted-foreground mt-1 mb-4">
+            <AlertCircle className="text-destructive mb-3 h-12 w-12" />
+            <h3 className="text-foreground text-lg font-semibold">Treasury Proposal Not Found</h3>
+            <p className="text-muted-foreground mt-1 mb-4 text-sm">
               The treasury proposal #{proposalId} could not be found or failed to load.
             </p>
             <Button onClick={() => router.push('/treasury')}>Return to Treasury</Button>
@@ -231,12 +240,17 @@ export default function TreasuryProposalDetailPage() {
     )
   }
 
+  // True when the treasury cannot cover the requested amount — the execute call
+  // would fail on-chain with InsufficientTreasury in that case.
+  const isTreasuryShort = !!proposal && treasuryBalance < proposal.amount
+
   // Permissionless completion of a withdrawal approved while the treasury was
   // short. Failures are surfaced by the write hook's toast.
   const handleExecute = async () => {
     try {
       await executeTreasuryProposal(proposalId)
       refetch()
+      refetchStats()
     } catch {
       /* reported by useWriteAction */
     }
@@ -248,7 +262,8 @@ export default function TreasuryProposalDetailPage() {
   const canCommit = isMember && proposal.status === 2 && proposal.isPrivate && !hasVoted
   // A salt imported from a backup counts too: without this, a member whose
   // local salt is missing could never reach the reveal buttons (#518).
-  const canReveal = isMember && proposal.isPrivate && hasVoted && (storedSalt !== null || importedSalt !== null)
+  const canReveal =
+    isMember && proposal.isPrivate && hasVoted && (storedSalt !== null || importedSalt !== null)
   const totalVotes = Number(proposal.votesFor) + Number(proposal.votesAgainst)
   const percentFor = totalVotes > 0 ? Math.round((Number(proposal.votesFor) / totalVotes) * 100) : 0
 
@@ -279,10 +294,22 @@ export default function TreasuryProposalDetailPage() {
             </CardDescription>
           </CardHeader>
           {isMember && (
-            <CardContent>
-              <Button onClick={handleExecute} disabled={isExecuting || isPaused}>
+            <CardContent className="space-y-2">
+              <Button
+                onClick={handleExecute}
+                disabled={isExecuting || isPaused || isTreasuryShort}
+              >
                 {isExecuting ? 'Executing…' : 'Execute'}
               </Button>
+              {isTreasuryShort && (
+                <p className="text-xs text-muted-foreground">
+                  Treasury balance is below the requested amount — execution will succeed once the
+                  treasury is topped up.
+                </p>
+              )}
+              {isPaused && !isTreasuryShort && (
+                <p className="text-xs text-muted-foreground">Execution is unavailable while the DAO is paused.</p>
+              )}
             </CardContent>
           )}
         </Card>
@@ -297,16 +324,16 @@ export default function TreasuryProposalDetailPage() {
               Commit Your Vote
             </CardTitle>
             <CardDescription>
-              You&apos;re voting <strong>{commitSupport ? 'FOR' : 'AGAINST'}</strong> this proposal using private
-              commit-reveal voting.
+              You&apos;re voting <strong>{commitSupport ? 'FOR' : 'AGAINST'}</strong> this proposal
+              using private commit-reveal voting.
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="rounded-lg border border-amber-300 bg-amber-100 p-4 text-sm text-amber-900 dark:border-amber-800 dark:bg-amber-950/40 dark:text-amber-200">
-              <p className="font-semibold mb-2">⚠️ Critical: Back up your salt</p>
+              <p className="mb-2 font-semibold">⚠️ Critical: Back up your salt</p>
               <p>
-                After committing, you <strong>must download and save your salt backup</strong>. Without it,
-                you cannot reveal your vote and it will be forfeited permanently.
+                After committing, you <strong>must download and save your salt backup</strong>.
+                Without it, you cannot reveal your vote and it will be forfeited permanently.
               </p>
             </div>
             <div className="space-y-2">
@@ -324,7 +351,7 @@ export default function TreasuryProposalDetailPage() {
                 <Download className="h-4 w-4" />
                 {saltBackedUp ? 'Salt backup downloaded' : 'Step 1: Download salt backup'}
               </Button>
-              <p className="text-xs text-muted-foreground">
+              <p className="text-muted-foreground text-xs">
                 {saltBackedUp
                   ? 'Backup saved. You can now commit your vote.'
                   : 'Download the backup before committing. The commit is only sent after this step.'}
@@ -361,7 +388,7 @@ export default function TreasuryProposalDetailPage() {
           <CardContent className="space-y-4">
             {!storedSalt && !importedSalt && (
               <div className="rounded-lg border border-amber-300 bg-amber-100 p-4 text-sm text-amber-900 dark:border-amber-800 dark:bg-amber-950/40 dark:text-amber-200">
-                <p className="font-semibold mb-2">Salt not found</p>
+                <p className="mb-2 font-semibold">Salt not found</p>
                 <p className="mb-3">
                   Your salt wasn&apos;t found in local storage. Import your backup file to reveal.
                 </p>
@@ -370,7 +397,7 @@ export default function TreasuryProposalDetailPage() {
             )}
             {(storedSalt || importedSalt) && (
               <div className="rounded-lg border border-green-300 bg-green-100 p-3 text-sm text-green-900 dark:border-green-800 dark:bg-green-950/40 dark:text-green-200">
-                <CheckCircle className="h-4 w-4 inline mr-2" />
+                <CheckCircle className="mr-2 inline h-4 w-4" />
                 Salt {importedSalt ? 'imported' : 'found in local storage'}
               </div>
             )}
@@ -400,7 +427,7 @@ export default function TreasuryProposalDetailPage() {
 
       <div className="grid gap-6 md:grid-cols-3">
         {/* Main Details */}
-        <div className="md:col-span-2 space-y-6">
+        <div className="space-y-6 md:col-span-2">
           <Card>
             <CardHeader>
               <div className="flex flex-wrap items-center justify-between gap-3">
@@ -418,7 +445,7 @@ export default function TreasuryProposalDetailPage() {
                           ? 'outline'
                           : 'secondary'
                   }
-                  className="text-sm px-3 py-1"
+                  className="px-3 py-1 text-sm"
                 >
                   {statusLabel}
                 </Badge>
@@ -436,19 +463,22 @@ export default function TreasuryProposalDetailPage() {
               )}
 
               <div className="grid gap-4 sm:grid-cols-2">
-                <div className="rounded-lg border p-4 bg-muted/40">
-                  <p className="text-xs font-medium text-muted-foreground">Requested Amount</p>
-                  <p className="text-2xl font-bold text-foreground mt-1">
+                <div className="bg-muted/40 rounded-lg border p-4">
+                  <p className="text-muted-foreground text-xs font-medium">Requested Amount</p>
+                  <p className="text-foreground mt-1 text-2xl font-bold">
                     {token.format(proposal.amount)}
                   </p>
                 </div>
 
-                <div className="rounded-lg border p-4 bg-muted/40">
-                  <p className="text-xs font-medium text-muted-foreground">Recipient Address</p>
-                  <p className="text-sm font-mono text-foreground mt-1 break-all" title={proposal.recipient}>
+                <div className="bg-muted/40 rounded-lg border p-4">
+                  <p className="text-muted-foreground text-xs font-medium">Recipient Address</p>
+                  <p
+                    className="text-foreground mt-1 font-mono text-sm break-all"
+                    title={proposal.recipient}
+                  >
                     {proposal.recipient}
                   </p>
-                  <div className="text-xs text-muted-foreground mt-1">
+                  <div className="text-muted-foreground mt-1 text-xs">
                     <AddressLink address={proposal.recipient} />
                   </div>
                 </div>
@@ -456,8 +486,10 @@ export default function TreasuryProposalDetailPage() {
 
               {proposal.description && (
                 <div>
-                  <h4 className="text-sm font-semibold text-foreground mb-2">Description / Reason</h4>
-                  <div className="rounded-lg border p-4 bg-card text-sm text-muted-foreground whitespace-pre-wrap">
+                  <h4 className="text-foreground mb-2 text-sm font-semibold">
+                    Description / Reason
+                  </h4>
+                  <div className="bg-card text-muted-foreground rounded-lg border p-4 text-sm whitespace-pre-wrap">
                     {proposal.description}
                   </div>
                 </div>
@@ -468,26 +500,26 @@ export default function TreasuryProposalDetailPage() {
           {/* Attached Document */}
           <Card>
             <CardHeader>
-              <CardTitle className="text-lg flex items-center gap-2">
+              <CardTitle className="flex items-center gap-2 text-lg">
                 <FileText className="h-5 w-5" />
                 Supporting Documents
               </CardTitle>
             </CardHeader>
             <CardContent>
               {documentCid ? (
-                <div className="flex items-center justify-between gap-3 rounded-lg border border-border p-3">
+                <div className="border-border flex items-center justify-between gap-3 rounded-lg border p-3">
                   <div className="flex min-w-0 items-center gap-3">
-                    <FileText className="h-8 w-8 shrink-0 text-primary-600" />
+                    <FileText className="text-primary-600 h-8 w-8 shrink-0" />
                     <div className="min-w-0">
-                      <p className="font-medium text-foreground">Attached document</p>
-                      <p className="truncate font-mono text-xs text-muted-foreground">
+                      <p className="text-foreground font-medium">Attached document</p>
+                      <p className="text-muted-foreground truncate font-mono text-xs">
                         {documentCid}
                       </p>
                     </div>
                   </div>
-                  {process.env.NEXT_PUBLIC_IPFS_GATEWAY && (
+                  {IPFS_GATEWAY && (
                     <a
-                      href={`${process.env.NEXT_PUBLIC_IPFS_GATEWAY}${documentCid}`}
+                      href={`${IPFS_GATEWAY}${documentCid}`}
                       target="_blank"
                       rel="noopener noreferrer"
                     >
@@ -498,7 +530,9 @@ export default function TreasuryProposalDetailPage() {
                   )}
                 </div>
               ) : (
-                <p className="text-sm text-muted-foreground">No document attached to this proposal.</p>
+                <p className="text-muted-foreground text-sm">
+                  No document attached to this proposal.
+                </p>
               )}
             </CardContent>
           </Card>
@@ -524,11 +558,13 @@ export default function TreasuryProposalDetailPage() {
                   <span className="flex items-center gap-1 text-emerald-600 dark:text-emerald-400">
                     <Check className="h-4 w-4" /> For
                   </span>
-                  <span>{proposal.votesFor} ({percentFor}%)</span>
+                  <span>
+                    {proposal.votesFor} ({percentFor}%)
+                  </span>
                 </div>
-                <div className="w-full bg-muted rounded-full h-2 overflow-hidden">
+                <div className="bg-muted h-2 w-full overflow-hidden rounded-full">
                   <div
-                    className="bg-emerald-600 h-2 rounded-full transition-all duration-300"
+                    className="h-2 rounded-full bg-emerald-600 transition-all duration-300"
                     style={{ width: `${percentFor}%` }}
                   />
                 </div>
@@ -539,30 +575,32 @@ export default function TreasuryProposalDetailPage() {
                   <span className="flex items-center gap-1 text-rose-600 dark:text-rose-400">
                     <X className="h-4 w-4" /> Against
                   </span>
-                  <span>{proposal.votesAgainst} ({100 - percentFor}%)</span>
+                  <span>
+                    {proposal.votesAgainst} ({100 - percentFor}%)
+                  </span>
                 </div>
-                <div className="w-full bg-muted rounded-full h-2 overflow-hidden">
+                <div className="bg-muted h-2 w-full overflow-hidden rounded-full">
                   <div
-                    className="bg-rose-600 h-2 rounded-full transition-all duration-300"
+                    className="h-2 rounded-full bg-rose-600 transition-all duration-300"
                     style={{ width: `${100 - percentFor}%` }}
                   />
                 </div>
               </div>
 
-              <div className="pt-4 border-t">
+              <div className="border-t pt-4">
                 {hasVoted && !proposal.isPrivate ? (
-                  <div className="flex items-center gap-2 text-sm text-muted-foreground bg-muted/50 p-3 rounded-lg">
+                  <div className="text-muted-foreground bg-muted/50 flex items-center gap-2 rounded-lg p-3 text-sm">
                     <CheckCircle className="h-4 w-4 text-emerald-600" />
                     <span>You have already cast your vote on this proposal.</span>
                   </div>
                 ) : hasVoted && proposal.isPrivate && canReveal ? (
                   <div className="space-y-3">
-                    <div className="flex items-center gap-2 text-sm text-blue-700 bg-blue-50 p-3 rounded-lg dark:bg-blue-950/30 dark:text-blue-300">
+                    <div className="flex items-center gap-2 rounded-lg bg-blue-50 p-3 text-sm text-blue-700 dark:bg-blue-950/30 dark:text-blue-300">
                       <Lock className="h-4 w-4" />
                       <span>Vote committed. Reveal when the reveal phase opens.</span>
                     </div>
                     <div className="space-y-2">
-                      <p className="text-xs text-muted-foreground mb-2">
+                      <p className="text-muted-foreground mb-2 text-xs">
                         Reveal your vote (must match your commitment):
                       </p>
                       <div className="flex gap-2">
@@ -601,7 +639,7 @@ export default function TreasuryProposalDetailPage() {
                   </div>
                 ) : hasVoted && proposal.isPrivate ? (
                   <div className="space-y-3">
-                    <div className="flex items-center gap-2 text-sm text-amber-700 bg-amber-50 p-3 rounded-lg dark:bg-amber-950/30 dark:text-amber-300">
+                    <div className="flex items-center gap-2 rounded-lg bg-amber-50 p-3 text-sm text-amber-700 dark:bg-amber-950/30 dark:text-amber-300">
                       <AlertCircle className="h-4 w-4" />
                       <span>Vote committed, but salt not found. Import backup to reveal.</span>
                     </div>
@@ -609,7 +647,9 @@ export default function TreasuryProposalDetailPage() {
                   </div>
                 ) : canVotePublic ? (
                   <div className="space-y-2">
-                    <p className="text-xs text-muted-foreground mb-2">Cast your vote as a DAO member:</p>
+                    <p className="text-muted-foreground mb-2 text-xs">
+                      Cast your vote as a DAO member:
+                    </p>
                     <div className="flex gap-2">
                       <Button
                         className="flex-1 gap-2"
@@ -624,7 +664,7 @@ export default function TreasuryProposalDetailPage() {
                       </Button>
                       <Button
                         variant="outline"
-                        className="flex-1 gap-2 text-destructive border-destructive/30 hover:bg-destructive/10"
+                        className="text-destructive border-destructive/30 hover:bg-destructive/10 flex-1 gap-2"
                         disabled={isVoting || isPaused}
                         onClick={async () => {
                           await voteOnTreasury(proposal.id, false)
@@ -638,7 +678,7 @@ export default function TreasuryProposalDetailPage() {
                   </div>
                 ) : canCommit ? (
                   <div className="space-y-2">
-                    <p className="text-xs text-muted-foreground mb-2">
+                    <p className="text-muted-foreground mb-2 text-xs">
                       Commit your vote privately (commit-reveal voting):
                     </p>
                     <div className="flex gap-2">
@@ -660,16 +700,18 @@ export default function TreasuryProposalDetailPage() {
                         Commit AGAINST
                       </Button>
                     </div>
-                    <p className="text-xs text-amber-600 dark:text-amber-400 mt-2">
+                    <p className="mt-2 text-xs text-amber-600 dark:text-amber-400">
                       ⚠️ You&apos;ll need to download and save your salt backup to reveal later
                     </p>
                   </div>
                 ) : proposal.status !== 2 ? (
-                  <p className="text-xs text-muted-foreground">Voting is closed for this proposal.</p>
+                  <p className="text-muted-foreground text-xs">
+                    Voting is closed for this proposal.
+                  </p>
                 ) : !isMember ? (
-                  <p className="text-xs text-muted-foreground">Only active DAO members may vote.</p>
+                  <p className="text-muted-foreground text-xs">Only active DAO members may vote.</p>
                 ) : (
-                  <p className="text-xs text-muted-foreground">Voting is unavailable.</p>
+                  <p className="text-muted-foreground text-xs">Voting is unavailable.</p>
                 )}
               </div>
             </CardContent>

@@ -10,6 +10,8 @@ import {
   mapLoan,
   eventLabel,
   resolveLoanPolicy,
+  mapDaoSummary,
+  mapMemberOverview,
 } from '@/lib/dao-mappers'
 import { MemberStatus } from '@/types/dao'
 import {
@@ -204,20 +206,25 @@ describe('mapLoanProposal', () => {
     ['Expired', 8],
     ['Cancelled', 9],
   ])('maps the %s variant to code %i', (status, code) => {
-    expect(mapTreasuryProposal({ id: 1, amount: BigInt(1), destination: 'GD', status }).status).toBe(code)
+    expect(
+      mapTreasuryProposal({ id: 1, amount: BigInt(1), destination: 'GD', status }).status
+    ).toBe(code)
   })
 
   it('does not map an unrecognised status to an open vote', () => {
-    expect(mapTreasuryProposal({ id: 1, amount: BigInt(1), destination: 'GD', status: 'Mystery' }).status).toBe(0)
+    expect(
+      mapTreasuryProposal({ id: 1, amount: BigInt(1), destination: 'GD', status: 'Mystery' }).status
+    ).toBe(0)
     expect(mapTreasuryProposal({ id: 1, amount: BigInt(1), destination: 'GD' }).status).toBe(0)
   })
 
-  it('maps the proposal\'s metadata_cid to documentHash (#476)', () => {
+  it("maps the proposal's metadata_cid to documentHash (#476)", () => {
     const cid = 'bafybeigdyrzt5sfp7udm7hu76uh7y26nf3efuylqabf3oclgtqy55fbzdi'
     expect(mapLoanProposal({ id: 1, metadata_cid: cid }).documentHash).toBe(cid)
-    expect(mapLoanProposal({ id: 1, metadata_cid: 'QmYwAPJzv5CZsnAzt8auVZRnDaBcE7WtAipUjXk5rL8gTX' }).documentHash).toBe(
-      'QmYwAPJzv5CZsnAzt8auVZRnDaBcE7WtAipUjXk5rL8gTX'
-    )
+    expect(
+      mapLoanProposal({ id: 1, metadata_cid: 'QmYwAPJzv5CZsnAzt8auVZRnDaBcE7WtAipUjXk5rL8gTX' })
+        .documentHash
+    ).toBe('QmYwAPJzv5CZsnAzt8auVZRnDaBcE7WtAipUjXk5rL8gTX')
   })
 
   it('leaves documentHash empty when the proposal has no metadata_cid (#476)', () => {
@@ -266,21 +273,43 @@ describe('mapLoan', () => {
 
 describe('mapTreasuryProposal', () => {
   it('falls back to a generated title when reason is empty', () => {
-    const p = mapTreasuryProposal({ id: 7, amount: BigInt(1), destination: 'GD', status: 'Pending' })
+    const p = mapTreasuryProposal({
+      id: 7,
+      amount: BigInt(1),
+      destination: 'GD',
+      status: 'Pending',
+    })
     expect(p.title).toBe('Treasury withdrawal #7')
   })
   it('uses the reason as the title when present', () => {
-    const p = mapTreasuryProposal({ id: 7, amount: BigInt(1), destination: 'GD', status: 'Pending', reason: 'Pay contractor' })
+    const p = mapTreasuryProposal({
+      id: 7,
+      amount: BigInt(1),
+      destination: 'GD',
+      status: 'Pending',
+      reason: 'Pay contractor',
+    })
     expect(p.title).toBe('Pay contractor')
   })
   it('maps Executed/Rejected/else to the right status code', () => {
-    expect(mapTreasuryProposal({ id: 1, amount: BigInt(1), destination: 'GD', status: 'Executed' }).status).toBe(5)
-    expect(mapTreasuryProposal({ id: 1, amount: BigInt(1), destination: 'GD', status: 'Rejected' }).status).toBe(4)
-    expect(mapTreasuryProposal({ id: 1, amount: BigInt(1), destination: 'GD', status: 'Pending' }).status).toBe(2)
+    expect(
+      mapTreasuryProposal({ id: 1, amount: BigInt(1), destination: 'GD', status: 'Executed' })
+        .status
+    ).toBe(5)
+    expect(
+      mapTreasuryProposal({ id: 1, amount: BigInt(1), destination: 'GD', status: 'Rejected' })
+        .status
+    ).toBe(4)
+    expect(
+      mapTreasuryProposal({ id: 1, amount: BigInt(1), destination: 'GD', status: 'Pending' }).status
+    ).toBe(2)
   })
 
   it('defaults hasVoted to false when no voter context is supplied', () => {
-    expect(mapTreasuryProposal({ id: 1, amount: BigInt(1), destination: 'GD', status: 'Pending' }).hasVoted).toBe(false)
+    expect(
+      mapTreasuryProposal({ id: 1, amount: BigInt(1), destination: 'GD', status: 'Pending' })
+        .hasVoted
+    ).toBe(false)
   })
 
   it('passes through the real hasVoted value, which the contract also sets for a committed-but-unrevealed private vote', () => {
@@ -376,5 +405,60 @@ describe('mapLoanProposal voting end', () => {
 
   it('leaves the deadline at 0 when editing never ended', () => {
     expect(mapLoanProposal({ voting_period: 60 }).votingEndTime).toBe(0)
+  })
+})
+
+describe('mapDaoSummary', () => {
+  it('maps every field from snake_case keys', () => {
+    const raw = {
+      total_members: 10,
+      active_members: 7,
+      treasury_balance: BigInt(500),
+      total_loans_issued: 3,
+      consensus_threshold: 60,
+      is_paused: false,
+    }
+    const summary = mapDaoSummary(raw)
+    expect(summary.totalMembers).toBe(10)
+    expect(summary.activeMembers).toBe(7)
+    expect(summary.treasuryBalance).toBe(BigInt(500))
+    expect(summary.totalLoansIssued).toBe(3)
+    expect(summary.consensusThreshold).toBe(60)
+    expect(summary.isPaused).toBe(false)
+  })
+
+  it('defaults missing fields to zero / false', () => {
+    const summary = mapDaoSummary({})
+    expect(summary.totalMembers).toBe(0)
+    expect(summary.treasuryBalance).toBe(BigInt(0))
+    expect(summary.isPaused).toBe(false)
+  })
+})
+
+describe('mapMemberOverview', () => {
+  it('maps every field', () => {
+    const raw = {
+      status: 'ActiveMember',
+      join_date: 1_000_000,
+      contribution_amount: BigInt(200),
+      share_balance: BigInt(100),
+      has_active_loan: true,
+      pending_yield: BigInt(10),
+    }
+    const overview = mapMemberOverview('GADDR', raw)
+    expect(overview.address).toBe('GADDR')
+    expect(overview.status).toBe(MemberStatus.ACTIVE_MEMBER)
+    expect(overview.joinDate).toBe(1_000_000)
+    expect(overview.contributionAmount).toBe(BigInt(200))
+    expect(overview.shareBalance).toBe(BigInt(100))
+    expect(overview.hasActiveLoan).toBe(true)
+    expect(overview.pendingYield).toBe(BigInt(10))
+  })
+
+  it('defaults missing fields to zero / false', () => {
+    const overview = mapMemberOverview('GADDR', {})
+    expect(overview.joinDate).toBe(0)
+    expect(overview.hasActiveLoan).toBe(false)
+    expect(overview.pendingYield).toBe(BigInt(0))
   })
 })

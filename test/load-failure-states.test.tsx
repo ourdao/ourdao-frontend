@@ -67,7 +67,9 @@ describe('LoansPage when the proposal count cannot be loaded', () => {
     mockGetStats.mockRejectedValue(new BackendError('Backend unreachable'))
     renderWithProviders(<LoansPage />)
 
-    expect(await screen.findByTestId('load-error')).toHaveTextContent("Couldn't load loan proposals")
+    expect(await screen.findByTestId('load-error')).toHaveTextContent(
+      "Couldn't load loan proposals"
+    )
     expect(screen.queryByText('No proposals found')).not.toBeInTheDocument()
     expect(screen.queryByText('Be the first to request a loan!')).not.toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Try again' })).toBeInTheDocument()

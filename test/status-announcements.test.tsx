@@ -110,7 +110,9 @@ describe('write status is announced, not only toasted', () => {
 
     let done!: Promise<unknown>
     act(() => {
-      done = runWrite('Join DAO', (w) => (w as never as { doThing: () => Promise<never> }).doThing())
+      done = runWrite('Join DAO', (w) =>
+        (w as never as { doThing: () => Promise<never> }).doThing()
+      )
     })
     await waitFor(() => expect(polite()).toHaveTextContent('Join DAO in progress.'))
     expect(assertive()).toBeEmptyDOMElement()
@@ -128,7 +130,9 @@ describe('write status is announced, not only toasted', () => {
     renderApp()
 
     await act(async () => {
-      await runWrite('Join DAO', (w) => (w as never as { doThing: () => Promise<never> }).doThing()).catch(() => {})
+      await runWrite('Join DAO', (w) =>
+        (w as never as { doThing: () => Promise<never> }).doThing()
+      ).catch(() => {})
     })
     expect(assertive()).toHaveTextContent('Join DAO failed: boom')
     // Progress text was polite; the failure must not have been queued there.
@@ -142,7 +146,9 @@ describe('write status is announced, not only toasted', () => {
 
     let done!: Promise<unknown>
     act(() => {
-      done = runWrite('Join DAO', (w) => (w as never as { doThing: () => Promise<never> }).doThing())
+      done = runWrite('Join DAO', (w) =>
+        (w as never as { doThing: () => Promise<never> }).doThing()
+      )
     })
     await waitFor(() => expect(document.body).toHaveTextContent('Join DAO…'))
     await act(async () => {
