@@ -22,6 +22,7 @@ import {
   usePendingPolicyUpdate,
   useRawLoanPolicy,
 } from '@/hooks/useDAO'
+import type { FailedEventResolution } from '@/lib/backend'
 import { AddressLink } from '@/components/AddressLink'
 import { LoadError } from '@/components/LoadError'
 import { useAnnounceLoad } from '@/lib/useAnnounceLoad'
@@ -778,18 +779,46 @@ function ActivityTab() {
 
 function QuarantinedEventsTab() {
   const { failedEvents, isLoading, isError, refetch } = useFailedEvents()
-  const { reevaluate, isPending: reevalPending, error: reevalError } = useReevaluateFailedEvent()
-  const { batchResolve, isPending: batchPending, error: batchError } = useBatchResolveFailedEvents()
+  const {
+    reEvaluate,
+    isPending: isReEvaluating,
+    error: reEvaluateError,
+    result: reEvaluateResult,
+  } = useReEvaluateFailedEvent()
+  const {
+    batchResolve,
+    isPending: isResolving,
+    error: batchError,
+    result: batchResult,
+  } = useBatchResolveFailedEvents()
+  const [selectedIds, setSelectedIds] = useState<number[]>([])
+  const [resolution, setResolution] = useState<FailedEventResolution | ''>('')
+  const [note, setNote] = useState('')
 
-  const handleReevaluate = async (id: number | string) => {
-    const ok = await reevaluate(id)
-    if (ok) refetch()
+  const numericIds = failedEvents
+    .map((ev) => Number(ev.id))
+    .filter((id) => Number.isInteger(id) && id > 0)
+  const allSelected = numericIds.length > 0 && numericIds.every((id) => selectedIds.includes(id))
+  const isBusy = isReEvaluating || isResolving
+
+  const toggleAll = () => {
+    setSelectedIds(allSelected ? [] : numericIds)
+  }
+  const toggleOne = (id: number) => {
+    setSelectedIds((prev) => (prev.includes(id) ? prev.filter((value) => value !== id) : [...prev, id]))
   }
 
-  const handleBatchResolve = async () => {
-    if (!window.confirm(`Batch-resolve all ${failedEvents.length} quarantined event(s)? This reprocesses each failed event.`)) return
-    const ok = await batchResolve()
-    if (ok) refetch()
+  const submitBatch = async (event: FormEvent) => {
+    event.preventDefault()
+    if (!resolution || selectedIds.length === 0) return
+    const message = `Resolve ${selectedIds.length} selected quarantined event(s) as ${resolution}?`
+    if (!window.confirm(message)) return
+    const outcome = await batchResolve({ ids: selectedIds, resolution, note: note.trim() || undefined })
+    if (outcome) {
+      setSelectedIds([])
+      setResolution('')
+      setNote('')
+    }
   }
 
   return (
@@ -829,8 +858,8 @@ function QuarantinedEventsTab() {
             <div className="mt-1 rounded bg-red-50 p-2 font-mono text-xs text-red-600 dark:bg-red-950/20 dark:text-red-400">
               {ev.error}
             </div>
-          </div>
-        ))}
+          )
+        })}
       </div>
     </div>
   )

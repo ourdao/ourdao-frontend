@@ -27,6 +27,7 @@ const mockPush = vi.fn()
 const mockRepayLoan = vi.fn().mockResolvedValue({ hash: 'tx-repay', returnValue: null })
 const mockRepayLoanPartial = vi.fn().mockResolvedValue({ hash: 'tx-partial', returnValue: null })
 const mockDisburseApprovedLoan = vi.fn()
+const mockCancelLoanProposal = vi.fn()
 const mockMarkLoanDefaulted = vi.fn().mockResolvedValue({ hash: 'tx-default', returnValue: null })
 
 vi.mock('next/navigation', () => ({
@@ -80,6 +81,7 @@ vi.mock('@/lib/dao-client', () => ({
     repayLoanPartial: (...a: unknown[]) => mockRepayLoanPartial(...a),
     markLoanDefaulted: (...a: unknown[]) => mockMarkLoanDefaulted(...a),
     disburseApprovedLoan: (...a: unknown[]) => mockDisburseApprovedLoan(...a),
+    cancelLoanProposal: (...a: unknown[]) => mockCancelLoanProposal(...a),
     voteOnLoanProposal: vi.fn().mockResolvedValue({ hash: 'tx-vote', returnValue: null }),
     attachDocument: vi.fn().mockResolvedValue({ hash: 'tx-attach', returnValue: null }),
   }),
@@ -111,6 +113,8 @@ vi.mock('@/lib/backend', async (importOriginal) => ({
 describe('LoanDetailsPage', () => {
   beforeEach(() => {
     vi.clearAllMocks()
+    mockDisburseApprovedLoan.mockResolvedValue({ hash: 'tx-fund', returnValue: null })
+    mockCancelLoanProposal.mockResolvedValue({ hash: 'tx-cancel', returnValue: null })
     mockIsMember.mockResolvedValue(true)
     mockIsAdmin.mockResolvedValue(false)
     mockGetMember.mockResolvedValue({ status: 'ActiveMember', has_active_loan: false })
@@ -118,8 +122,8 @@ describe('LoanDetailsPage', () => {
     mockGetTotalMembers.mockResolvedValue(10)
     mockGetActiveMembers.mockResolvedValue(8)
     mockGetConsensusThreshold.mockResolvedValue(5000)
-    mockGetTreasuryBalance.mockResolvedValue(BigInt(0))
-    mockGetLoanPolicy.mockResolvedValue({})
+    mockGetTreasuryBalance.mockResolvedValue(BigInt(10000_0000000))
+    mockGetLoanPolicy.mockResolvedValue({ max_loan_to_treasury_ratio: 10000 })
     mockIsPaused.mockResolvedValue(false)
     mockGetLoan.mockResolvedValue(null)
     mockGetDocument.mockResolvedValue(null)
@@ -127,6 +131,7 @@ describe('LoanDetailsPage', () => {
     mockGetNotifications.mockResolvedValue([])
     mockGetEvents.mockResolvedValue([])
     mockGetStats.mockResolvedValue(null)
+    vi.spyOn(window, 'confirm').mockReturnValue(true)
   })
   afterEach(() => vi.clearAllMocks())
 
@@ -472,6 +477,101 @@ describe('LoanDetailsPage', () => {
       await screen.findByText(/awaiting treasury funds/i)
 
       expect(screen.queryByRole('button', { name: /Fund now/i })).not.toBeInTheDocument()
+    })
+
+    it('asks for confirmation mentioning re-quoted terms before disbursing', async () => {
+      mockGetLoanProposal.mockResolvedValue(awaitingProposal)
+      renderWithProviders(<LoanDetailsPage />)
+
+      await userEvent.click(await screen.findByRole('button', { name: /Fund now/i }))
+
+      expect(window.confirm).toHaveBeenCalledWith(expect.stringMatching(/re-quote/i))
+      expect(mockDisburseApprovedLoan).toHaveBeenCalledWith(1)
+    })
+
+    it('does not disburse when confirmation is declined', async () => {
+      vi.mocked(window.confirm).mockReturnValue(false)
+      mockGetLoanProposal.mockResolvedValue(awaitingProposal)
+      renderWithProviders(<LoanDetailsPage />)
+
+      await userEvent.click(await screen.findByRole('button', { name: /Fund now/i }))
+
+      expect(mockDisburseApprovedLoan).not.toHaveBeenCalled()
+    })
+
+    it('disables funding and explains why the treasury cannot cover the loan', async () => {
+      mockGetLoanProposal.mockResolvedValue(awaitingProposal)
+      mockGetTreasuryBalance.mockResolvedValue(BigInt(10_0000000))
+      renderWithProviders(<LoanDetailsPage />)
+
+      const button = await screen.findByRole('button', { name: /Fund now/i })
+      expect(button).toBeDisabled()
+      expect(
+        screen.getAllByRole('status').some((el) => /Treasury balance is too low/i.test(el.textContent ?? ''))
+      ).toBe(true)
+    })
+
+    it('disables funding when the loan exceeds the loan-to-treasury ratio', async () => {
+      mockGetLoanProposal.mockResolvedValue(awaitingProposal)
+      mockGetTreasuryBalance.mockResolvedValue(BigInt(1000_0000000))
+      mockGetLoanPolicy.mockResolvedValue({ max_loan_to_treasury_ratio: 5000 })
+      renderWithProviders(<LoanDetailsPage />)
+
+      const button = await screen.findByRole('button', { name: /Fund now/i })
+      expect(button).toBeDisabled()
+      expect(screen.getByText(/exceed the loan-to-treasury ratio/i)).toBeInTheDocument()
+    })
+  })
+
+  describe('proposal cancellation (#550)', () => {
+    const editingProposal = {
+      id: 1,
+      borrower: 'GALICE',
+      amount: BigInt(1000_0000000),
+      interest_rate: 500,
+      status: 'Pending',
+      phase: 'Editing',
+      for_votes: 0,
+      against_votes: 0,
+      created_at: Math.floor(Date.now() / 1000) - 100,
+      editing_period_end: Math.floor(Date.now() / 1000) + 86400,
+    }
+
+    it('offers Cancel Proposal to the borrower during editing and calls cancel_loan_proposal', async () => {
+      mockGetLoanProposal.mockResolvedValue(editingProposal)
+      renderWithProviders(<LoanDetailsPage />)
+
+      await userEvent.click(await screen.findByRole('button', { name: /Cancel Proposal/i }))
+
+      expect(window.confirm).toHaveBeenCalledWith(expect.stringMatching(/cannot be undone/i))
+      expect(mockCancelLoanProposal).toHaveBeenCalledWith(1)
+    })
+
+    it('hides Cancel Proposal from another borrower', async () => {
+      mockGetLoanProposal.mockResolvedValue({ ...editingProposal, borrower: 'GBORROWER' })
+      renderWithProviders(<LoanDetailsPage />)
+
+      await screen.findByText(/Loan Proposal #1/)
+      expect(screen.queryByRole('button', { name: /Cancel Proposal/i })).not.toBeInTheDocument()
+    })
+
+    it('hides Cancel Proposal once the editing window has passed', async () => {
+      mockGetLoanProposal.mockResolvedValue({
+        ...editingProposal,
+        editing_period_end: Math.floor(Date.now() / 1000) - 1,
+      })
+      renderWithProviders(<LoanDetailsPage />)
+
+      await screen.findByText(/Loan Proposal #1/)
+      expect(screen.queryByRole('button', { name: /Cancel Proposal/i })).not.toBeInTheDocument()
+    })
+
+    it('disables Cancel Proposal while the DAO is paused', async () => {
+      mockGetLoanProposal.mockResolvedValue(editingProposal)
+      mockIsPaused.mockResolvedValue(true)
+      renderWithProviders(<LoanDetailsPage />)
+
+      expect(await screen.findByRole('button', { name: /Cancel Proposal/i })).toBeDisabled()
     })
   })
 })

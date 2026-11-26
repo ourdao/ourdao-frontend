@@ -2,6 +2,7 @@
 
 import { useProposalFilters, type ProposalSortOrder } from '@/hooks/useProposalFilters'
 import { calculateVotingWeight } from '@/hooks/dao/reads'
+import { useQuery } from '@tanstack/react-query'
 import { useState } from 'react'
 import Link from 'next/link'
 import { PageHeader } from '@/components/PageHeader'
@@ -32,29 +33,61 @@ import {
   useTreasuryVoting,
   useHasVoted,
   useToken,
+  useExpireProposal,
   type UITreasuryProposal,
 } from '@/hooks/useDAO'
 import { LoadError } from '@/components/LoadError'
+import { useNow } from '@/hooks/useNow'
 import { useAnnounceLoad } from '@/lib/useAnnounceLoad'
+import { daoRead } from '@/lib/dao-client'
+import { queryKeys } from '@/lib/query-keys'
 import { asBigInt } from '@/lib/dao-mappers'
 import { parseToken } from '@/lib/utils'
 import { AddressLink } from '@/components/AddressLink'
-import { PROPOSAL_STATUS_LABELS, PROPOSAL_STATUS_AWAITING_FUNDS } from '@/constants'
+import {
+  GOVERNANCE_PERIOD_FALLBACKS,
+  PROPOSAL_STATUS_LABELS,
+  PROPOSAL_STATUS_AWAITING_FUNDS,
+} from '@/constants'
 import { VirtualizedList } from '@/components/ui/virtualized-list'
 
 function TreasuryProposalRow({
   proposal: p,
+  now,
   canVote,
   voting,
+  isPaused,
+  isExpiring,
   onVote,
+  onExpire,
 }: {
   proposal: UITreasuryProposal
+  now: number | null
   canVote: boolean
   voting: boolean
+  isPaused: boolean
+  isExpiring: boolean
   onVote: (proposalId: number, support: boolean) => Promise<unknown>
+  onExpire: (proposalId: number) => Promise<unknown>
 }) {
   const { hasVoted, refetch } = useHasVoted('Treasury', p.id, p.status === 2 && !p.isPrivate)
   const token = useToken()
+  const { data: rawProposal } = useQuery({
+    queryKey: queryKeys.treasuryProposal(p.id),
+    enabled: p.status === 2,
+    queryFn: () => daoRead.getTreasuryProposal(p.id),
+  })
+  const rawVotingPeriod = Number(
+    (rawProposal as Record<string, unknown> | null | undefined)?.voting_period ?? 0
+  )
+  const votingPeriod =
+    rawVotingPeriod > 0 ? rawVotingPeriod : GOVERNANCE_PERIOD_FALLBACKS.votingPeriod
+  const finalizeDeadline = p.creationTime + votingPeriod * (p.isPrivate ? 2 : 1)
+  const canFinalize =
+    now !== null &&
+    p.status === 2 &&
+    p.creationTime > 0 &&
+    Math.floor(now / 1000) > finalizeDeadline
 
   return (
     <li className="py-4">
@@ -128,6 +161,17 @@ function TreasuryProposalRow({
               You&apos;ve voted
             </div>
           )}
+          {canFinalize && (
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => onExpire(p.id)}
+              disabled={isPaused || isExpiring}
+              title={isPaused ? 'The DAO is paused' : undefined}
+            >
+              {isExpiring ? 'Finalizing…' : 'Finalize'}
+            </Button>
+          )}
         </div>
       </div>
     </li>
@@ -164,6 +208,8 @@ export default function TreasuryPage() {
     myStake === null ? null : calculateVotingWeight(myStake + enteredAmountStroops, token.decimals)
   useAnnounceLoad('Treasury proposals', isLoading, isError)
   const { voteOnTreasury, isPending: voting } = useTreasuryVoting()
+  const { expireTreasuryProposal, isPending: isExpiring } = useExpireProposal()
+  const now = useNow()
 
   if (!userData.isConnected) {
     return (
@@ -203,6 +249,10 @@ export default function TreasuryPage() {
     } catch {
       /* toast handled in hook */
     }
+  }
+
+  const handleExpire = async (proposalId: number) => {
+    await expireTreasuryProposal(proposalId)
   }
 
   const canVote = userData.isMember
@@ -468,9 +518,13 @@ export default function TreasuryPage() {
                 renderItem={(p) => (
                   <TreasuryProposalRow
                     proposal={p}
+                    now={now}
                     canVote={canVote}
                     voting={voting || stats.isPaused}
+                    isPaused={stats.isPaused}
+                    isExpiring={isExpiring}
                     onVote={voteOnTreasury}
+                    onExpire={handleExpire}
                   />
                 )}
               />

@@ -16,6 +16,7 @@
 // into the split modules above.
 export * from '@/lib/dao-mappers'
 export * from './dao/enumeration'
+export * from './dao/failed-events'
 export * from './dao/reads'
 export * from './dao/proposal-reads'
 export * from './dao/writes'

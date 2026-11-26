@@ -10,7 +10,11 @@ import * as utils from '@/lib/utils'
 const mockGetTreasuryProposal = vi.fn()
 const mockHasVoted = vi.fn()
 const mockIsMember = vi.fn()
+const mockIsPaused = vi.fn()
+const mockGetTreasuryBalance = vi.fn()
+const mockGetLoanPolicy = vi.fn()
 const mockExecuteTreasury = vi.fn()
+const mockCancelTreasuryProposal = vi.fn()
 const mockCommitTreasuryVote = vi.fn().mockResolvedValue({ hash: 'tx-commit', returnValue: null })
 const mockAnnounce = vi.fn()
 const mockGetDocument = vi.fn().mockResolvedValue(null)
@@ -68,8 +72,9 @@ vi.mock('@/lib/dao-client', () => ({
     getTotalMembers: vi.fn().mockResolvedValue(10),
     getActiveMembers: vi.fn().mockResolvedValue(8),
     getConsensusThreshold: vi.fn().mockResolvedValue(5100),
-    getTreasuryBalance: vi.fn().mockResolvedValue(BigInt(1000000000)),
-    isPaused: vi.fn().mockResolvedValue(false),
+    getTreasuryBalance: (...a: unknown[]) => mockGetTreasuryBalance(...a),
+    getLoanPolicy: (...a: unknown[]) => mockGetLoanPolicy(...a),
+    isPaused: (...a: unknown[]) => mockIsPaused(...a),
   },
   tokenRead: {
     getSymbol: vi.fn().mockResolvedValue('OUSD'),
@@ -80,6 +85,7 @@ vi.mock('@/lib/dao-client', () => ({
   daoWrite: () => ({
     voteOnTreasuryProposal: (...a: unknown[]) => mockVoteOnTreasury(...a),
     executeTreasuryProposal: (...a: unknown[]) => mockExecuteTreasury(...a),
+    cancelTreasuryProposal: (...a: unknown[]) => mockCancelTreasuryProposal(...a),
     commitTreasuryVote: (...a: unknown[]) => mockCommitTreasuryVote(...a),
   }),
   InvokeError: class InvokeError extends Error {
@@ -238,6 +244,78 @@ describe('TreasuryProposalDetailPage (/treasury/[id])', () => {
       await screen.findByText(/awaiting treasury funds/i)
 
       expect(screen.queryByRole('button', { name: /^Execute$/ })).not.toBeInTheDocument()
+    })
+
+    it('disables Execute with a reason while the DAO is paused', async () => {
+      mockIsPaused.mockResolvedValue(true)
+      mockGetTreasuryProposal.mockResolvedValue(awaiting)
+
+      renderWithProviders(<TreasuryProposalDetailPage />)
+
+      expect(await screen.findByRole('button', { name: /^Execute$/ })).toBeDisabled()
+      expect(screen.getByText(/DAO is paused/i)).toBeInTheDocument()
+    })
+
+    it('disables Execute with a reason when the treasury cannot cover the withdrawal', async () => {
+      mockGetTreasuryBalance.mockResolvedValue(BigInt(1))
+      mockGetTreasuryProposal.mockResolvedValue(awaiting)
+
+      renderWithProviders(<TreasuryProposalDetailPage />)
+
+      expect(await screen.findByRole('button', { name: /^Execute$/ })).toBeDisabled()
+      expect(screen.getByText(/Treasury balance is too low/i)).toBeInTheDocument()
+    })
+  })
+
+  describe('proposal cancellation (#550)', () => {
+    const editable = {
+      id: 42,
+      proposer: 'GALICE',
+      destination: 'GBBD47IF6LWK7P7MDEVSCWR7DPUWV3NY3DTQEVFL4NAT4AQH3ZLLFLA5',
+      reason: 'Treasury Proposal #42',
+      amount: '50000000',
+      status: 'Pending',
+      for_votes: '0',
+      against_votes: '0',
+      created_at: Math.floor(Date.now() / 1000) - 100,
+      private: false,
+    }
+
+    it('offers Cancel Proposal to the proposer during editing and calls cancel_treasury_proposal', async () => {
+      mockGetTreasuryProposal.mockResolvedValue(editable)
+      renderWithProviders(<TreasuryProposalDetailPage />)
+
+      fireEvent.click(await screen.findByRole('button', { name: /Cancel Proposal/i }))
+
+      expect(window.confirm).toHaveBeenCalledWith(expect.stringMatching(/cannot be undone/i))
+      await waitFor(() => expect(mockCancelTreasuryProposal).toHaveBeenCalledWith(42))
+    })
+
+    it('hides Cancel Proposal from a wallet that is not the proposer', async () => {
+      mockGetTreasuryProposal.mockResolvedValue({ ...editable, proposer: 'GBORROWER' })
+      renderWithProviders(<TreasuryProposalDetailPage />)
+
+      await screen.findByText('In Voting')
+      expect(screen.queryByRole('button', { name: /Cancel Proposal/i })).not.toBeInTheDocument()
+    })
+
+    it('hides Cancel Proposal after the editing window', async () => {
+      mockGetTreasuryProposal.mockResolvedValue({
+        ...editable,
+        created_at: Math.floor(Date.now() / 1000) - 4 * 86400,
+      })
+      renderWithProviders(<TreasuryProposalDetailPage />)
+
+      await screen.findByText('In Voting')
+      expect(screen.queryByRole('button', { name: /Cancel Proposal/i })).not.toBeInTheDocument()
+    })
+
+    it('disables Cancel Proposal while the DAO is paused', async () => {
+      mockIsPaused.mockResolvedValue(true)
+      mockGetTreasuryProposal.mockResolvedValue(editable)
+      renderWithProviders(<TreasuryProposalDetailPage />)
+
+      expect(await screen.findByRole('button', { name: /Cancel Proposal/i })).toBeDisabled()
     })
   })
 

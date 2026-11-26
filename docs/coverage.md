@@ -22,6 +22,9 @@ installed `vitest` version (a 4.x provider against vitest 5 crashes the run).
 - `npm run coverage` locally (after `npm install --no-save
 @vitest/coverage-v8@5.0.5`) prints a per-file table and writes
   `coverage/coverage-summary.json` + `coverage/index.html`.
+
+> **Note:** Local coverage measurement requires Node 24.15+ due to locked Vitest and jsdom dependencies. The `test` and `build` scripts work on Node 20 (as specified in `.nvmrc`), but `npm run coverage` needs the newer runtime.
+
 - In CI, the same summary is appended to the job output under
   “Coverage summary” with a per-file `<details>` block.
 

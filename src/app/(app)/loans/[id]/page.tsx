@@ -47,7 +47,12 @@ import {
 import { useNow } from '@/hooks/useNow'
 import { formatToken, formatDate, calculatePercentage, parseToken } from '@/lib/utils'
 import { AddressLink } from '@/components/AddressLink'
-import { PROPOSAL_STATUS_LABELS, PROPOSAL_STATUS_AWAITING_FUNDS, IPFS_GATEWAY } from '@/constants'
+import {
+  BASIS_POINTS,
+  PROPOSAL_STATUS_LABELS,
+  PROPOSAL_STATUS_AWAITING_FUNDS,
+  IPFS_GATEWAY,
+} from '@/constants'
 import toast from 'react-hot-toast'
 import { PageHeader } from '@/components/PageHeader'
 import { DocumentHistory } from '@/components/DocumentHistory'
@@ -60,6 +65,7 @@ export default function LoanDetailsPage() {
   const { activeMembers, isPaused, treasuryBalance, maxLoanToTreasuryRatio } = useDAOStats()
   const { voteOnProposal, isPending: isVoting } = useVoting()
   const { editLoanProposal, isPending: isEditing } = useEditLoanProposal()
+  const { cancelLoanProposal, isPending: isCancelling } = useCancelProposal()
   const { repayLoan, repayLoanPartial, isPending: isRepaying } = useLoanRepayment()
   const { markLoanDefaulted, isPending: isMarkingDefaulted } = useMarkLoanDefaulted()
   const { disburseApprovedLoan, isPending: isFunding } = useDisburseApprovedLoan()
@@ -211,10 +217,25 @@ export default function LoanDetailsPage() {
     refetchLoan()
   }
 
+  const handleCancelProposal = async () => {
+    if (!window.confirm('Cancel this loan proposal? This cannot be undone.')) return
+    try {
+      await cancelLoanProposal(loanId)
+      refetchProposal()
+    } catch {
+      /* reported by useWriteAction */
+    }
+  }
+
   // Permissionless: any member can complete an approved loan once the treasury
   // can cover it. A failure (e.g. still short of funds) is already surfaced by
   // the write hook as a toast with the contract's plain-language message.
   const handleFundNow = async () => {
+    if (
+      !window.confirm(
+        'Disbursing re-quotes the loan terms from the contract at execution time: the interest rate and repayment schedule may differ from this proposal. Continue?'
+      )
+    ) return
     try {
       await disburseApprovedLoan(loanId)
       refetchProposal()
@@ -318,6 +339,18 @@ export default function LoanDetailsPage() {
     if (!now || !proposal.editingPeriodEnd) return false
     return Math.floor(now / 1000) < proposal.editingPeriodEnd
   }
+
+  const fundingRatioCap =
+    (treasuryBalance * BigInt(maxLoanToTreasuryRatio)) / BigInt(BASIS_POINTS)
+  const canFundFromTreasury =
+    treasuryBalance >= proposal.amount && proposal.amount <= fundingRatioCap
+  const fundingDisabledReason = isPaused
+    ? 'The DAO is paused — funding is unavailable.'
+    : treasuryBalance < proposal.amount
+      ? 'Treasury balance is too low to fund this loan.'
+      : proposal.amount > fundingRatioCap
+        ? 'Funding this loan would exceed the loan-to-treasury ratio.'
+        : null
 
   const getEditingTimeLeft = () => {
     if (!now || !proposal?.editingPeriodEnd) return ''
@@ -622,6 +655,27 @@ export default function LoanDetailsPage() {
                       </div>
                     </div>
                   )}
+                </CardContent>
+              </Card>
+            )}
+
+            {isBorrower() && isInEditingPhase() && (
+              <Card className="border-amber-200 dark:border-amber-900">
+                <CardHeader>
+                  <CardTitle>Cancel Loan Proposal</CardTitle>
+                  <CardDescription>
+                    Withdraw this proposal during the editing period. This cannot be undone.
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <Button
+                    variant="outline"
+                    onClick={handleCancelProposal}
+                    disabled={isCancelling || isPaused}
+                    className="text-red-600 border-red-300 hover:bg-red-50 dark:text-red-400 dark:border-red-800 dark:hover:bg-red-950/30"
+                  >
+                    {isCancelling ? 'Cancelling…' : 'Cancel Proposal'}
+                  </Button>
                 </CardContent>
               </Card>
             )}
