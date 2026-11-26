@@ -20,6 +20,8 @@ import {
   useVoting,
   useLoanProposals,
   useHasVoted,
+  useDAOStats,
+  useExpireProposal,
   type UILoanProposal,
 } from '@/hooks/useDAO'
 import { LoadError } from '@/components/LoadError'
@@ -70,13 +72,19 @@ function LoanProposalCard({
   now,
   userData,
   isPending,
+  isPaused,
+  isExpiring,
   onVote,
+  onExpire,
 }: {
   proposal: UILoanProposal
   now: number | null
   userData: UserData
   isPending: boolean
+  isPaused: boolean
+  isExpiring: boolean
   onVote: (proposalId: number, support: boolean) => Promise<unknown>
+  onExpire: (proposalId: number) => Promise<unknown>
 }) {
   // Only worth a contract read while the proposal can still be voted on.
   const { hasVoted, refetch: refetchHasVoted } = useHasVoted(
@@ -95,6 +103,13 @@ function LoanProposalCard({
 
   const alreadyVoted =
     userData.isMember && proposal.status === 2 && hasVoted && proposal.borrower !== userData.address
+
+  const canFinalize =
+    now !== null &&
+    proposal.status >= 0 &&
+    proposal.status <= 2 &&
+    proposal.votingEndTime > 0 &&
+    Math.floor(now / 1000) > proposal.votingEndTime
 
   const handleVoteClick = async (support: boolean) => {
     await onVote(proposal.id, support)
@@ -229,6 +244,18 @@ function LoanProposalCard({
               You have voted
             </div>
           )}
+
+          {canFinalize && (
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => onExpire(proposal.id)}
+              disabled={isPaused || isExpiring}
+              title={isPaused ? 'The DAO is paused' : undefined}
+            >
+              {isExpiring ? 'Finalizing…' : 'Finalize'}
+            </Button>
+          )}
         </div>
       </CardContent>
     </Card>
@@ -255,6 +282,10 @@ export default function LoansPage() {
 
   const handleVote = async (proposalId: number, support: boolean) => {
     await voteOnProposal(proposalId, support)
+  }
+
+  const handleExpire = async (proposalId: number) => {
+    await expireLoanProposal(proposalId)
   }
 
   return (
@@ -445,7 +476,10 @@ export default function LoansPage() {
                   now={now}
                   userData={userData}
                   isPending={isPending}
+                  isPaused={isPaused}
+                  isExpiring={isExpiring}
                   onVote={handleVote}
+                  onExpire={handleExpire}
                 />
               )}
             />

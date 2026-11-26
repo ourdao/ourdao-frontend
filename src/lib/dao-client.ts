@@ -649,6 +649,8 @@ export function daoWrite(address: string, signXDR: (xdr: string) => Promise<stri
         proposal_id: proposalId,
         new_amount: BigInt(newAmount),
       }),
+    cancelLoanProposal: (proposalId: number) =>
+      send('cancel_loan_proposal', { borrower: address, proposal_id: proposalId }),
     voteOnLoanProposal: (proposalId: number, support: boolean) =>
       send('vote_on_loan_proposal', { voter: address, proposal_id: proposalId, support }),
     repayLoan: (loanId: number) => send('repay_loan', { borrower: address, loan_id: loanId }),
@@ -685,7 +687,8 @@ export function daoWrite(address: string, signXDR: (xdr: string) => Promise<stri
     disburseApprovedLoan: (proposalId: number) =>
       send('disburse_approved_loan', { proposal_id: proposalId }),
 
-    // Same, for an approved treasury withdrawal (#540).
+    // Same, for an approved treasury withdrawal (#540). Rejects with
+    // `ProposalNotFound`, `NotInVotingPhase`, `Paused` or `InsufficientTreasury`.
     executeTreasuryProposal: (proposalId: number) =>
       send('execute_treasury_proposal', { proposal_id: proposalId }),
 
@@ -702,12 +705,16 @@ export function daoWrite(address: string, signXDR: (xdr: string) => Promise<stri
         reason,
         private: isPrivate,
       }),
+    cancelTreasuryProposal: (proposalId: number) =>
+      send('cancel_treasury_proposal', { proposer: address, proposal_id: proposalId }),
     voteOnTreasuryProposal: (proposalId: number, support: boolean) =>
       send('vote_on_treasury_proposal', {
         voter: address,
         proposal_id: proposalId,
         support,
       }),
+    expireTreasuryProposal: (proposalId: number) =>
+      send('expire_treasury_proposal', { proposal_id: proposalId }),
 
     stake: (amount: bigint | number) => send('stake', { member: address, amount: BigInt(amount) }),
     unstake: (amount: bigint | number) =>

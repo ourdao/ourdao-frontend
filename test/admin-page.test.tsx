@@ -18,6 +18,9 @@ const mockGetLoanPolicy = vi.fn()
 const mockIsPaused = vi.fn()
 const mockGetLoans = vi.fn()
 const mockGetAdminLog = vi.fn()
+const mockGetFailedEvents = vi.fn()
+const mockReEvaluateFailedEvent = vi.fn()
+const mockBatchResolveFailedEvents = vi.fn()
 const mockAddAdmin = vi.fn()
 const mockSetThreshold = vi.fn()
 const mockPause = vi.fn()
@@ -35,6 +38,7 @@ vi.mock('@/lib/wallet', () => ({
     connect: vi.fn(),
     disconnect: vi.fn(),
     signXDR: vi.fn(),
+    signMessage: vi.fn(async () => 'signature'),
   }),
 }))
 
@@ -73,12 +77,16 @@ vi.mock('@/lib/dao-client', () => ({
 }))
 
 vi.mock('@/lib/backend', () => ({
+  MAX_FAILED_EVENTS_PER_BATCH: 500,
   backend: {
     getLoans: (...a: unknown[]) => mockGetLoans(...a),
     getNotifications: vi.fn().mockResolvedValue([]),
     getEvents: vi.fn().mockResolvedValue([]),
     getStats: vi.fn().mockResolvedValue(null),
     getAdminLog: (...a: unknown[]) => mockGetAdminLog(...a),
+    getFailedEvents: (...a: unknown[]) => mockGetFailedEvents(...a),
+    reEvaluateFailedEvent: (...a: unknown[]) => mockReEvaluateFailedEvent(...a),
+    batchResolveFailedEvents: (...a: unknown[]) => mockBatchResolveFailedEvents(...a),
     markNotificationRead: vi.fn(),
     markAllNotificationsRead: vi.fn(),
   },
@@ -108,6 +116,9 @@ describe('AdminPage', () => {
     mockIsPaused.mockResolvedValue(false)
     mockGetLoans.mockResolvedValue([])
     mockGetAdminLog.mockResolvedValue([])
+    mockGetFailedEvents.mockResolvedValue([])
+    mockReEvaluateFailedEvent.mockResolvedValue({ eventId: 12, status: 'resolved' })
+    mockBatchResolveFailedEvents.mockResolvedValue({ resolved: 2 })
   })
   afterEach(() => vi.clearAllMocks())
 
@@ -290,6 +301,105 @@ describe('AdminPage', () => {
       await waitFor(() => expect(toast.error).toHaveBeenCalledTimes(1))
       await settle()
       expect(unhandled).toEqual([])
+    })
+  })
+
+  // ── quarantined event actions (#637, #638, #639) ────────────────────────
+  describe('quarantined events', () => {
+    const event = (id: number) => ({
+      id,
+      ledger: 42,
+      symbol: 'loan_req',
+      error: 'handler failed',
+      retry_count: 1,
+      created_at: '2026-01-01T00:00:00Z',
+    })
+
+    beforeEach(() => {
+      vi.spyOn(window, 'confirm').mockReturnValue(true)
+      mockIsMember.mockResolvedValue(true)
+      mockIsAdmin.mockResolvedValue(true)
+    })
+    afterEach(() => vi.restoreAllMocks())
+
+    async function openQuarantineTab() {
+      renderWithProviders(<AdminPage />)
+      await waitFor(() => expect(screen.getByText('Admin Dashboard')).toBeInTheDocument())
+      fireEvent.click(screen.getByRole('button', { name: /Quarantined Events/ }))
+      await waitFor(() => expect(screen.getByText('Quarantined / Failed Events')).toBeInTheDocument())
+      await waitFor(() =>
+        expect(screen.queryByText('Loading quarantined events…')).not.toBeInTheDocument()
+      )
+    }
+
+    it('re-evaluates one event and shows still_failing as an outcome, not an error toast', async () => {
+      mockGetFailedEvents.mockResolvedValue([event(12)])
+      mockReEvaluateFailedEvent.mockResolvedValue({ eventId: 12, status: 'still_failing' })
+      await openQuarantineTab()
+
+      fireEvent.click(screen.getByRole('button', { name: 'Re-evaluate event 12' }))
+
+      await waitFor(() =>
+        expect(mockReEvaluateFailedEvent).toHaveBeenCalledWith(
+          12,
+          expect.objectContaining({ address: 'GALICE' })
+        )
+      )
+      expect(await screen.findByText('Still failing')).toBeInTheDocument()
+      expect(screen.queryByRole('alert')).not.toBeInTheDocument()
+      expect(toast.error).not.toHaveBeenCalled()
+    })
+
+    it('shows a real re-evaluation failure inline', async () => {
+      mockGetFailedEvents.mockResolvedValue([event(12)])
+      mockReEvaluateFailedEvent.mockRejectedValue(new Error('Backend responded 401'))
+      await openQuarantineTab()
+
+      fireEvent.click(screen.getByRole('button', { name: 'Re-evaluate event 12' }))
+
+      expect(await screen.findByRole('alert')).toHaveTextContent('Backend responded 401')
+      expect(screen.queryByText('Still failing')).not.toBeInTheDocument()
+    })
+
+    it('selects all rows, confirms, and submits their ids in one request', async () => {
+      mockGetFailedEvents.mockResolvedValue([event(12), event(13)])
+      await openQuarantineTab()
+
+      fireEvent.click(screen.getByLabelText('Select all'))
+      expect(screen.getByLabelText('Select event 12')).toBeChecked()
+      expect(screen.getByLabelText('Select event 13')).toBeChecked()
+      fireEvent.click(screen.getByLabelText('resolved'))
+      fireEvent.change(screen.getByLabelText('Note (optional)'), {
+        target: { value: 'duplicate' },
+      })
+      fireEvent.click(screen.getByRole('button', { name: 'Resolve selected' }))
+
+      await waitFor(() =>
+        expect(window.confirm).toHaveBeenCalledWith(
+          'Resolve 2 selected quarantined event(s) as resolved?'
+        )
+      )
+      await waitFor(() =>
+        expect(mockBatchResolveFailedEvents).toHaveBeenCalledWith(
+          { ids: [12, 13], resolution: 'resolved', note: 'duplicate' },
+          expect.objectContaining({ address: 'GALICE' })
+        )
+      )
+      expect(await screen.findByText(/Resolved 2 event\(s\)/)).toBeInTheDocument()
+      expect(screen.getByLabelText('Select all')).not.toBeChecked()
+    })
+
+    it('does not submit when confirmation is declined', async () => {
+      vi.mocked(window.confirm).mockReturnValue(false)
+      mockGetFailedEvents.mockResolvedValue([event(12)])
+      await openQuarantineTab()
+
+      fireEvent.click(screen.getByLabelText('Select event 12'))
+      fireEvent.click(screen.getByLabelText('ignored'))
+      fireEvent.click(screen.getByRole('button', { name: 'Resolve selected' }))
+
+      await waitFor(() => expect(window.confirm).toHaveBeenCalledTimes(1))
+      expect(mockBatchResolveFailedEvents).not.toHaveBeenCalled()
     })
   })
 })

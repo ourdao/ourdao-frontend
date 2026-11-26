@@ -1,13 +1,38 @@
 'use client'
 
-import { useState, useEffect } from 'react'
-import { useWallet } from '@/lib/wallet'
-import { daoRead, daoWrite, InvokeError } from '@/lib/dao-client'
-import { backend } from '@/lib/backend'
-import { useWriteAction } from '@/hooks/use-write-action'
-import { useAdminAuditLog } from '@/hooks/use-admin-audit-log'
-import { isStellarAddress } from '@/lib/stellar'
-import toast from 'react-hot-toast'
+import { useState, type FormEvent, type ReactNode } from 'react'
+import {
+  ShieldCheckIcon,
+  UsersIcon,
+  ChartBarIcon,
+  ExclamationTriangleIcon,
+  ClockIcon,
+  PlayIcon,
+  TrashIcon,
+} from '@/lib/icons'
+import {
+  useUserData,
+  useDAOStats,
+  useAdmins,
+  useAdminActions,
+  useAdminLog,
+  useFailedEvents,
+  usePauserActions,
+  usePolicyUpdateActions,
+  usePendingPolicyUpdate,
+  useRawLoanPolicy,
+} from '@/hooks/useDAO'
+import type { FailedEventResolution } from '@/lib/backend'
+import { AddressLink } from '@/components/AddressLink'
+import { LoadError } from '@/components/LoadError'
+import { useAnnounceLoad } from '@/lib/useAnnounceLoad'
+import { formatToken, formatDate, formatThreshold } from '@/lib/utils'
+import { formatStellarAddress, isStellarAddress } from '@/lib/stellar'
+import { LoadingSpinner } from '@/components/ui/skeleton'
+import { PageHeader } from '@/components/PageHeader'
+import { StatCard } from '@/components/ui/stat-card'
+import { useNow } from '@/hooks/useNow'
+import type { LoanPolicy } from '@/lib/dao-client'
 
 type Tab = 'overview' | 'treasury' | 'governance' | 'loans' | 'audit'
 
@@ -294,14 +319,43 @@ export default function AdminPage() {
             </ul>
           </div>
         </div>
-      )}
+      </div>
 
-      {tab === 'loans' && (
-        <div className="rounded-lg border border-zinc-800 bg-zinc-900/50 p-6">
-          <h2 className="text-xl font-bold text-white">Loan Management</h2>
-          <p className="mt-1 text-sm text-zinc-400">Review and manage active protocol loans.</p>
-        </div>
-      )}
+      <PauserSection />
+      <TokenWhitelistSection />
+    </div>
+  )
+}
+
+/** Pauser assignment controls (#629). The pauser can pause but only an admin
+ *  can unpause (per the contract CHANGELOG, #319). */
+function PauserSection() {
+  const { setPauser, revokePauser, isPending } = usePauserActions()
+  const [pauserAddr, setPauserAddr] = useState('')
+
+  const trimmed = pauserAddr.trim()
+  const addrError = trimmed.length > 0 && !isStellarAddress(trimmed)
+
+  const submitSetPauser = async (e: FormEvent) => {
+    e.preventDefault()
+    if (!trimmed || !isStellarAddress(trimmed)) return
+    if (!window.confirm(`Set ${formatStellarAddress(trimmed)} as the pauser? They will be able to pause the DAO, but only an admin can unpause it.`)) return
+    try {
+      await setPauser(trimmed)
+    } catch {
+      return
+    }
+    setPauserAddr('')
+  }
+
+  const submitRevoke = async () => {
+    if (!window.confirm('Revoke the pauser role? The current pauser will no longer be able to pause the DAO. Only an admin can pause it afterwards.')) return
+    try {
+      await revokePauser()
+    } catch {
+      return
+    }
+  }
 
       {tab === 'audit' && (
         <div className="space-y-6">
@@ -317,6 +371,194 @@ export default function AdminPage() {
               Refresh
             </button>
           </div>
+        ))}
+      </div>
+
+      {/* Propose addition form */}
+      <form onSubmit={submitPropose} className="p-6 flex items-start space-x-2 border-t border-border">
+        <div className="flex-1">
+          <label className="text-sm font-medium text-foreground mb-1 block">Propose token addition</label>
+          <input
+            type="text"
+            value={tokenAddr}
+            onChange={(e) => setTokenAddr(e.target.value)}
+            placeholder="Token contract address (C…)"
+            aria-label="Token address to propose"
+            aria-invalid={addrError}
+            aria-describedby={addrError ? 'token-addr-error' : undefined}
+            className="w-full px-3 py-2 border border-input rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-muted dark:text-foreground"
+          />
+          {addrError && (
+            <p id="token-addr-error" className="mt-1 text-sm text-red-600 dark:text-red-400">
+              Enter a valid Stellar contract address (C…)
+            </p>
+          )}
+        </div>
+        <button
+          type="submit"
+          disabled={isPending || !trimmed || !isStellarAddress(trimmed)}
+          className="mt-6 px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50 dark:bg-blue-500 dark:hover:bg-blue-600"
+        >
+          Propose
+        </button>
+      </form>
+
+      {/* Execute addition form */}
+      <form onSubmit={submitExecute} className="p-6 pt-0 flex items-start space-x-2">
+        <div className="flex-1">
+          <label className="text-sm font-medium text-foreground mb-1 block">Execute token addition</label>
+          <p className="text-xs text-muted-foreground mb-1">
+            Available 48 hours after the proposal. Enter the same token address you proposed.
+          </p>
+          <input
+            type="text"
+            value={executeAddr}
+            onChange={(e) => setExecuteAddr(e.target.value)}
+            placeholder="Token contract address (C…)"
+            aria-label="Token address to execute"
+            aria-invalid={executeError}
+            aria-describedby={executeError ? 'execute-addr-error' : undefined}
+            className="w-full px-3 py-2 border border-input rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-muted dark:text-foreground"
+          />
+          {executeError && (
+            <p id="execute-addr-error" className="mt-1 text-sm text-red-600 dark:text-red-400">
+              Enter a valid Stellar contract address (C…)
+            </p>
+          )}
+        </div>
+        <button
+          type="submit"
+          disabled={isPending || !executeTrimmed || !isStellarAddress(executeTrimmed)}
+          className="mt-6 px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 disabled:opacity-50 dark:bg-green-500 dark:hover:bg-green-600"
+        >
+          Execute
+        </button>
+      </form>
+    </div>
+  )
+}
+
+function ActivityTab() {
+  const { entries, isLoading, isError, refetch } = useAdminLog(100)
+  const { entries: auditEntries, isLoading: auditLoading, isError: auditError, refetch: refetchAudit } = useAuditLog(100)
+  useAnnounceLoad('Admin event history', isLoading, isError)
+
+  return (
+    <div className="space-y-6">
+      {/* Backend audit log (#555) — records admin actions like pause/unpause,
+          admin add/remove, threshold changes, reorg clears. */}
+      <div className="bg-card rounded-lg border border-border">
+        <div className="px-6 py-4 border-b border-border">
+          <h3 className="text-lg font-semibold text-foreground">Admin Audit Log</h3>
+          <p className="text-sm text-muted-foreground">
+            Backend-recorded admin actions: pause/unpause, admin changes, threshold updates, reorg clears, re-evaluations.
+          </p>
+        </div>
+        <div className="divide-y divide-border">
+          {auditLoading && <div className="px-6 py-4 text-sm text-muted-foreground">Loading audit log…</div>}
+          {auditError && <LoadError what="the audit log" onRetry={() => void refetchAudit()} className="m-4" />}
+          {!auditLoading && !auditError && auditEntries.length === 0 && (
+            <div className="px-6 py-8 text-center text-muted-foreground">
+              No admin audit log entries yet.
+            </div>
+          )}
+          {auditEntries.map((entry) => (
+            <div key={entry.id} className="px-6 py-3 flex items-center justify-between">
+              <div className="flex items-center space-x-3">
+                <span className="px-2 py-1 text-xs font-mono bg-muted text-foreground rounded">
+                  {entry.action}
+                </span>
+                {entry.actor && (
+                  <span className="text-sm text-muted-foreground">{formatStellarAddress(entry.actor)}</span>
+                )}
+                {entry.ledger != null && (
+                  <span className="text-sm text-muted-foreground">Ledger {entry.ledger}</span>
+                )}
+              </div>
+              <span className="text-xs text-muted-foreground">{formatDate(entry.created_at)}</span>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* Indexed on-chain event history */}
+      <div className="bg-card rounded-lg border border-border">
+        <div className="px-6 py-4 border-b border-border">
+          <h3 className="text-lg font-semibold text-foreground">
+            Admin/Governance Event History
+          </h3>
+          <p className="text-sm text-muted-foreground">
+            Indexed on-chain events: admin add/remove, threshold and policy changes, pause/unpause.
+          </p>
+        </div>
+        <div className="divide-y divide-border">
+          {isLoading && <div className="px-6 py-4 text-sm text-muted-foreground">Loading…</div>}
+          {isError && <LoadError what="the admin event history" onRetry={() => void refetch()} className="m-4" />}
+          {!isLoading && !isError && entries.length === 0 && (
+            <div className="px-6 py-8 text-center text-muted-foreground">
+              No admin/governance events indexed yet.
+            </div>
+          )}
+          {entries.map((entry) => (
+            <div key={entry.id} className="px-6 py-3 flex items-center justify-between">
+              <div className="flex items-center space-x-3">
+                <span className="px-2 py-1 text-xs font-mono bg-muted text-foreground rounded">
+                  {entry.symbol}
+                </span>
+                <span className="text-sm text-foreground">Ledger {entry.ledger}</span>
+              </div>
+              <span className="text-xs text-muted-foreground">{formatDate(entry.closedAt)}</span>
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  )
+}
+
+function QuarantinedEventsTab() {
+  const { failedEvents, isLoading, isError, refetch } = useFailedEvents()
+  const {
+    reEvaluate,
+    isPending: isReEvaluating,
+    error: reEvaluateError,
+    result: reEvaluateResult,
+  } = useReEvaluateFailedEvent()
+  const {
+    batchResolve,
+    isPending: isResolving,
+    error: batchError,
+    result: batchResult,
+  } = useBatchResolveFailedEvents()
+  const [selectedIds, setSelectedIds] = useState<number[]>([])
+  const [resolution, setResolution] = useState<FailedEventResolution | ''>('')
+  const [note, setNote] = useState('')
+
+  const numericIds = failedEvents
+    .map((ev) => Number(ev.id))
+    .filter((id) => Number.isInteger(id) && id > 0)
+  const allSelected = numericIds.length > 0 && numericIds.every((id) => selectedIds.includes(id))
+  const isBusy = isReEvaluating || isResolving
+
+  const toggleAll = () => {
+    setSelectedIds(allSelected ? [] : numericIds)
+  }
+  const toggleOne = (id: number) => {
+    setSelectedIds((prev) => (prev.includes(id) ? prev.filter((value) => value !== id) : [...prev, id]))
+  }
+
+  const submitBatch = async (event: FormEvent) => {
+    event.preventDefault()
+    if (!resolution || selectedIds.length === 0) return
+    const message = `Resolve ${selectedIds.length} selected quarantined event(s) as ${resolution}?`
+    if (!window.confirm(message)) return
+    const outcome = await batchResolve({ ids: selectedIds, resolution, note: note.trim() || undefined })
+    if (outcome) {
+      setSelectedIds([])
+      setResolution('')
+      setNote('')
+    }
+  }
 
           <div className="overflow-x-auto rounded-lg border border-zinc-800 bg-zinc-900/50">
             <table className="w-full text-left text-sm text-zinc-300">
@@ -355,9 +597,73 @@ export default function AdminPage() {
                     </tr>
                   ))
                 )}
-              </tbody>
-            </table>
-          </div>
+              </div>
+              <span className="text-muted-foreground text-xs">{formatDate(ev.created_at)}</span>
+            </div>
+            <div className="mt-1 rounded bg-red-50 p-2 font-mono text-xs text-red-600 dark:bg-red-950/20 dark:text-red-400">
+              {ev.error}
+            </div>
+          )
+        })}
+      </div>
+    </div>
+  )
+}
+
+// Every LoanPolicy field, in the order the contract stores them. Units follow
+// the contract: basis points (bps), seconds (s), or stroops for the membership fee.
+const POLICY_FIELDS: { key: keyof LoanPolicy; label: string }[] = [
+  { key: 'min_interest_rate', label: 'Min interest rate (bps)' },
+  { key: 'max_interest_rate', label: 'Max interest rate (bps)' },
+  { key: 'max_loan_duration', label: 'Max loan duration (s)' },
+  { key: 'max_loan_to_treasury_ratio', label: 'Max loan to treasury ratio (bps)' },
+  { key: 'membership_contribution', label: 'Membership contribution (stroops)' },
+  { key: 'min_membership_duration', label: 'Min membership duration (s)' },
+  { key: 'cooldown_period', label: 'Cooldown period (s)' },
+  { key: 'editing_period', label: 'Editing period (s)' },
+  { key: 'voting_period', label: 'Voting period (s)' },
+  { key: 'quorum_bps', label: 'Quorum (bps)' },
+  { key: 'default_grace_period', label: 'Default grace period (s)' },
+  { key: 'default_penalty_bps', label: 'Default penalty (bps)' },
+]
+
+function formatPolicyValue(value: unknown): string {
+  return value === undefined || value === null ? '—' : String(value)
+}
+
+function formatTimeLeft(seconds: number): string {
+  if (seconds <= 0) return 'Ready to execute'
+  const days = Math.floor(seconds / 86_400)
+  const hours = Math.floor((seconds % 86_400) / 3_600)
+  const minutes = Math.floor((seconds % 3_600) / 60)
+  if (days === 0 && hours === 0 && minutes === 0) return 'Executable in less than a minute'
+  return `Executable in ${days}d ${hours}h ${minutes}m`
+}
+
+/** Shows a queued policy change beside the live values. Renders nothing when no
+ *  update is pending. Changed fields are marked in text, not only by colour. */
+function PendingPolicyUpdatePanel() {
+  const { pending } = usePendingPolicyUpdate()
+  const current = useRawLoanPolicy()
+  const nowMs = useNow()
+  const { executePolicyUpdate, cancelPolicyUpdate, isPending: busy } = usePolicyUpdateActions()
+
+  if (!pending) return null
+
+  const nowSec = nowMs == null ? null : Math.floor(nowMs / 1000)
+  const timeLeft =
+    nowSec == null ? 'Checking time left…' : formatTimeLeft(pending.executionTime - nowSec)
+  const ready = nowSec != null && nowSec >= pending.executionTime
+
+  const onExecute = async () => {
+    if (!ready) return
+    if (!window.confirm('Execute the pending policy update? The new loan policy applies to every member immediately.')) return
+    try {
+      await executePolicyUpdate()
+    } catch {
+      // `run` has already shown the failure; nothing more to do here.
+    }
+  }
 
           {auditHasMore && (
             <div className="flex justify-center pt-2">

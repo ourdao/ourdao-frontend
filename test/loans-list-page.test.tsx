@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { fireEvent, screen, waitFor } from '@testing-library/react'
+import { act, fireEvent, screen, waitFor } from '@testing-library/react'
 import { renderWithProviders } from './test-utils'
 import LoansPage from '@/app/(app)/loans/page'
 
@@ -9,10 +9,45 @@ const mockIsAdmin = vi.fn()
 const mockGetMember = vi.fn()
 const mockGetPendingYield = vi.fn()
 const mockGetLoanProposal = vi.fn()
+const mockGetTotalMembers = vi.fn()
+const mockGetActiveMembers = vi.fn()
+const mockGetConsensusThreshold = vi.fn()
+const mockGetTreasuryBalance = vi.fn()
+const mockGetLoanPolicy = vi.fn()
+const mockIsPaused = vi.fn()
+const mockExpireLoanProposal = vi.fn()
 const mockGetStats = vi.fn()
 const mockGetLoans = vi.fn()
+const mockNow = vi.hoisted(() => {
+  let value: number | null = null
+  const listeners = new Set<() => void>()
+  return {
+    get value() {
+      return value
+    },
+    set(next: number | null) {
+      value = next
+      listeners.forEach((listener) => listener())
+    },
+    subscribe(listener: () => void) {
+      listeners.add(listener)
+      return () => listeners.delete(listener)
+    },
+    getSnapshot() {
+      return value
+    },
+  }
+})
 const mockGetNotifications = vi.fn()
 const mockGetEvents = vi.fn()
+
+vi.mock('@/hooks/useNow', async () => {
+  const React = await vi.importActual<typeof import('react')>('react')
+  return {
+    useNow: () =>
+      React.useSyncExternalStore(mockNow.subscribe, mockNow.getSnapshot, () => null),
+  }
+})
 
 vi.mock('next/navigation', () => ({
   usePathname: () => '/loans',
@@ -42,6 +77,12 @@ vi.mock('@/lib/dao-client', () => ({
     getMember: (...a: unknown[]) => mockGetMember(...a),
     getPendingYield: (...a: unknown[]) => mockGetPendingYield(...a),
     getLoanProposal: (...a: unknown[]) => mockGetLoanProposal(...a),
+    getTotalMembers: (...a: unknown[]) => mockGetTotalMembers(...a),
+    getActiveMembers: (...a: unknown[]) => mockGetActiveMembers(...a),
+    getConsensusThreshold: (...a: unknown[]) => mockGetConsensusThreshold(...a),
+    getTreasuryBalance: (...a: unknown[]) => mockGetTreasuryBalance(...a),
+    getLoanPolicy: (...a: unknown[]) => mockGetLoanPolicy(...a),
+    isPaused: (...a: unknown[]) => mockIsPaused(...a),
   },
   daoWrite: () => ({
     voteOnLoanProposal: vi.fn().mockResolvedValue({ hash: 'tx', returnValue: null }),
@@ -79,15 +120,26 @@ function rawProposal(overrides: Record<string, unknown> = {}) {
 describe('LoansPage', () => {
   beforeEach(() => {
     vi.clearAllMocks()
+    mockNow.set(null)
     mockIsMember.mockResolvedValue(true)
     mockIsAdmin.mockResolvedValue(false)
     mockGetMember.mockResolvedValue({ status: 'ActiveMember', has_active_loan: false })
     mockGetPendingYield.mockResolvedValue(BigInt(0))
+    mockGetTotalMembers.mockResolvedValue(10)
+    mockGetActiveMembers.mockResolvedValue(8)
+    mockGetConsensusThreshold.mockResolvedValue(5000)
+    mockGetTreasuryBalance.mockResolvedValue(BigInt(1_000_0000000))
+    mockGetLoanPolicy.mockResolvedValue({})
+    mockIsPaused.mockResolvedValue(false)
+    mockExpireLoanProposal.mockResolvedValue({ hash: 'tx-expire', returnValue: null })
     mockGetLoans.mockResolvedValue([])
     mockGetNotifications.mockResolvedValue([])
     mockGetEvents.mockResolvedValue([])
   })
-  afterEach(() => vi.clearAllMocks())
+  afterEach(() => {
+    vi.clearAllMocks()
+    vi.useRealTimers()
+  })
 
   it('loading state: shows skeleton placeholders, not "no proposals", while proposals are being fetched', async () => {
     mockGetStats.mockResolvedValue({ totalLoanProposals: 3 })
@@ -180,5 +232,76 @@ describe('LoansPage', () => {
     // mockGetLoanProposal back to resolving a real proposal (as in the test
     // above) and this assertion fails, proving it isn't vacuous.
     await waitFor(() => expect(screen.getByText('No proposals found')).toBeInTheDocument())
+  })
+
+  describe('finalizing expired loan proposals (#612)', () => {
+    const nowSeconds = 1_700_000_000
+
+    beforeEach(() => {
+      vi.useFakeTimers({ shouldAdvanceTime: true })
+      vi.setSystemTime(nowSeconds * 1000)
+      mockNow.set(nowSeconds * 1000)
+      mockGetStats.mockResolvedValue({ totalLoanProposals: 1 })
+    })
+
+    it('hides Finalize until the voting window has passed, then offers it', async () => {
+      mockGetLoanProposal.mockResolvedValue(
+        rawProposal({
+          editing_period_end: nowSeconds - 100,
+          voting_period: 1000,
+        })
+      )
+      renderWithProviders(<LoansPage />)
+
+      await screen.findByText('Loan Proposal #1')
+      expect(screen.queryByRole('button', { name: 'Finalize' })).not.toBeInTheDocument()
+
+      await act(async () => {
+        mockNow.set(nowSeconds * 1000 + 901_000)
+      })
+
+      expect(await screen.findByRole('button', { name: 'Finalize' })).toBeInTheDocument()
+    })
+
+    it('calls expire_loan_proposal when Finalize is clicked', async () => {
+      mockGetLoanProposal.mockResolvedValue(
+        rawProposal({
+          editing_period_end: nowSeconds - 100,
+          voting_period: 50,
+        })
+      )
+      renderWithProviders(<LoansPage />)
+
+      fireEvent.click(await screen.findByRole('button', { name: 'Finalize' }))
+
+      await waitFor(() => expect(mockExpireLoanProposal).toHaveBeenCalledWith(1))
+    })
+
+    it('hides Finalize once the proposal is already expired', async () => {
+      mockGetLoanProposal.mockResolvedValue(
+        rawProposal({
+          status: 'Expired',
+          editing_period_end: nowSeconds - 100,
+          voting_period: 100,
+        })
+      )
+      renderWithProviders(<LoansPage />)
+
+      await screen.findByText('Loan Proposal #1')
+      expect(screen.queryByRole('button', { name: 'Finalize' })).not.toBeInTheDocument()
+    })
+
+    it('disables Finalize while the DAO is paused', async () => {
+      mockIsPaused.mockResolvedValue(true)
+      mockGetLoanProposal.mockResolvedValue(
+        rawProposal({
+          editing_period_end: nowSeconds - 100,
+          voting_period: 50,
+        })
+      )
+      renderWithProviders(<LoansPage />)
+
+      expect(await screen.findByRole('button', { name: 'Finalize' })).toBeDisabled()
+    })
   })
 })

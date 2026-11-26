@@ -8,6 +8,10 @@ import {
   useTreasuryVoting,
   useStaking,
   useAttachDocument,
+  useCancelProposal,
+  useExpireProposal,
+  useExecuteTreasuryProposal,
+  useDisburseLoan,
 } from '@/hooks/useDAO'
 
 const mockRegisterMember = vi.fn()
@@ -15,6 +19,12 @@ const mockVoteOnLoanProposal = vi.fn()
 const mockVoteOnTreasuryProposal = vi.fn()
 const mockStake = vi.fn()
 const mockAttachDocument = vi.fn()
+const mockCancelLoanProposal = vi.fn()
+const mockCancelTreasuryProposal = vi.fn()
+const mockExpireLoanProposal = vi.fn()
+const mockExpireTreasuryProposal = vi.fn()
+const mockExecuteTreasuryProposal = vi.fn()
+const mockDisburseApprovedLoan = vi.fn()
 
 vi.mock('@/lib/wallet', () => ({
   useWallet: () => ({
@@ -34,6 +44,12 @@ vi.mock('@/lib/dao-client', async (importOriginal) => {
       voteOnTreasuryProposal: (...args: unknown[]) => mockVoteOnTreasuryProposal(...args),
       stake: (...args: unknown[]) => mockStake(...args),
       attachDocument: (...args: unknown[]) => mockAttachDocument(...args),
+      cancelLoanProposal: (...args: unknown[]) => mockCancelLoanProposal(...args),
+      cancelTreasuryProposal: (...args: unknown[]) => mockCancelTreasuryProposal(...args),
+      expireLoanProposal: (...args: unknown[]) => mockExpireLoanProposal(...args),
+      expireTreasuryProposal: (...args: unknown[]) => mockExpireTreasuryProposal(...args),
+      executeTreasuryProposal: (...args: unknown[]) => mockExecuteTreasuryProposal(...args),
+      disburseApprovedLoan: (...args: unknown[]) => mockDisburseApprovedLoan(...args),
     }),
   }
 })
@@ -295,5 +311,64 @@ describe('write-hook query invalidation', () => {
     // to refresh too.
     expect(invalidateSpy).toHaveBeenCalledWith({ queryKey: ['loanProposal', 3] })
     expect(invalidateSpy).toHaveBeenCalledWith({ queryKey: ['loanProposals'] })
+  })
+
+  it('cancelling refreshes the proposal, its list, the member and both aggregates', async () => {
+    mockCancelLoanProposal.mockResolvedValue({ hash: 'tx5', returnValue: null })
+    const client = makeClient()
+    const invalidateSpy = vi.spyOn(client, 'invalidateQueries')
+
+    let latest: ReturnType<typeof useCancelProposal> | undefined
+    renderWithClient(client, useCancelProposal, (h) => { latest = h })
+
+    await act(async () => {
+      await latest!.cancelLoanProposal(9)
+    })
+
+    expect(invalidateSpy).toHaveBeenCalledWith({ queryKey: ['loanProposal', 9] })
+    expect(invalidateSpy).toHaveBeenCalledWith({ queryKey: ['loanProposals'] })
+    expect(invalidateSpy).toHaveBeenCalledWith({ queryKey: ['userData', 'GALICE'] })
+    expect(invalidateSpy).toHaveBeenCalledWith({ queryKey: ['daoStats'] })
+    expect(invalidateSpy).toHaveBeenCalledWith({ queryKey: ['backendStats'] })
+  })
+
+  it('expiring refreshes the treasury proposal, its list, the member and both aggregates', async () => {
+    mockExpireTreasuryProposal.mockResolvedValue({ hash: 'tx6', returnValue: null })
+    const client = makeClient()
+    const invalidateSpy = vi.spyOn(client, 'invalidateQueries')
+
+    let latest: ReturnType<typeof useExpireProposal> | undefined
+    renderWithClient(client, useExpireProposal, (h) => { latest = h })
+
+    await act(async () => {
+      await latest!.expireTreasuryProposal(10)
+    })
+
+    expect(invalidateSpy).toHaveBeenCalledWith({ queryKey: ['treasuryProposal', 10] })
+    expect(invalidateSpy).toHaveBeenCalledWith({ queryKey: ['treasuryProposals'] })
+    expect(invalidateSpy).toHaveBeenCalledWith({ queryKey: ['userData', 'GALICE'] })
+  })
+
+  it('executing and disbursing refresh the treasury balance and the member', async () => {
+    mockExecuteTreasuryProposal.mockResolvedValue({ hash: 'tx7', returnValue: null })
+    mockDisburseApprovedLoan.mockResolvedValue({ hash: 'tx8', returnValue: null })
+    const client = makeClient()
+    const invalidateSpy = vi.spyOn(client, 'invalidateQueries')
+
+    let execute: ReturnType<typeof useExecuteTreasuryProposal> | undefined
+    let disburse: ReturnType<typeof useDisburseLoan> | undefined
+    renderWithClient(client, useExecuteTreasuryProposal, (h) => { execute = h })
+    renderWithClient(client, useDisburseLoan, (h) => { disburse = h })
+
+    await act(async () => {
+      await execute!.executeTreasuryProposal(11)
+      await disburse!.disburseLoan(12)
+    })
+
+    expect(invalidateSpy).toHaveBeenCalledWith({ queryKey: ['daoStats'] })
+    expect(invalidateSpy).toHaveBeenCalledWith({ queryKey: ['userData', 'GALICE'] })
+    expect(invalidateSpy).toHaveBeenCalledWith({ queryKey: ['userLoans', 'GALICE'] })
+    expect(invalidateSpy).toHaveBeenCalledWith({ queryKey: ['treasuryProposal', 11] })
+    expect(invalidateSpy).toHaveBeenCalledWith({ queryKey: ['loanProposal', 12] })
   })
 })

@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { screen, waitFor } from '@testing-library/react'
+import { act, fireEvent, screen, waitFor } from '@testing-library/react'
 import { renderWithProviders } from './test-utils'
 import TreasuryPage from '@/app/(app)/treasury/page'
 
@@ -20,6 +20,35 @@ const mockGetLoans = vi.fn()
 const mockGetNotifications = vi.fn()
 const mockGetEvents = vi.fn()
 const mockGetStats = vi.fn()
+const mockExpireTreasuryProposal = vi.fn()
+const mockNow = vi.hoisted(() => {
+  let value: number | null = null
+  const listeners = new Set<() => void>()
+  return {
+    get value() {
+      return value
+    },
+    set(next: number | null) {
+      value = next
+      listeners.forEach((listener) => listener())
+    },
+    subscribe(listener: () => void) {
+      listeners.add(listener)
+      return () => listeners.delete(listener)
+    },
+    getSnapshot() {
+      return value
+    },
+  }
+})
+
+vi.mock('@/hooks/useNow', async () => {
+  const React = await vi.importActual<typeof import('react')>('react')
+  return {
+    useNow: () =>
+      React.useSyncExternalStore(mockNow.subscribe, mockNow.getSnapshot, () => null),
+  }
+})
 
 vi.mock('next/navigation', () => ({
   usePathname: () => '/treasury',
@@ -65,7 +94,11 @@ vi.mock('@/lib/dao-client', () => ({
     getName: vi.fn().mockResolvedValue('OurDAO USD'),
     getBalance: vi.fn().mockResolvedValue(BigInt(0)),
   },
-  daoWrite: () => ({ stake: vi.fn(), unstake: vi.fn() }),
+  daoWrite: () => ({
+    stake: vi.fn(),
+    unstake: vi.fn(),
+    expireTreasuryProposal: (...a: unknown[]) => mockExpireTreasuryProposal(...a),
+  }),
 }))
 
 vi.mock('@/lib/backend', () => ({
@@ -83,6 +116,7 @@ vi.mock('@/lib/backend', () => ({
 describe('TreasuryPage', () => {
   beforeEach(() => {
     vi.clearAllMocks()
+    mockNow.set(null)
     mockIsMember.mockResolvedValue(true)
     mockIsAdmin.mockResolvedValue(false)
     mockGetMember.mockResolvedValue({ status: 'ActiveMember', has_active_loan: false })
@@ -98,8 +132,12 @@ describe('TreasuryPage', () => {
     mockGetNotifications.mockResolvedValue([])
     mockGetEvents.mockResolvedValue([])
     mockGetStats.mockResolvedValue({ totalTreasuryProposals: 0 })
+    mockExpireTreasuryProposal.mockResolvedValue({ hash: 'tx-expire', returnValue: null })
   })
-  afterEach(() => vi.clearAllMocks())
+  afterEach(() => {
+    vi.clearAllMocks()
+    vi.useRealTimers()
+  })
 
   it("renders the real treasury balance and the connected member's own stake", async () => {
     renderWithProviders(<TreasuryPage />)
@@ -115,5 +153,88 @@ describe('TreasuryPage', () => {
       expect(screen.getByText('Current Voting Weight')).toBeInTheDocument()
     })
     expect(screen.getByText('Projected Weight (after stake)')).toBeInTheDocument()
+  })
+
+  describe('finalizing expired treasury proposals (#612)', () => {
+    const nowSeconds = 1_700_000_000
+
+    const rawProposal = (overrides: Record<string, unknown> = {}) => ({
+      id: 7,
+      proposer: 'GALICE',
+      destination: 'GBBD47IF6LWK7P7MDEVSCWR7DPUWV3NY3DTQEVFL4NAT4AQH3ZLLFLA5',
+      reason: 'Treasury Proposal #7',
+      amount: '10000000',
+      status: 'Pending',
+      for_votes: '0',
+      against_votes: '0',
+      created_at: nowSeconds - 100,
+      voting_period: 1000,
+      private: false,
+      ...overrides,
+    })
+
+    beforeEach(() => {
+      vi.useFakeTimers({ shouldAdvanceTime: true })
+      vi.setSystemTime(nowSeconds * 1000)
+      mockNow.set(nowSeconds * 1000)
+      mockGetStats.mockResolvedValue({ totalTreasuryProposals: 1 })
+    })
+
+    it('hides Finalize until the voting window has passed, then offers it', async () => {
+      mockGetTreasuryProposal.mockResolvedValue(rawProposal())
+      renderWithProviders(<TreasuryPage />)
+
+      await screen.findByText('Treasury Proposal #7')
+      expect(screen.queryByRole('button', { name: 'Finalize' })).not.toBeInTheDocument()
+
+      await act(async () => {
+        mockNow.set(nowSeconds * 1000 + 901_000)
+      })
+
+      expect(await screen.findByRole('button', { name: 'Finalize' })).toBeInTheDocument()
+    })
+
+    it('doubles the voting window for private treasury proposals', async () => {
+      mockGetTreasuryProposal.mockResolvedValue(rawProposal({ private: true }))
+      renderWithProviders(<TreasuryPage />)
+
+      await screen.findByText('Treasury Proposal #7')
+      await act(async () => {
+        mockNow.set(nowSeconds * 1000 + 901_000)
+      })
+      expect(screen.queryByRole('button', { name: 'Finalize' })).not.toBeInTheDocument()
+
+      await act(async () => {
+        mockNow.set(nowSeconds * 1000 + 1_901_000)
+      })
+      expect(await screen.findByRole('button', { name: 'Finalize' })).toBeInTheDocument()
+    })
+
+    it('calls expire_treasury_proposal when Finalize is clicked', async () => {
+      mockGetTreasuryProposal.mockResolvedValue(rawProposal({ voting_period: 50 }))
+      renderWithProviders(<TreasuryPage />)
+
+      fireEvent.click(await screen.findByRole('button', { name: 'Finalize' }))
+
+      await waitFor(() => expect(mockExpireTreasuryProposal).toHaveBeenCalledWith(7))
+    })
+
+    it('hides Finalize once the proposal is already expired', async () => {
+      mockGetTreasuryProposal.mockResolvedValue(
+        rawProposal({ status: 'Expired', voting_period: 100 })
+      )
+      renderWithProviders(<TreasuryPage />)
+
+      await screen.findByText('Treasury Proposal #7')
+      expect(screen.queryByRole('button', { name: 'Finalize' })).not.toBeInTheDocument()
+    })
+
+    it('disables Finalize while the DAO is paused', async () => {
+      mockIsPaused.mockResolvedValue(true)
+      mockGetTreasuryProposal.mockResolvedValue(rawProposal({ voting_period: 50 }))
+      renderWithProviders(<TreasuryPage />)
+
+      expect(await screen.findByRole('button', { name: 'Finalize' })).toBeDisabled()
+    })
   })
 })

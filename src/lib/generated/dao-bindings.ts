@@ -549,6 +549,16 @@ export interface Client {
   cancel_policy_update: ({caller}: {caller: string}, options?: MethodOptions) => Promise<AssembledTransaction<Result<void>>>
 
   /**
+   * Construct and simulate a cancel_loan_proposal transaction. Returns an `AssembledTransaction` object which will have a `result` field containing the result of the simulation. If this transaction changes contract state, you will need to call `signAndSend()` on the returned object.
+   */
+  cancel_loan_proposal: ({borrower, proposal_id}: {borrower: string, proposal_id: u32}, options?: MethodOptions) => Promise<AssembledTransaction<Result<void>>>
+
+  /**
+   * Construct and simulate a cancel_treasury_proposal transaction. Returns an `AssembledTransaction` object which will have a `result` field containing the result of the simulation. If this transaction changes contract state, you will need to call `signAndSend()` on the returned object.
+   */
+  cancel_treasury_proposal: ({proposer, proposal_id}: {proposer: string, proposal_id: u32}, options?: MethodOptions) => Promise<AssembledTransaction<Result<void>>>
+
+  /**
    * Construct and simulate a commit_treasury_vote transaction. Returns an `AssembledTransaction` object which will have a `result` field containing the result of the simulation. If this transaction changes contract state, you will need to call `signAndSend()` on the returned object.
    */
   commit_treasury_vote: ({voter, proposal_id, commitment}: {voter: string, proposal_id: u32, commitment: Buffer}, options?: MethodOptions) => Promise<AssembledTransaction<Result<void>>>
@@ -724,6 +734,8 @@ export class Client extends ContractClient {
         "AAAAAAAAAAAAAAAUY2FsY3VsYXRlX2V4aXRfc2hhcmUAAAABAAAAAAAAAAZtZW1iZXIAAAAAABMAAAABAAAACw==",
         "AAAAAAAAAAAAAAAUY2FsY3VsYXRlX2xvYW5fdGVybXMAAAABAAAAAAAAAAZhbW91bnQAAAAAAAsAAAABAAAH0AAAAAlMb2FuVGVybXMAAAA=",
         "AAAAAAAAAAAAAAAUY2FuY2VsX3BvbGljeV91cGRhdGUAAAABAAAAAAAAAAZjYWxsZXIAAAAAABMAAAABAAAD6QAAAAIAAAAD",
+        "AAAAAAAAAAAAAAAUY2FuY2VsX2xvYW5fcHJvcG9zYWwAAAACAAAAAAAAAAhib3Jyb3dlcgAAABMAAAAAAAAAC3Byb3Bvc2FsX2lkAAAAAAQAAAABAAAD6QAAAAIAAAAD",
+        "AAAAAAAAAAAAAAAYY2FuY2VsX3RyZWFzdXJ5X3Byb3Bvc2FsAAAAAgAAAAAAAAAIcHJvcG9zZXIAAAATAAAAAAAAAAtwcm9wb3NhbF9pZAAAAAAEAAAAAQAAA+kAAAACAAAAAw==",
         "AAAAAAAAAAAAAAAUY29tbWl0X3RyZWFzdXJ5X3ZvdGUAAAADAAAAAAAAAAV2b3RlcgAAAAAAABMAAAAAAAAAC3Byb3Bvc2FsX2lkAAAAAAQAAAAAAAAACmNvbW1pdG1lbnQAAAAAA+4AAAAgAAAAAQAAA+kAAAACAAAAAw==",
         "AAAAAAAAAJBQZXJtaXNzaW9ubGVzcyBrZWVwZXIgY2FsbDogcGVyc2lzdHMgdGhlIGV4cGlyZWQvcmVqZWN0ZWQgdHJhbnNpdGlvbiBmb3IKYSBsb2FuIHByb3Bvc2FsIHdob3NlIHZvdGluZyB3aW5kb3cgaGFzIHBhc3NlZCB3aXRob3V0IHJlYWNoaW5nIHF1b3J1bS4AAAAUZXhwaXJlX2xvYW5fcHJvcG9zYWwAAAABAAAAAAAAAAtwcm9wb3NhbF9pZAAAAAAEAAAAAQAAA+kAAAACAAAAAw==",
         "AAAAAAAAAAAAAAAUZ2V0X3RyZWFzdXJ5X2JhbGFuY2UAAAAAAAAAAQAAAAs=",
@@ -813,6 +825,8 @@ export class Client extends ContractClient {
         calculate_exit_share: this.txFromJSON<i128>,
         calculate_loan_terms: this.txFromJSON<LoanTerms>,
         cancel_policy_update: this.txFromJSON<Result<void>>,
+        cancel_loan_proposal: this.txFromJSON<Result<void>>,
+        cancel_treasury_proposal: this.txFromJSON<Result<void>>,
         commit_treasury_vote: this.txFromJSON<Result<void>>,
         expire_loan_proposal: this.txFromJSON<Result<void>>,
         get_treasury_balance: this.txFromJSON<i128>,
