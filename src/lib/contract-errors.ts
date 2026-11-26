@@ -69,6 +69,11 @@ export const CONTRACT_ERROR_MESSAGES: Record<number, string> = {
   80: 'This proposal is invalid.',
   81: 'This address is already a pauser.',
   82: 'You must be a pauser to perform this action.',
+
+  // token whitelist (#623)
+  83: 'This token is already whitelisted.',
+  84: 'Cannot remove the base token — the DAO requires it.',
+  85: 'There is no pending token addition for this token.',
 }
 
 const DEFAULT_ERROR_MESSAGE = 'An unexpected contract error occurred.'

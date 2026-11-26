@@ -715,3 +715,43 @@ export function usePolicyUpdateActions() {
     run('Cancelling policy update', (w) => w.cancelPolicyUpdate(), [queryKeys.daoStats()])
   return { proposePolicyUpdate, executePolicyUpdate, cancelPolicyUpdate, isPending, isSuccess, error, cancelSignature }
 }
+
+/**
+ * Pauser assignment controls (#629).
+ * Set or revoke the dedicated pauser address. The pauser can pause but
+ * only an admin can unpause (per the contract CHANGELOG, #319).
+ */
+export function usePauserActions() {
+  const { run, isPending, isSuccess, error, cancelSignature } = useWriteAction()
+  const setPauser = (pauser: string) =>
+    run('Setting pauser', (w) => w.setPauser(pauser), [queryKeys.daoStats()])
+  const revokePauser = () =>
+    run('Revoking pauser', (w) => w.revokePauser(), [queryKeys.daoStats()])
+  return { setPauser, revokePauser, isPending, isSuccess, error, cancelSignature }
+}
+
+/**
+ * Token whitelist controls (#623).
+ * Propose, execute, and remove a whitelisted token. Propose starts a 48 h
+ * timelock; execute finalizes the addition once the timelock expires; remove
+ * is immediate. All invalidate the whitelisted tokens list and DAO stats.
+ */
+export function useTokenWhitelist() {
+  const { run, isPending, isSuccess, error, cancelSignature } = useWriteAction()
+  const proposeTokenAddition = (token: string) =>
+    run('Proposing token addition', (w) => w.proposeTokenAddition(token), [
+      queryKeys.whitelistedTokens(),
+      queryKeys.daoStats(),
+    ])
+  const executeTokenAddition = (token: string) =>
+    run('Executing token addition', (w) => w.executeTokenAddition(token), [
+      queryKeys.whitelistedTokens(),
+      queryKeys.daoStats(),
+    ])
+  const removeToken = (token: string) =>
+    run('Removing token', (w) => w.removeToken(token), [
+      queryKeys.whitelistedTokens(),
+      queryKeys.daoStats(),
+    ])
+  return { proposeTokenAddition, executeTokenAddition, removeToken, isPending, isSuccess, error, cancelSignature }
+}

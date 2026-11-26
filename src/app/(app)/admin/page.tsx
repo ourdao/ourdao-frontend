@@ -563,13 +563,42 @@ function PolicyPauserTab() {
           </button>
         </div>
       </div>
+
+      <PauserSection />
+      <TokenWhitelistSection />
     </div>
   )
 }
 
-function ActivityTab() {
-  const { entries, isLoading, isError, refetch } = useAdminLog(100)
-  useAnnounceLoad('Admin event history', isLoading, isError)
+/** Pauser assignment controls (#629). The pauser can pause but only an admin
+ *  can unpause (per the contract CHANGELOG, #319). */
+function PauserSection() {
+  const { setPauser, revokePauser, isPending } = usePauserActions()
+  const [pauserAddr, setPauserAddr] = useState('')
+
+  const trimmed = pauserAddr.trim()
+  const addrError = trimmed.length > 0 && !isStellarAddress(trimmed)
+
+  const submitSetPauser = async (e: FormEvent) => {
+    e.preventDefault()
+    if (!trimmed || !isStellarAddress(trimmed)) return
+    if (!window.confirm(`Set ${formatStellarAddress(trimmed)} as the pauser? They will be able to pause the DAO, but only an admin can unpause it.`)) return
+    try {
+      await setPauser(trimmed)
+    } catch {
+      return
+    }
+    setPauserAddr('')
+  }
+
+  const submitRevoke = async () => {
+    if (!window.confirm('Revoke the pauser role? The current pauser will no longer be able to pause the DAO. Only an admin can pause it afterwards.')) return
+    try {
+      await revokePauser()
+    } catch {
+      return
+    }
+  }
 
   return (
     <div className="bg-card border-border rounded-lg border">
@@ -604,6 +633,145 @@ function ActivityTab() {
             <span className="text-muted-foreground text-xs">{formatDate(entry.closedAt)}</span>
           </div>
         ))}
+      </div>
+
+      {/* Propose addition form */}
+      <form onSubmit={submitPropose} className="p-6 flex items-start space-x-2 border-t border-border">
+        <div className="flex-1">
+          <label className="text-sm font-medium text-foreground mb-1 block">Propose token addition</label>
+          <input
+            type="text"
+            value={tokenAddr}
+            onChange={(e) => setTokenAddr(e.target.value)}
+            placeholder="Token contract address (C…)"
+            aria-label="Token address to propose"
+            aria-invalid={addrError}
+            aria-describedby={addrError ? 'token-addr-error' : undefined}
+            className="w-full px-3 py-2 border border-input rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-muted dark:text-foreground"
+          />
+          {addrError && (
+            <p id="token-addr-error" className="mt-1 text-sm text-red-600 dark:text-red-400">
+              Enter a valid Stellar contract address (C…)
+            </p>
+          )}
+        </div>
+        <button
+          type="submit"
+          disabled={isPending || !trimmed || !isStellarAddress(trimmed)}
+          className="mt-6 px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50 dark:bg-blue-500 dark:hover:bg-blue-600"
+        >
+          Propose
+        </button>
+      </form>
+
+      {/* Execute addition form */}
+      <form onSubmit={submitExecute} className="p-6 pt-0 flex items-start space-x-2">
+        <div className="flex-1">
+          <label className="text-sm font-medium text-foreground mb-1 block">Execute token addition</label>
+          <p className="text-xs text-muted-foreground mb-1">
+            Available 48 hours after the proposal. Enter the same token address you proposed.
+          </p>
+          <input
+            type="text"
+            value={executeAddr}
+            onChange={(e) => setExecuteAddr(e.target.value)}
+            placeholder="Token contract address (C…)"
+            aria-label="Token address to execute"
+            aria-invalid={executeError}
+            aria-describedby={executeError ? 'execute-addr-error' : undefined}
+            className="w-full px-3 py-2 border border-input rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-muted dark:text-foreground"
+          />
+          {executeError && (
+            <p id="execute-addr-error" className="mt-1 text-sm text-red-600 dark:text-red-400">
+              Enter a valid Stellar contract address (C…)
+            </p>
+          )}
+        </div>
+        <button
+          type="submit"
+          disabled={isPending || !executeTrimmed || !isStellarAddress(executeTrimmed)}
+          className="mt-6 px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 disabled:opacity-50 dark:bg-green-500 dark:hover:bg-green-600"
+        >
+          Execute
+        </button>
+      </form>
+    </div>
+  )
+}
+
+function ActivityTab() {
+  const { entries, isLoading, isError, refetch } = useAdminLog(100)
+  const { entries: auditEntries, isLoading: auditLoading, isError: auditError, refetch: refetchAudit } = useAuditLog(100)
+  useAnnounceLoad('Admin event history', isLoading, isError)
+
+  return (
+    <div className="space-y-6">
+      {/* Backend audit log (#555) — records admin actions like pause/unpause,
+          admin add/remove, threshold changes, reorg clears. */}
+      <div className="bg-card rounded-lg border border-border">
+        <div className="px-6 py-4 border-b border-border">
+          <h3 className="text-lg font-semibold text-foreground">Admin Audit Log</h3>
+          <p className="text-sm text-muted-foreground">
+            Backend-recorded admin actions: pause/unpause, admin changes, threshold updates, reorg clears, re-evaluations.
+          </p>
+        </div>
+        <div className="divide-y divide-border">
+          {auditLoading && <div className="px-6 py-4 text-sm text-muted-foreground">Loading audit log…</div>}
+          {auditError && <LoadError what="the audit log" onRetry={() => void refetchAudit()} className="m-4" />}
+          {!auditLoading && !auditError && auditEntries.length === 0 && (
+            <div className="px-6 py-8 text-center text-muted-foreground">
+              No admin audit log entries yet.
+            </div>
+          )}
+          {auditEntries.map((entry) => (
+            <div key={entry.id} className="px-6 py-3 flex items-center justify-between">
+              <div className="flex items-center space-x-3">
+                <span className="px-2 py-1 text-xs font-mono bg-muted text-foreground rounded">
+                  {entry.action}
+                </span>
+                {entry.actor && (
+                  <span className="text-sm text-muted-foreground">{formatStellarAddress(entry.actor)}</span>
+                )}
+                {entry.ledger != null && (
+                  <span className="text-sm text-muted-foreground">Ledger {entry.ledger}</span>
+                )}
+              </div>
+              <span className="text-xs text-muted-foreground">{formatDate(entry.created_at)}</span>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* Indexed on-chain event history */}
+      <div className="bg-card rounded-lg border border-border">
+        <div className="px-6 py-4 border-b border-border">
+          <h3 className="text-lg font-semibold text-foreground">
+            Admin/Governance Event History
+          </h3>
+          <p className="text-sm text-muted-foreground">
+            Indexed on-chain events: admin add/remove, threshold and policy changes, pause/unpause.
+          </p>
+        </div>
+        <div className="divide-y divide-border">
+          {isLoading && <div className="px-6 py-4 text-sm text-muted-foreground">Loading…</div>}
+          {isError && <LoadError what="the admin event history" onRetry={() => void refetch()} className="m-4" />}
+          {!isLoading && !isError && entries.length === 0 && (
+            <div className="px-6 py-8 text-center text-muted-foreground">
+              No admin/governance events indexed yet.
+            </div>
+          )}
+          {entries.map((entry) => (
+            <div key={entry.id} className="px-6 py-3 flex items-center justify-between">
+              <div className="flex items-center space-x-3">
+                <span className="px-2 py-1 text-xs font-mono bg-muted text-foreground rounded">
+                  {entry.symbol}
+                </span>
+                <span className="text-sm text-foreground">Ledger {entry.ledger}</span>
+              </div>
+              <span className="text-xs text-muted-foreground">{formatDate(entry.closedAt)}</span>
+            </div>
+          ))}
+        </div>
       </div>
     </div>
   )

@@ -124,6 +124,55 @@ export interface BackendFailedEvent {
   tx_hash?: string | null
 }
 
+/** A row from GET /api/stats/history — daily loan aggregates (#555). */
+export interface BackendStatsHistoryDay {
+  date: string
+  principalLent: string
+  principalRepaid: string
+  defaults: number
+  valueDefaulted: string
+  cumulativeDefaultRatePercent: number
+}
+
+export const isBackendStatsHistoryDay = (value: unknown): value is BackendStatsHistoryDay => {
+  if (!isRecord(value)) return false
+  return (
+    isString(value.date) &&
+    isString(value.principalLent) &&
+    isString(value.principalRepaid) &&
+    isNumber(value.defaults) &&
+    isString(value.valueDefaulted) &&
+    isNumber(value.cumulativeDefaultRatePercent)
+  )
+}
+
+export const isBackendStatsHistoryResponse = (value: unknown): value is { data: BackendStatsHistoryDay[] } => {
+  if (!isRecord(value)) return false
+  return Array.isArray(value.data) && value.data.every(isBackendStatsHistoryDay)
+}
+
+/** A row from GET /api/admin/audit-log — admin action history (#555). */
+export interface BackendAuditLogEntry {
+  id: number | string
+  action: string
+  actor: string | null
+  ledger: number | null
+  tx_hash: string | null
+  created_at: string
+}
+
+export const isBackendAuditLogEntry = (value: unknown): value is BackendAuditLogEntry => {
+  if (!isRecord(value)) return false
+  return (
+    (isNumber(value.id) || isString(value.id)) &&
+    isString(value.action) &&
+    (value.actor === null || isString(value.actor)) &&
+    (value.ledger === null || isNumber(value.ledger)) &&
+    (value.tx_hash === null || isString(value.tx_hash)) &&
+    isString(value.created_at)
+  )
+}
+
 export const isBackendFailedEvent = (value: unknown): value is BackendFailedEvent => {
   if (!isRecord(value)) return false
   return (
@@ -930,6 +979,43 @@ export const backend = {
       `/api/members/${encodeURIComponent(address)}/activity?limit=${limit}`,
       [],
       arrayOf(isBackendEvent),
+      options
+    ),
+
+  // --- Admin operations (#555) ---------------------------------------------
+
+  /** Admin audit log — records of admin actions like pause/unpause, admin
+   *  add/remove, threshold changes, reorg clears. Distinct from the raw event
+   *  log served by getAdminLog. */
+  getAuditLog: (limit = 100, options?: BackendRequestOptions | AbortSignal) =>
+    get<BackendAuditLogEntry[]>(
+      `/api/admin/audit-log?limit=${limit}`,
+      [],
+      arrayOf(isBackendAuditLogEntry),
+      options
+    ),
+
+  /** Re-evaluate a single quarantined/failed event. Requires a signed
+   *  StellarSignature header (#555). */
+  reevaluateFailedEvent: (
+    id: number | string,
+    signer: AuthSigner,
+    options?: BackendRequestOptions | AbortSignal
+  ) => post(`/api/admin/failed-events/${encodeURIComponent(String(id))}/re-evaluate`, signer, options),
+
+  /** Batch-resolve all quarantined/failed events. Requires a signed
+   *  StellarSignature header (#555). */
+  batchResolveFailedEvents: (
+    signer: AuthSigner,
+    options?: BackendRequestOptions | AbortSignal
+  ) => post(`/api/admin/failed-events/batch-resolve`, signer, options),
+
+  /** Daily loan aggregates for a historical view (#555). */
+  getStatsHistory: (options?: BackendRequestOptions | AbortSignal) =>
+    get<{ data: BackendStatsHistoryDay[] }>(
+      '/api/stats/history',
+      { data: [] },
+      isBackendStatsHistoryResponse,
       options
     ),
 }
