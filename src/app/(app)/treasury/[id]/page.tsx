@@ -3,6 +3,7 @@
 import { useParams, useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { useState } from 'react'
+import { useQueryClient } from '@tanstack/react-query'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -27,6 +28,7 @@ import {
   useTreasuryProposal,
   useTreasuryVoting,
   useExecuteTreasuryProposal,
+  useCancelProposal,
   useCommitVote,
   useRevealVote,
   useProposalDocument,
@@ -79,10 +81,13 @@ export default function TreasuryProposalDetailPage() {
   const { proposal, isLoading, isError, hasVoted, refetch } = useTreasuryProposal(proposalId)
   const { voteOnTreasury, isPending: isVoting } = useTreasuryVoting()
   const { executeTreasuryProposal, isPending: isExecuting } = useExecuteTreasuryProposal()
+  const { cancelTreasuryProposal, isPending: isCancelling } = useCancelProposal()
   const { commitVote, isPending: isCommitting } = useCommitVote()
   const { revealVote, isPending: isRevealing } = useRevealVote()
   const { isPaused, treasuryBalance, refetch: refetchStats } = useDAOStats()
   const { cid: documentCid } = useProposalDocument('Treasury', proposalId)
+  const now = useNow()
+  const queryClient = useQueryClient()
 
   const [showCommitDialog, setShowCommitDialog] = useState(false)
   const [commitSupport, setCommitSupport] = useState<boolean | null>(null)
@@ -256,8 +261,35 @@ export default function TreasuryProposalDetailPage() {
     }
   }
 
+  const handleCancelProposal = async () => {
+    if (!window.confirm('Cancel this treasury proposal? This cannot be undone.')) return
+    try {
+      await cancelTreasuryProposal(proposalId)
+      refetch()
+    } catch {
+      /* reported by useWriteAction */
+    }
+  }
+
   const statusLabel =
     PROPOSAL_STATUS_LABELS[proposal.status as keyof typeof PROPOSAL_STATUS_LABELS] || 'Unknown'
+  const statsData = queryClient.getQueryData(queryKeys.daoStats()) as
+    | { policy?: Record<string, unknown> }
+    | undefined
+  const policyEditingPeriod = Number(statsData?.policy?.editing_period ?? 0)
+  const editingPeriod =
+    policyEditingPeriod > 0 ? policyEditingPeriod : GOVERNANCE_PERIOD_FALLBACKS.editingPeriod
+  const isProposer = !!address && proposal.proposer.toLowerCase() === address.toLowerCase()
+  const canCancelProposal =
+    isProposer &&
+    proposal.status === 2 &&
+    now !== null &&
+    Math.floor(now / 1000) <= proposal.creationTime + editingPeriod
+  const executeDisabledReason = isPaused
+    ? 'The DAO is paused — execution is unavailable.'
+    : stats.treasuryBalance < proposal.amount
+      ? 'Treasury balance is too low to execute this withdrawal.'
+      : null
   const canVotePublic = isMember && proposal.status === 2 && !proposal.isPrivate && !hasVoted
   const canCommit = isMember && proposal.status === 2 && proposal.isPrivate && !hasVoted
   // A salt imported from a backup counts too: without this, a member whose
@@ -282,6 +314,27 @@ export default function TreasuryProposalDetailPage() {
         title={proposal.title || `Treasury Proposal #${proposal.id}`}
         subtitle={`Proposal #${proposal.id} · Disbursement of DAO treasury funds`}
       />
+
+      {canCancelProposal && (
+        <Card className="border-amber-200 dark:border-amber-900">
+          <CardHeader>
+            <CardTitle>Cancel Treasury Proposal</CardTitle>
+            <CardDescription>
+              Withdraw this proposal during the editing period. This cannot be undone.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <Button
+              variant="outline"
+              onClick={handleCancelProposal}
+              disabled={isCancelling || isPaused}
+              className="text-red-600 border-red-300 hover:bg-red-50 dark:text-red-400 dark:border-red-800 dark:hover:bg-red-950/30"
+            >
+              {isCancelling ? 'Cancelling…' : 'Cancel Proposal'}
+            </Button>
+          </CardContent>
+        </Card>
+      )}
 
       {/* Approved by vote but the treasury can't cover it yet (#540) */}
       {proposal.status === PROPOSAL_STATUS_AWAITING_FUNDS && (

@@ -493,13 +493,19 @@ export function useDisburseApprovedLoan() {
   return { disburseApprovedLoan, isPending, error, isSuccess, cancelSignature }
 }
 
+export function useDisburseLoan() {
+  const action = useDisburseApprovedLoan()
+  return { ...action, disburseLoan: action.disburseApprovedLoan }
+}
+
 /** Executes a treasury withdrawal approved while the treasury was short (#540). */
 export function useExecuteTreasuryProposal() {
-  const { run, isPending, isSuccess, error, cancelSignature } = useWriteAction()
+  const { run, isPending, isSuccess, error, address, cancelSignature } = useWriteAction()
   const executeTreasuryProposal = (proposalId: number) =>
     run('Executing treasury withdrawal', (w) => w.executeTreasuryProposal(proposalId), [
       queryKeys.treasuryProposal(proposalId),
       queryKeys.treasuryProposalsAll(),
+      queryKeys.userData(address!),
       queryKeys.daoStats(),
       queryKeys.backendStats(),
     ])

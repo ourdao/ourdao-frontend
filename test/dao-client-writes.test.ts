@@ -201,6 +201,13 @@ describe('daoWrite — method name and ScVal argument types per entrypoint', () 
     expect(Address.fromScVal(args[0]).toString()).toBe(WALLET)
   })
 
+  it('passes the connected wallet as borrower/proposer when cancelling', async () => {
+    await daoWrite(WALLET, signXDR).cancelLoanProposal(1)
+    await daoWrite(WALLET, signXDR).cancelTreasuryProposal(2)
+    expect(Address.fromScVal(invokedCall(signed[0]).args[0]).toString()).toBe(WALLET)
+    expect(Address.fromScVal(invokedCall(signed[1]).args[0]).toString()).toBe(WALLET)
+  })
+
   it('propagates a signer rejection and never submits', async () => {
     const reject = async () => {
       throw new Error('User declined')

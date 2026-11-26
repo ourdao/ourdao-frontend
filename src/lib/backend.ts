@@ -135,6 +135,38 @@ export const isBackendFailedEvent = (value: unknown): value is BackendFailedEven
   )
 }
 
+export interface FailedEventReEvaluationResult {
+  eventId: number | string
+  status: string
+}
+
+export const isFailedEventReEvaluationResult = (
+  value: unknown
+): value is FailedEventReEvaluationResult =>
+  isRecord(value) &&
+  (isNumber(value.eventId) || isString(value.eventId)) &&
+  isString(value.status)
+
+export type FailedEventResolution = 'resolved' | 'ignored'
+
+export interface BatchResolveFailedEventsInput {
+  ids: number[]
+  resolution: FailedEventResolution
+  note?: string
+}
+
+export interface FailedEventBatchResolveResult {
+  resolved: number
+}
+
+export const isFailedEventBatchResolveResult = (
+  value: unknown
+): value is FailedEventBatchResolveResult =>
+  isRecord(value) && isNumber(value.resolved)
+
+/** The backend rejects batches above this; fail before spending a signature. */
+export const MAX_FAILED_EVENTS_PER_BATCH = 500
+
 export interface BackendDocumentAttachment {
   id: number | string
   kind: string
@@ -617,6 +649,101 @@ async function patch(
   return { ok: true, status: res.status }
 }
 
+/**
+ * Signed POST for admin endpoints that return a body. Unlike the notification
+ * mutations, these answers are meaningful data (`status`, `resolved`), so a
+ * failure is reported as a BackendError instead of a MutationResult. An
+ * `acceptResponse` predicate lets a documented non-2xx outcome (a 422
+ * `still_failing` replay) be returned as a result rather than an error.
+ */
+async function signedPost<T>(
+  path: string,
+  signer: AuthSigner,
+  body: unknown,
+  validate: Validator<T>,
+  options?: BackendRequestOptions | AbortSignal,
+  acceptResponse?: (status: number, body: unknown) => boolean
+): Promise<T> {
+  if (!isBackendConfigured()) {
+    throw new BackendError('No backend is configured, so this change cannot be saved.')
+  }
+
+  const userSignal = options instanceof AbortSignal ? options : options?.signal
+  const timeoutMs =
+    options && !(options instanceof AbortSignal) && options.timeoutMs !== undefined
+      ? options.timeoutMs
+      : DEFAULT_BACKEND_TIMEOUT_MS
+  const { signal, cleanup } = combineSignals(timeoutMs, userSignal)
+
+  try {
+    let auth: SignedAuth
+    try {
+      auth = await requestSignedAuth(signer)
+    } catch (err) {
+      throw err instanceof AuthError
+        ? new BackendError(err.message, err.status)
+        : new BackendError(
+            err instanceof Error ? err.message : 'Could not obtain a signature.'
+          )
+    }
+
+    let res: Response
+    try {
+      res = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL || ''}${path}`, {
+        method: 'POST',
+        headers: {
+          Authorization: buildAuthHeader(auth),
+          ...(body === undefined ? {} : { 'content-type': 'application/json' }),
+        },
+        ...(body === undefined ? {} : { body: JSON.stringify(body) }),
+        cache: 'no-store',
+        signal,
+      })
+    } catch (cause) {
+      if (signal.aborted) {
+        const msg =
+          signal.reason instanceof Error
+            ? signal.reason.message
+            : String(signal.reason ?? 'Request aborted or timed out')
+        throw new BackendError(msg)
+      }
+      throw new BackendError(
+        `Could not reach the backend: ${cause instanceof Error ? cause.message : String(cause)}`
+      )
+    }
+
+    const payload: unknown = await res.json().catch(() => null)
+    if (!res.ok && !acceptResponse?.(res.status, payload)) {
+      const detail = isRecord(payload) && isString(payload.error) && payload.error ? payload.error : null
+      throw new BackendError(detail ?? `Backend responded ${res.status}`, res.status)
+    }
+    if (!validate(payload)) {
+      throw new BackendError(`Backend response for ${path} did not match the expected shape`)
+    }
+    return payload
+  } finally {
+    cleanup()
+  }
+}
+
+function assertBatchInput(input: BatchResolveFailedEventsInput): void {
+  if (!Array.isArray(input?.ids) || input.ids.length === 0) {
+    throw new BackendError('Select at least one event to resolve.')
+  }
+  if (input.ids.length > MAX_FAILED_EVENTS_PER_BATCH) {
+    throw new BackendError(`At most ${MAX_FAILED_EVENTS_PER_BATCH} events can be resolved at once.`)
+  }
+  if (!input.ids.every((id) => Number.isInteger(id) && id > 0)) {
+    throw new BackendError('Event ids must be positive integers.')
+  }
+  if (input.resolution !== 'resolved' && input.resolution !== 'ignored') {
+    throw new BackendError('Choose resolved or ignored as the resolution.')
+  }
+  if (input.note !== undefined && typeof input.note !== 'string') {
+    throw new BackendError('The note must be text.')
+  }
+}
+
 // --- Endpoints --------------------------------------------------------------
 
 export const backend = {
@@ -713,6 +840,46 @@ export const backend = {
       arrayOf(isBackendFailedEvent),
       options
     ),
+
+  /**
+   * Replays one quarantined event. A 422 `still_failing` is a normal answer:
+   * the event was replayed and failed again, which the UI reports as an
+   * outcome rather than an error. Every call gets a fresh challenge, and calls
+   * for one address are serialized because backend nonces are single-use.
+   */
+  reEvaluateFailedEvent: (
+    id: number | string,
+    signer: AuthSigner,
+    options?: BackendRequestOptions | AbortSignal
+  ) =>
+    serializePerAddress(signer.address, () =>
+      signedPost<FailedEventReEvaluationResult>(
+        `/api/admin/failed-events/${encodeURIComponent(String(id))}/re-evaluate`,
+        signer,
+        undefined,
+        isFailedEventReEvaluationResult,
+        options,
+        (status, body) =>
+          status === 422 && isRecord(body) && body.status === 'still_failing'
+      )
+    ),
+
+  batchResolveFailedEvents: async (
+    input: BatchResolveFailedEventsInput,
+    signer: AuthSigner,
+    options?: BackendRequestOptions | AbortSignal
+  ) => {
+    assertBatchInput(input)
+    return serializePerAddress(signer.address, () =>
+      signedPost<FailedEventBatchResolveResult>(
+        '/api/admin/failed-events/batch-resolve',
+        signer,
+        { ids: input.ids, resolution: input.resolution, ...(input.note ? { note: input.note } : {}) },
+        isFailedEventBatchResolveResult,
+        options
+      )
+    )
+  },
 
   getDocumentHistory: (
     kind: string,

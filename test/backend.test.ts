@@ -313,6 +313,130 @@ describe('backend fetch wrappers', () => {
       expect(url).toBe(`${CONFIGURED_URL}/api/notifications/read-all?address=GA%20BC`)
     })
   })
+
+  describe('signed failed-event mutations (#637)', () => {
+    const ADDRESS = 'GADMIN'
+    const NONCE = 'b'.repeat(64)
+    const SIGNATURE = 'YWRtaW4tc2lnbmF0dXJl'
+    const signer = {
+      address: ADDRESS,
+      signMessage: vi.fn(async (message: string) => {
+        void message
+        return SIGNATURE
+      }),
+    }
+
+    beforeEach(() => {
+      signer.signMessage.mockClear()
+    })
+
+    const mockChallengeThen = (response: Partial<Response>) =>
+      vi.mocked(fetch)
+        .mockResolvedValueOnce(jsonResponse({ nonce: NONCE }))
+        .mockResolvedValueOnce({ ok: true, status: 200, ...response } as Response)
+
+    it('re-evaluates one event with a fresh signed header', async () => {
+      mockChallengeThen({ json: () => Promise.resolve({ eventId: 7, status: 'resolved' }) })
+
+      await expect(backend.reEvaluateFailedEvent(7, signer)).resolves.toEqual({
+        eventId: 7,
+        status: 'resolved',
+      })
+      expect(signer.signMessage).toHaveBeenCalledWith(`${NONCE}:${ADDRESS}`)
+      const [url, init] = vi.mocked(fetch).mock.calls[1]
+      expect(url).toBe(`${CONFIGURED_URL}/api/admin/failed-events/7/re-evaluate`)
+      expect(init?.method).toBe('POST')
+      expect((init?.headers as Record<string, string>).Authorization).toBe(
+        `StellarSignature ${ADDRESS}:${SIGNATURE}:${NONCE}`
+      )
+    })
+
+    it('returns a 422 still_failing replay as a result, not an error', async () => {
+      vi.mocked(fetch)
+        .mockResolvedValueOnce(jsonResponse({ nonce: NONCE }))
+        .mockResolvedValueOnce({
+          ok: false,
+          status: 422,
+          json: () => Promise.resolve({ eventId: 8, status: 'still_failing' }),
+        } as Response)
+
+      await expect(backend.reEvaluateFailedEvent(8, signer)).resolves.toEqual({
+        eventId: 8,
+        status: 'still_failing',
+      })
+    })
+
+    it('maps a 401 on re-evaluation to a BackendError', async () => {
+      vi.mocked(fetch)
+        .mockResolvedValueOnce(jsonResponse({ nonce: NONCE }))
+        .mockResolvedValueOnce({
+          ok: false,
+          status: 401,
+          json: () => Promise.resolve({ error: 'Invalid or expired nonce' }),
+        } as Response)
+
+      await expect(backend.reEvaluateFailedEvent(9, signer)).rejects.toMatchObject({
+        name: 'BackendError',
+        status: 401,
+        message: 'Invalid or expired nonce',
+      })
+    })
+
+    it('batch-resolves selected ids with one signed request and returns the resolved count', async () => {
+      mockChallengeThen({ json: () => Promise.resolve({ resolved: 2 }) })
+
+      const result = await backend.batchResolveFailedEvents(
+        { ids: [1, 2, 3], resolution: 'ignored', note: 'duplicate events' },
+        signer
+      )
+      expect(result).toEqual({ resolved: 2 })
+      const [url, init] = vi.mocked(fetch).mock.calls[1]
+      expect(url).toBe(`${CONFIGURED_URL}/api/admin/failed-events/batch-resolve`)
+      expect(init?.method).toBe('POST')
+      expect((init?.headers as Record<string, string>).Authorization).toBe(
+        `StellarSignature ${ADDRESS}:${SIGNATURE}:${NONCE}`
+      )
+      expect(JSON.parse(String(init?.body))).toEqual({
+        ids: [1, 2, 3],
+        resolution: 'ignored',
+        note: 'duplicate events',
+      })
+    })
+
+    it('rejects more than 500 ids before any request or signature', async () => {
+      const ids = Array.from({ length: 501 }, (_, i) => i + 1)
+
+      await expect(
+        backend.batchResolveFailedEvents({ ids, resolution: 'resolved' }, signer)
+      ).rejects.toThrow(/500/)
+      expect(fetch).not.toHaveBeenCalled()
+      expect(signer.signMessage).not.toHaveBeenCalled()
+    })
+
+    it('rejects invalid ids without making a request', async () => {
+      await expect(
+        backend.batchResolveFailedEvents({ ids: [1, -2], resolution: 'resolved' }, signer)
+      ).rejects.toThrow(/positive integers/)
+      expect(fetch).not.toHaveBeenCalled()
+    })
+
+    it('uses a fresh nonce for each call', async () => {
+      const secondNonce = 'c'.repeat(64)
+      vi.mocked(fetch)
+        .mockResolvedValueOnce(jsonResponse({ nonce: NONCE }))
+        .mockResolvedValueOnce({ ok: true, status: 200, json: () => Promise.resolve({ eventId: 1, status: 'resolved' }) } as Response)
+        .mockResolvedValueOnce(jsonResponse({ nonce: secondNonce }))
+        .mockResolvedValueOnce({ ok: true, status: 200, json: () => Promise.resolve({ eventId: 2, status: 'resolved' }) } as Response)
+
+      await backend.reEvaluateFailedEvent(1, signer)
+      await backend.reEvaluateFailedEvent(2, signer)
+
+      expect(signer.signMessage.mock.calls.map(([message]) => message)).toEqual([
+        `${NONCE}:${ADDRESS}`,
+        `${secondNonce}:${ADDRESS}`,
+      ])
+    })
+  })
 })
 
 describe('isBackendConfigured', () => {
