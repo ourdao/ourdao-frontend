@@ -29,10 +29,10 @@ export async function injectFreighter(
   const autoConnect = options.autoConnect ?? false
 
   await page.addInitScript(
-    ({ address, network, networkPassphrase, version, autoConnect }) => {
+    ({ address, network, networkPassphrase, autoConnect }) => {
       const freighterStub = {
         isConnected: () => Promise.resolve(true),
-        getFreighterVersion: () => Promise.resolve(version),
+        getFreighterVersion: () => Promise.resolve('3.0.0'),
         isAllowed: () => Promise.resolve(autoConnect),
         setAllowed: () => Promise.resolve(true),
         requestAccess: () => Promise.resolve({ address }),
@@ -51,7 +51,7 @@ export async function injectFreighter(
 
       ;(window as unknown as { freighter?: typeof freighterStub }).freighter = freighterStub
       ;(window as unknown as { freighterApi?: typeof freighterStub }).freighterApi = freighterStub
-    ({ address, network, networkPassphrase, autoConnect }) => {
+
       let allowed = autoConnect
 
       // Message-based communication used by @stellar/freighter-api
@@ -114,7 +114,6 @@ export async function injectFreighter(
         window.postMessage(
           {
             source: 'FREIGHTER_EXTERNAL_MSG_RESPONSE',
-            messagedId: messageId,
             messageId,
             ...responsePayload,
           },
